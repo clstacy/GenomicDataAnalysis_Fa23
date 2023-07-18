@@ -1,0 +1,89 @@
+---
+title: "Getting Started in R"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Getting things setup
+
+The following code installs a set of R packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
+
+```{r ready-packages results="hide",message=FALSE}
+
+list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
+lapply(list.of.packages, require, character.only = TRUE)
+
+#remotes::install_github("rstudio/webshot2",quiet=T)
+# devtools::install_github("ropensci/USAboundaries",quiet=T)
+# devtools::install_github("ropensci/USAboundariesData",quiet=T)
+
+#library(webshot2)
+#library(mapview)
+#library(USAboundaries)
+
+```
+
+
+# Description
+
+# Learning outcomes
+
+At the end of this excercise, you should be able to:
+
+  - open, modify, and knit an Rmd file to a pdf/html output
+  - relate Rmarkdown to a traditional lab notebook
+  - run commands in an Rmarkdown file
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r using-codeChunk}
+# print a statement
+print("R code in a .Rmd chunk works just like a script")
+
+# preform basic calculations
+2+2
+```
+
+
+
+```{r access-data}
+# setting the working directory
+#setwd("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
+
+# check where R here currently is looking
+here::dr_here()
+
+# create a directory for raw data to be stored.
+dir.create(here("data"))
+dir.create(here("code"))
+dir.create(here("docs"))
+dir.create(here("figures"))
+dir.create(here("results"))
+
+# assign url to a variable
+eaglesWV.url <- "https://raw.githubusercontent.com/brouwern/wildlifeR/master/inst/extdata/eaglesWV.csv"
+
+"https://github.com/hartwigmedical/testdata/blob/master/100k_reads_hiseq/TESTX/TESTX_H7YRLADXX_S1_L001_R1_001.fastq.gz"
+
+# download data from web
+eaglesWV <- read_csv(eaglesWV.url)
+
+write_csv()
+```
+
+```{r}
+
+```
+

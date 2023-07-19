@@ -57,7 +57,7 @@ print("R code in a .Rmd chunk works just like a script")
 ```
 
 
-
+Let's pull some data files from a recent publication: https://doi.org/10.1186/s12864-020-6673-2 
 ```{r access-data}
 # setting the working directory
 #setwd("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
@@ -86,13 +86,14 @@ dir.create(here("results"))
 # assign location of file to variable, here named url
 url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/12864_2020_6673_MOESM2_ESM.xlsx"
 # create a new variable with the desired destination and name
-destfile <- "data/X12864_2020_6673_MOESM2_ESM.xlsx"
+destfile <- here("data/12864_2020_6673_MOESM2_ESM.xlsx")
 
 # use the curl package to download this file
 curl::curl_download(url, destfile)
 
 # read in the file
 gene_counts_rsem <- readxl::read_excel(destfile)
+other_file <- readxl::read_excel(destfile, sheet = "edgeR QL")
 
 # take a quick look
 glimpse(gene_counts_rsem)

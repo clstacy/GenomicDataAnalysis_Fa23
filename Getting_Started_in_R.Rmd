@@ -17,7 +17,7 @@ The following code installs a set of R packages used in this document -- if not 
 
 ```{r ready-packages results="hide",message=FALSE}
 
-list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
+list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager", "readxl")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
@@ -73,14 +73,29 @@ dir.create(here("figures"))
 dir.create(here("results"))
 
 # assign url to a variable
-eaglesWV.url <- "https://raw.githubusercontent.com/brouwern/wildlifeR/master/inst/extdata/eaglesWV.csv"
+# eaglesWV.url <- "https://raw.githubusercontent.com/brouwern/wildlifeR/master/inst/extdata/eaglesWV.csv"
+# 
+# "https://github.com/hartwigmedical/testdata/blob/master/100k_reads_hiseq/TESTX/TESTX_H7YRLADXX_S1_L001_R1_001.fastq.gz"
+# 
+# # download data from web
+# eaglesWV <- read_csv(eaglesWV.url)
+# 
+# write_csv()
 
-"https://github.com/hartwigmedical/testdata/blob/master/100k_reads_hiseq/TESTX/TESTX_H7YRLADXX_S1_L001_R1_001.fastq.gz"
 
-# download data from web
-eaglesWV <- read_csv(eaglesWV.url)
+# assign location of file to variable, here named url
+url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/12864_2020_6673_MOESM2_ESM.xlsx"
+# create a new variable with the desired destination and name
+destfile <- "data/X12864_2020_6673_MOESM2_ESM.xlsx"
 
-write_csv()
+# use the curl package to download this file
+curl::curl_download(url, destfile)
+
+# read in the file
+gene_counts_rsem <- readxl::read_excel(destfile)
+
+# take a quick look
+glimpse(gene_counts_rsem)
 ```
 
 ```{r}

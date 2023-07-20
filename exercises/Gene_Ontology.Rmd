@@ -1,0 +1,235 @@
+---
+title: "Getting Started in R"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+here::i_am("exercises/Gene_Ontology.Rmd")
+```
+
+# Gene Ontology
+
+The following code installs a set of R CRAN packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
+
+```{r ready-packages, results="hide",message=FALSE}
+
+list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
+lapply(list.of.packages, require, character.only = TRUE)
+
+```
+
+```{r set-directories}
+# setting the working directory
+# setwd("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
+
+# edit the path below to where you want this project to be based.
+# here::set_here("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
+
+# check where R here currently is looking
+here::dr_here()
+```
+
+Next, we need to install packages specific to our gene ontology bioinformatic analysis. Many of these packages aren't available on the R CRAN package repository, instead they are hosted on BioConductor repository that is focused on packages used in biological research. Today, we need to install the package topGO with the code below.
+
+```{r install-GOpackage, results="hide", message=FALSE, warning=FALSE}
+# make sure we have the CRAN package installed for getting bioconductor packages
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+# install topGO for BiocManager::install() if it isn't already installed.
+if (!requireNamespace("topGO", quietly = TRUE))
+    BiocManager::install("topGO")
+
+# try clusterProfiler too
+if (!requireNamespace("clusterProfiler", quietly = TRUE))
+    BiocManager::install("clusterProfiler")
+# need for organism package to work.
+if (!requireNamespace("AnnotationDbi", quietly = TRUE))
+    BiocManager::install("AnnotationDbi")
+# need this one at least for clusterProfiler
+if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
+    BiocManager::install("org.Sc.sgd.db")
+
+```
+
+# Description
+
+This activity is intended to familiarize you with Gene Ontology analysis and some of the unique challenges that come from working with bioinformatic data.
+
+# Learning outcomes
+
+At the end of this exercise, you should be able to:
+
+-   a
+-   b
+-   c
+
+
+
+```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
+library(clusterProfiler)
+library(org.Sc.sgd.db)
+```
+
+Let's use the same file from last class, this time performing GO term enrichment
+
+```{r access-data}
+
+# assign url to a variable
+DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv"
+
+# download the data from the web
+DE_results_heatshock_annotated <-
+  read_delim(DE_data_url, 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+
+## Get DE gene list
+
+We need a list of differentially expressed genes to test for over or under enrichment of terms. Here we choose genes significantly upregulated with a log2 fold change greater than 1.
+
+```{r get-UPgeneList_phenol}
+# subset to just genes with significant fdr & log2FC>1
+DE_results_heatshock_annotated %>%
+  filter(Phenol.HS.logFC > 1 & Phenol.HS.FDR < 0.05) 
+
+DE_genes_upregulated_phenol <- DE_results_heatshock_annotated %>%
+  filter(Phenol.HS.logFC > 1 & Phenol.HS.FDR < 0.05) %>%
+  pull(ID) # get just the gene names
+```
+
+```{r get-phenolUPresults}
+GO_phenol_up_results <- enrichGO(
+  gene = DE_genes_upregulated_phenol,
+  OrgDb = "org.Sc.sgd.db",
+  universe = DE_results_heatshock_annotated$ID,
+  keyType = "ORF",
+  ont= "BP"
+) %>%
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+```
+
+```{r view-phenolUPdata, eval=FALSE}
+# open up the results in a data frame to examine
+GO_phenol_up_results %>%
+  as_tibble() %>%
+  View()
+```
+
+Now we can visualize the enrichment results, which shows us gene ontology categories that are enriched in upregulated genes in the phenol samples of the heat shock experiment.
+
+```{r visualize-GOterms_upregulated_phenol}
+# a simple visualization
+plot(barplot(GO_phenol_up_results, showCategory = 10))
+
+# a more complicated visualization, with more information density
+ggplot(GO_phenol_up_results,
+       showCategory = 15,
+       aes(richFactor, fct_reorder(Description, richFactor))) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_gradientn(
+    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+    trans = "log10",
+    guide = guide_colorbar(reverse = TRUE, order = 1)
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  xlab("Rich Factor") +
+  ylab(NULL) +
+  ggtitle("Biological Processes") +
+  theme_bw()
+```
+
+You can try adjusting the size of the output figures by clicking the gear icon in the topright of the code chunk and click "use custom figure size". Note this updates the chunk header so the change is saved.
+
+# Now it is your turn 
+
+Try doing the same, except now create a different gene list. Some options could be:
+
+- Downregulated in phenol+Heatshock instead of upregulated
+- genes that are upregulated in either RNeasy or direct.zol heatshock columns.
+- look at a different GO category (we only looked at BP, not MF or CC)
+
+```{r get-[direction]geneList_[treatment]}
+# subset to just genes meeting your requirements
+DE_genes_GIVE_NAME <- DE_results_heatshock_annotated %>%
+  filter(RNeasy.HS.logFC > 0 & RNeasy.HS.FDR>0.1) %>% # change for the filters that you want (see example above)
+  pull(ID) # grabbing just the gene names
+```
+
+### Run Enrichment
+```{r get-[treatment][direction]results}
+GO_GIVE_NAME_results <- enrichGO(
+  gene = DE_genes_GIVE_NAME,
+  OrgDb = "org.Sc.sgd.db",
+  universe = DE_results_heatshock_annotated$ID,
+  keyType = "ORF",
+  ont= "BP"
+) %>%
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+```
+
+### see the data
+```{r view-[treatment][direction]data, eval=FALSE}
+# open up the results in a data frame to examine
+GO_GIVE_NAME_results %>%
+  as_tibble() %>%
+  View()
+```
+
+### create plots
+```{r visualize-GOterms_[direction]_[treatment]}
+# a simple visualization
+plot(barplot(GO_GIVE_NAME_results, showCategory = 10))
+
+# built in visualization with dots instead
+dotplot(GO_GIVE_NAME_results, showCategory=10) 
+
+# a more complicated visualization, with more information density
+ggplot(GO_GIVE_NAME_results,
+       showCategory = 15,
+       aes(richFactor, fct_reorder(Description, richFactor))) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_gradientn(
+    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+    trans = "log10",
+    guide = guide_colorbar(reverse = TRUE, order = 1)
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  xlab("Rich Factor") +
+  ylab(NULL) +
+  ggtitle("Biological Processes") +
+  theme_bw()
+```
+
+
+
+Answer the following questions:
+
+1.  Which GO term had the smallest adjusted p-value in the Phenol.HS upregulated example that we did together?
+
+2.  What percent of the genes would we expect to have that GO term in the DE list under the null hypothesis? What percent of the DE genes actually had that GO term?
+
+3.  Briefly explain your rationale for the cutoffs you chose for your gene list.
+
+3.  Which GO term had the smallest adjusted p-value in the genelist that you chose yourself?
+
+4.  In simple terms, how would you describe what the "Rich Factor" tells about a given GO term in the gene list.
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+```{r}
+sessionInfo()
+```
+

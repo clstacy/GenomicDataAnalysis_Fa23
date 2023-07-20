@@ -1,0 +1,135 @@
+---
+title: "Getting Started in R"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+here::i_am("exercises/Getting_Started_in_R.Rmd")
+```
+
+# Getting things setup
+
+The following code installs a set of R packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
+
+```{r ready-packages, results="hide",message=FALSE}
+
+list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
+lapply(list.of.packages, require, character.only = TRUE)
+
+```
+
+the below code is optional, but recommended for keeping file paths in place.
+
+```{r set-directories}
+# setting the working directory
+# setwd("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
+
+# edit the path below to where you want this project to be based.
+here::set_here("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
+
+# check where R here currently is looking
+here::dr_here()
+
+# create a directory for raw data to be stored.
+dir.create(here("data"))
+# dir.create(here("code"))
+# dir.create(here("docs"))
+# dir.create(here("figures"))
+# dir.create(here("results"))
+```
+
+# Description
+
+This activity is intended to familiarize you with using RStudio and the R ecosystem to analyze genomic data
+
+# Learning outcomes
+
+At the end of this excercise, you should be able to:
+
+-   open, modify, and knit an Rmd file to a pdf/html output
+-   relate Rmarkdown to a traditional lab notebook
+-   run commands in an Rmarkdown file
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r using-codeChunk}
+# print a statement
+print("R code in a .Rmd chunk works just like a script")
+
+# preform basic calculations
+2+2
+```
+
+Let's pull some data files from a recent publication: <https://doi.org/10.1186/s12864-020-6673-2>. We will use a file that has been modified for us to practice using RStudio.
+
+```{r access-data}
+
+# assign url to a variable
+DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv"
+
+# download the data from the web
+DE_results_heatshock_annotated <-
+  read_delim(DE_data_url, 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+
+That's nice, but how can you load in data from a different source, or on your computer?
+
+Take a look at the Environment panel in the top-right of RStudio. If you click on the "Import Dataset" button, you can import data from your PC, or even via url links. This will allow you to load in the data, adjust settings to make sure it is formatted the way you want, and finally copy the code used to import the data so you can include in your script for reproducibility.
+
+Do remember that this function uses the package readr (a part of the tidyverse package we loaded above). If you don't have that package (1) installed and (2) loaded into your script, it won't work. The code
+
+## Working with data in R
+
+To get a quick summary of our data and how it looks
+
+```{r}
+# take a quick look at how the data is structured
+glimpse(DE_results_heatshock_annotated)
+```
+
+We see in the output there are `nrow(DE_results_heatshock_annotated)` rows and `ncol(DE_results_heatshock_annotated)` columns in the data. The same information should be available in the environment panel of RStudio
+
+# Seeing Data in RStudio
+
+If we want to take a closer look at the data, we have a few options. To see just the first few lines we can run the following command:
+
+```{r head-data}
+head(DE_results_heatshock_annotated)
+```
+
+This can be difficult to look at. For looking at data similar to an Excel file, RStudio allows this by clicking on the name of the data.frame in the top right corner of the IDE. To open in a new window, click the "pop out" button next to "filter" just above the opened dataset.
+
+## Exploring the data
+
+This dataset includes the log fold changes of gene expression in an experiment testing the heat shock response of *S. cerevisiae*, with additional columns of metadata about each gene. In later classes we will cover the details included, but we can already start answering questions.
+
+Using RStudio, answer the following questions:
+
+1.  How many genes are included in this study?
+
+2.  Which gene has the highest log fold change (Phenol.HS.logFC) in the heatshock + phenol extraction?
+
+3.  How many HSP genes are downregulated in response to heat shock (meaning a negative logFC value).
+
+4.  Do the genes with the largest magnitude fold changes have the smallest p-values?
+
+5.  Which isoform of phosphoglucomutase is upregulated in response to heat shock?
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+```{r}
+sessionInfo()
+```

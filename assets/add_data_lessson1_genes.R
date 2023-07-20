@@ -1,6 +1,8 @@
 library(tidyverse)
 library(here)
 
+here::dr_here()
+
 # pull original file with edgeR outputs
 url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/12864_2020_6673_MOESM3_ESM.xlsx"
 

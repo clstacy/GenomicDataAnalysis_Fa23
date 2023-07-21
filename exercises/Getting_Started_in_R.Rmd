@@ -88,7 +88,7 @@ That's nice, but how can you load in data from a different source, or on your co
 
 Take a look at the Environment panel in the top-right of RStudio. If you click on the "Import Dataset" button, you can import data from your PC, or even via url links. This will allow you to load in the data, adjust settings to make sure it is formatted the way you want, and finally copy the code used to import the data so you can include in your script for reproducibility.
 
-Do remember that this function uses the package readr (a part of the tidyverse package we loaded above). If you don't have that package (1) installed and (2) loaded into your script, it won't work. The code
+Do remember that this function uses the package readr (a part of the tidyverse package we loaded above). If you don't have that package (1) installed and (2) loaded into your script, it won't work.
 
 ## Working with data in R
 
@@ -99,7 +99,7 @@ To get a quick summary of our data and how it looks
 glimpse(DE_results_heatshock_annotated)
 ```
 
-We see in the output there are `nrow(DE_results_heatshock_annotated)` rows and `ncol(DE_results_heatshock_annotated)` columns in the data. The same information should be available in the environment panel of RStudio
+We see in the output there are `r nrow(DE_results_heatshock_annotated)` rows and `r ncol(DE_results_heatshock_annotated)` columns in the data. The same information should be available in the environment panel of RStudio
 
 # Seeing Data in RStudio
 

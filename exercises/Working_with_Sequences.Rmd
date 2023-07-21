@@ -1,5 +1,5 @@
 ---
-title: "Gene Ontology"
+title: "Raw Data Quality Control"
 author: "Carson Stacy & Jeffrey Lewis"
 date: "Fall 2023"
 output: html_document
@@ -14,11 +14,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Getting Things Setup
 
-The following code installs a set of R CRAN packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
-
+As usual, make sure we have the right packages for this exercise
 ```{r ready-packages, results="hide",message=FALSE}
 
-list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager", "ggVennDiagram")
+list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
@@ -27,6 +26,9 @@ lapply(list.of.packages, require, character.only = TRUE)
 ```
 
 
+
+We also need the bioconductor package "shortread" for today's activity.
+
 Next, we need to install packages specific to our gene ontology bioinformatic analysis. Many of these packages aren't available on the R CRAN package repository, instead they are hosted on BioConductor repository that is focused on packages used in biological research. Today, we need to install the package topGO with the code below.
 
 ```{r install-GOpackage, results="hide", message=FALSE, warning=FALSE}
@@ -34,45 +36,38 @@ Next, we need to install packages specific to our gene ontology bioinformatic an
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-# install topGO for BiocManager::install() if it isn't already installed.
-if (!requireNamespace("topGO", quietly = TRUE))
-    BiocManager::install("topGO")
+if (!requireNamespace("Rfastp", quietly = TRUE))
+    BiocManager::install("Rfastp")
 
-# try clusterProfiler too
-if (!requireNamespace("clusterProfiler", quietly = TRUE))
-    BiocManager::install("clusterProfiler")
-# need for organism package to work.
-if (!requireNamespace("AnnotationDbi", quietly = TRUE))
-    BiocManager::install("AnnotationDbi")
-# need this one at least for clusterProfiler
-if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
-    BiocManager::install("org.Sc.sgd.db")
+
+# BiocManager::install("ShortRead")
+
 
 ```
 
 # Description
 
-This activity is intended to familiarize you with Gene Ontology analysis and some of the unique challenges that come from working with bioinformatic data.
+This activity is intended to familiarize you with raw bioinformatic data.
 
 # Learning outcomes
 
 At the end of this exercise, you should be able to:
 
--   Understand gene ontology and its significance in functional annotation
--   learn to perform a GO enrichment & appropriate statistical methods (hypergeometric & Fisher’s exact test) for the enrichment analysis
--   interpret & critically evaluate the results of GO enrichment & limitations/challenges
+-   
+-   
+-   
 
 
 
 ```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
-library(clusterProfiler)
-library(org.Sc.sgd.db)
+library(Rfastp)
 ```
 
 Let's use the same file from last class, this time performing GO term enrichment
 
-```{r access-data}
 
+## read in files
+```{r access-data}
 # assign url to a variable
 DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv"
 
@@ -82,6 +77,40 @@ DE_results_heatshock_annotated <-
     delim = "\t", escape_double = FALSE, 
     trim_ws = TRUE)
 ```
+
+Read in the example paired-end reads from the Rfastp package
+```{r}
+pe_read1 <- system.file("extdata","reads1.fastq.gz",package="Rfastp")
+pe_read2 <- system.file("extdata","reads2.fastq.gz",package="Rfastp")
+```
+
+
+## QC and adapters
+```{r}
+pe_json_report <- rfastp(read1 = pe_read1, read2 = pe_read2,
+    outputFastq = here("first_test_rfastp_pe"))
+
+clipr_json_report <- rfastp(read1 = pe_read1, 
+                            read2 = pe_read2,
+    outputFastq = here('second_test_rfastp_pe'),
+    disableTrimPolyG = TRUE,
+    cutLowQualFront = TRUE,
+    cutFrontWindowSize = 29,
+    cutFrontMeanQual = 20,
+    cutLowQualTail = TRUE,
+    cutTailWindowSize = 1,
+    cutTailMeanQual = 5,
+    minReadLength = 29,
+    adapterSequenceRead1 = 'GTGTCAGTCACTTCCAGCGG'
+)
+```
+
+
+
+
+
+
+
 
 ## Get DE gene list
 

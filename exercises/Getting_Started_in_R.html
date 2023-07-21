@@ -356,7 +356,7 @@ display: none;
 </div>
 
 
-<p>last updated: 2023-07-20</p>
+<p>last updated: 2023-07-21</p>
 <div id="getting-things-setup" class="section level1">
 <h1>Getting things setup</h1>
 <p>The following code installs a set of R packages used in this document
@@ -368,28 +368,6 @@ more convenient according to geographic location.</p>
 new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
 if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
 lapply(list.of.packages, require, character.only = TRUE)</code></pre>
-<p>the below code is optional, but recommended for keeping file paths in
-place.</p>
-<pre class="r"><code># setting the working directory
-# setwd(&quot;~/Documents/GitHub/GenomicDataAnalysis_Fa23&quot;)
-
-# edit the path below to where you want this project to be based.
-here::set_here(&quot;~/Documents/GitHub/GenomicDataAnalysis_Fa23&quot;)</code></pre>
-<pre><code>## File .here already exists in /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23</code></pre>
-<pre class="r"><code># check where R here currently is looking
-here::dr_here()</code></pre>
-<pre><code>## here() starts at /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23.
-## - This directory contains a file &quot;exercises/Getting_Started_in_R.Rmd&quot;
-## - Initial working directory: /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23/exercises
-## - Current working directory: /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23/exercises</code></pre>
-<pre class="r"><code># create a directory for raw data to be stored.
-dir.create(here(&quot;data&quot;))</code></pre>
-<pre><code>## Warning in dir.create(here(&quot;data&quot;)):
-## &#39;/Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23/data&#39; already exists</code></pre>
-<pre class="r"><code># dir.create(here(&quot;code&quot;))
-# dir.create(here(&quot;docs&quot;))
-# dir.create(here(&quot;figures&quot;))
-# dir.create(here(&quot;results&quot;))</code></pre>
 </div>
 <div id="description" class="section level1">
 <h1>Description</h1>
@@ -445,7 +423,7 @@ finally copy the code used to import the data so you can include in your
 script for reproducibility.</p>
 <p>Do remember that this function uses the package readr (a part of the
 tidyverse package we loaded above). If you don’t have that package (1)
-installed and (2) loaded into your script, it won’t work. The code</p>
+installed and (2) loaded into your script, it won’t work.</p>
 <div id="working-with-data-in-r" class="section level2">
 <h2>Working with data in R</h2>
 <p>To get a quick summary of our data and how it looks</p>

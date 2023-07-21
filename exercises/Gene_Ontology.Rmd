@@ -35,8 +35,8 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
 # install topGO for BiocManager::install() if it isn't already installed.
-if (!requireNamespace("topGO", quietly = TRUE))
-    BiocManager::install("topGO")
+# if (!requireNamespace("topGO", quietly = TRUE))
+#     BiocManager::install("topGO")
 
 # try clusterProfiler too
 if (!requireNamespace("clusterProfiler", quietly = TRUE))
@@ -47,7 +47,6 @@ if (!requireNamespace("AnnotationDbi", quietly = TRUE))
 # need this one at least for clusterProfiler
 if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
     BiocManager::install("org.Sc.sgd.db")
-
 ```
 
 # Description
@@ -61,7 +60,6 @@ At the end of this exercise, you should be able to:
 -   Understand gene ontology and its significance in functional annotation
 -   learn to perform a GO enrichment & appropriate statistical methods (hypergeometric & Fisher’s exact test) for the enrichment analysis
 -   interpret & critically evaluate the results of GO enrichment & limitations/challenges
-
 
 
 ```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
@@ -156,10 +154,8 @@ Overlap = 10
 total = 5650 # number of genes in genome
 ```
 
-Without doing the math, do you expect these to be underrepresented, overrepresented, or neither?
+__Without doing the math, do you expect these to be underrepresented, overrepresented, or neither?__
 
-
-### I need to give variable names for the below commands before I move on!
 
 ```{r test-phyper}
 # test for underrepresentation (depletion)
@@ -192,6 +188,7 @@ fisher.test(matrix(c(Overlap, DE_genes-Overlap, trehalose_genes-Overlap, total-D
 
 How does the p-value that we get from this test compare to the results table? They should match.
 
+<br><br><br><br>
 
 # Now it is your turn 
 
@@ -203,6 +200,9 @@ Try doing the same, except now create a different gene list. Some options could 
 
 The code below is a template for you to modify to complete this activity.
 The example code below looks at the RNeasy heatshock upregulated genes (choose something else for your gene list)
+
+***
+
 ```{r get-[direction]geneList_[treatment]}
 # subset to just genes meeting your requirements
 DE_genes_GIVE_NAME <- DE_results_heatshock_annotated %>%

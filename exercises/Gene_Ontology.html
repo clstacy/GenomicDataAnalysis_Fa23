@@ -12,7 +12,7 @@
 <meta name="author" content="Carson Stacy &amp; Jeffrey Lewis" />
 
 
-<title>Getting Started in R</title>
+<title>Gene Ontology</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,16 +349,16 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Getting Started in R</h1>
+<h1 class="title toc-ignore">Gene Ontology</h1>
 <h4 class="author">Carson Stacy &amp; Jeffrey Lewis</h4>
 <h4 class="date">Fall 2023</h4>
 
 </div>
 
 
-<p>last updated: 2023-07-20</p>
-<div id="gene-ontology" class="section level1">
-<h1>Gene Ontology</h1>
+<p>last updated: 2023-07-21</p>
+<div id="getting-things-setup" class="section level1">
+<h1>Getting Things Setup</h1>
 <p>The following code installs a set of R CRAN packages used in this
 document – if not already installed – and then loads the packages into
 R. Note that we utilize the US CRAN repository, but other repositories
@@ -368,18 +368,6 @@ may be more convenient according to geographic location.</p>
 new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
 if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
 lapply(list.of.packages, require, character.only = TRUE)</code></pre>
-<pre class="r"><code># setting the working directory
-# setwd(&quot;~/Documents/GitHub/GenomicDataAnalysis_Fa23&quot;)
-
-# edit the path below to where you want this project to be based.
-# here::set_here(&quot;~/Documents/GitHub/GenomicDataAnalysis_Fa23&quot;)
-
-# check where R here currently is looking
-here::dr_here()</code></pre>
-<pre><code>## here() starts at /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23.
-## - This directory contains a file &quot;exercises/Gene_Ontology.Rmd&quot;
-## - Initial working directory: /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23/exercises
-## - Current working directory: /Users/clstacy/Documents/GitHub/GenomicDataAnalysis_Fa23/exercises</code></pre>
 <p>Next, we need to install packages specific to our gene ontology
 bioinformatic analysis. Many of these packages aren’t available on the R
 CRAN package repository, instead they are hosted on BioConductor
@@ -413,9 +401,13 @@ bioinformatic data.</p>
 <h1>Learning outcomes</h1>
 <p>At the end of this exercise, you should be able to:</p>
 <ul>
-<li>a</li>
-<li>b</li>
-<li>c</li>
+<li>Understand gene ontology and its significance in functional
+annotation</li>
+<li>learn to perform a GO enrichment &amp; appropriate statistical
+methods (hypergeometric &amp; Fisher’s exact test) for the enrichment
+analysis</li>
+<li>interpret &amp; critically evaluate the results of GO enrichment
+&amp; limitations/challenges</li>
 </ul>
 <pre class="r"><code>library(clusterProfiler)
 library(org.Sc.sgd.db)</code></pre>
@@ -523,11 +515,8 @@ DE_genes = 710
 Overlap = 10
 # total number of genes in experiment
 total = 5650 # number of genes in genome</code></pre>
-<p>Without doing the math, do you expect these to be underrepresented,
-overrepresented, or neither?</p>
-<div id="i-need-to-give-variable-names-for-the-below-commands-before-i-move-on" class="section level3">
-<h3>I need to give variable names for the below commands before I move
-on!</h3>
+<p><strong>Without doing the math, do you expect these to be
+underrepresented, overrepresented, or neither?</strong></p>
 <pre class="r"><code># test for underrepresentation (depletion)
 phyper(q = Overlap, # number of trehalose genes that were DE
        m = DE_genes, # number of DE genes
@@ -560,7 +549,7 @@ fisher.test(matrix(c(Overlap, DE_genes-Overlap, trehalose_genes-Overlap, total-D
 <pre><code>## [1] 4.825224e-08</code></pre>
 <p>How does the p-value that we get from this test compare to the
 results table? They should match.</p>
-</div>
+<p><br><br><br><br></p>
 </div>
 <div id="now-it-is-your-turn" class="section level1">
 <h1>Now it is your turn</h1>
@@ -576,6 +565,7 @@ CC)</li>
 <p>The code below is a template for you to modify to complete this
 activity. The example code below looks at the RNeasy heatshock
 upregulated genes (choose something else for your gene list)</p>
+<hr />
 <pre class="r"><code># subset to just genes meeting your requirements
 DE_genes_GIVE_NAME &lt;- DE_results_heatshock_annotated %&gt;%
   filter(RNeasy.HS.logFC &gt; 1 &amp; RNeasy.HS.FDR&lt;0.05) %&gt;% # change for the filters that you want (see example above)

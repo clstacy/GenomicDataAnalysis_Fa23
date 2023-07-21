@@ -9,7 +9,7 @@ last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-here::i_am("exercises/Getting_Started_in_R.Rmd")
+# here::i_am("exercises/Getting_Started_in_R.Rmd")
 ```
 
 # Getting things setup
@@ -17,33 +17,12 @@ here::i_am("exercises/Getting_Started_in_R.Rmd")
 The following code installs a set of R packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
 
 ```{r ready-packages, results="hide",message=FALSE}
-
 list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
 lapply(list.of.packages, require, character.only = TRUE)
 
-```
-
-the below code is optional, but recommended for keeping file paths in place.
-
-```{r set-directories}
-# setting the working directory
-# setwd("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
-
-# edit the path below to where you want this project to be based.
-here::set_here("~/Documents/GitHub/GenomicDataAnalysis_Fa23")
-
-# check where R here currently is looking
-here::dr_here()
-
-# create a directory for raw data to be stored.
-dir.create(here("data"))
-# dir.create(here("code"))
-# dir.create(here("docs"))
-# dir.create(here("figures"))
-# dir.create(here("results"))
 ```
 
 # Description
@@ -115,7 +94,7 @@ This can be difficult to look at. For looking at data similar to an Excel file, 
 
 This dataset includes the log fold changes of gene expression in an experiment testing the heat shock response of *S. cerevisiae*, with additional columns of metadata about each gene. In later classes we will cover the details included, but we can already start answering questions.
 
-Using RStudio, answer the following questions:
+**Using RStudio, answer the following questions:**
 
 1.  How many genes are included in this study?
 
@@ -126,7 +105,6 @@ Using RStudio, answer the following questions:
 4.  Do the genes with the largest magnitude fold changes have the smallest p-values?
 
 5.  Which isoform of phosphoglucomutase is upregulated in response to heat shock?
-
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

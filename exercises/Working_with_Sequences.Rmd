@@ -26,7 +26,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 
 ```
 
-We also need the bioconductor packages "shortread" and "rfastp" for today's activity.
+We also need the bioconductor packages "ShortRead" and "rfastp" for today's activity.
 
 ```{r install-FastqPackages, results="hide", message=FALSE, warning=FALSE}
 # make sure we have the CRAN package installed for getting bioconductor packages
@@ -75,7 +75,7 @@ curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz https://github.
 # where these files came from: https://www.ebi.ac.uk/ena/browser/view/PRJNA558910
 
 # Let's see what one of these files contains:
-zcat $D
+gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8
 ```
 
 We have the data downloaded onto our system now, so let's first take a look at some of these files ourselves
@@ -104,7 +104,7 @@ fastq_phenol_heat_rep4
 length(fastq_phenol_heat_rep4)
 
 # We can use the width() function to find the size of each read/sequence in fastq
-width(fastq_phenol_heat_rep4)
+width(fastq_phenol_heat_rep4) %>% head() # add head() pipe to only print first 10
 
 
 #sread() - Retrieve sequence of reads.
@@ -182,7 +182,7 @@ The ShortRead package also contains a function to generate a simple quality cont
 The qa() function accepts a FastQ file and returns a FastqQA object.
 
 ```{r}
-qa_phenol_heat_rep4 <- qa("~/Desktop/phenol_heat_rep4.fastq.gz")
+qa_phenol_heat_rep4 <- qa("~/Desktop/subset_phenol_heat_rep4.fastq.gz")
 qa_phenol_heat_rep4
 ```
 
@@ -265,14 +265,15 @@ print(fastq.files)
 ```
 
 Now we have all of the file paths
+```{r eval=FALSE}
+# if we wanted to just run a single file, we would do so like this:
+# NOT RUN
 
-```{r}
-# rfastp_report <- rfastp(read1 = as.vector(fastq.files),
-#                         # note rel path doesn't always work for these files
-#                         outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed.fastq.gz")
+# rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz",
+#                         outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz")
 ```
 
-Now, we can loop through all of the files to perform filtering and trimming. Note there are many arguments that can be modified. Use ?rfastp to learn more.
+We can loop through all of the files to perform filtering and trimming. Note there are many arguments that can be modified. Use ?rfastp to learn more.
 
 ```{r}
 # create a directory for the output to go into if not already present
@@ -290,16 +291,17 @@ for (i in 1:length(fastq.files)) {
                         basename(fastq.files[i]))
   json_report <- rfastp(
     read1 = read1,
-    outputFastq = output_name,
+    outputFastq = paste0(str_split(output_name, fixed("."))[[1]][1],"_rfastp"),
     disableTrimPolyG = TRUE,
-    cutLowQualFront = TRUE,
-    cutFrontWindowSize = 8,
-    cutFrontMeanQual = 22,
-    cutLowQualTail = TRUE,
+    # cutLowQualFront = TRUE,
+    # cutFrontWindowSize = 3,
+    # cutFrontMeanQual = 10,
+    # cutLowQualTail = TRUE,
     cutTailWindowSize = 1,
-    cutTailMeanQual = 5,
+    # cutTailMeanQual = 5,
     minReadLength = 15,
-    adapterSequenceRead1 = 'GTGTCAGTCACTTCCAGCGG'
+    trimFrontRead1 = 10,
+    # adapterSequenceRead1 = 'GTGTCAGTCACTTCCAGCGG'
   )
   
   # Print the output file link in the R Markdown document
@@ -316,24 +318,7 @@ for (i in 1:length(fastq.files)) {
 
 ## QC and adapters
 
-```{r}
-# pe_json_report <- rfastp(read1 = pe_read1, read2 = pe_read2,
-#     outputFastq = here("first_test_rfastp_pe"))
-# 
-# clipr_json_report <- rfastp(read1 = pe_read1,
-#                             read2 = pe_read2,
-#     outputFastq = here('second_test_rfastp_pe'),
-#     disableTrimPolyG = TRUE,
-#     cutLowQualFront = TRUE,
-#     cutFrontWindowSize = 4,
-#     cutFrontMeanQual = 20,
-#     cutLowQualTail = TRUE,
-#     cutTailWindowSize = 1,
-#     cutTailMeanQual = 5,
-#     minReadLength = 29,
-#     adapterSequenceRead1 = 'GTGTCAGTCACTTCCAGCGG'
-# )
-```
+
 
 Another common tool for quality control is called FastQC, useable via command line or GUI, available at <https://www.bioinformatics.babraham.ac.uk/projects/fastqc/> or via pip or conda install in the command line.
 
@@ -353,7 +338,7 @@ command_exists() {
 if command_exists /opt/homebrew/bin/fastqc; then
   # Run the command if fastqc is installed
   /opt/homebrew/bin/fastqc $DATA_DIR/*.fastq.gz
-  /opt/homebrew/bin/fastqc $DATA_DIR/filtered/*.fastq.gz
+  /opt/homebrew/bin/fastqc $DATA_DIR/filtered/*.fastq.gz -o $DATA_DIR/filtered/fastqc
   if [ $? -ne 0 ]; then
     echo "FastQC execution failed. It didn't work."
   fi
@@ -364,27 +349,17 @@ fi
 
 This link shows the fastqc output for subset_phenol_unstressed_rep4.fastq.gz
 
-```{r fastqc file}
+```{r fastqc file, eval=FALSE}
 browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/subset_phenol_unstressed_rep4_fastqc.html")
 ```
 
 One of our favorite ways to analyze multiple samples simultaneously is [MultiQC](https://multiqc.info/) a software that combines fastQC reports
 
-```{bash multiqc file}
-browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/merged_multiqc.html")
+```{r multiqc file, eval=FALSE}
+browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/multiqc_report.html")
 ```
 
-TODO:
 
-2)  decide if I want students to run fastqc and multiqc. tbh I want them to be able to
-
-3)  Implement the above
-
-4)  decide what we want the students to do with fastqc/rfastp.
-
-## Get DE gene list
-
-# Now it is your turn
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

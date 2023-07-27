@@ -363,7 +363,7 @@ display: none;
 – if not already installed – and then loads the packages into R. Note
 that we utilize the US CRAN repository, but other repositories may be
 more convenient according to geographic location.</p>
-<pre class="r"><code>list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;BiocManager&quot;)
+<pre class="r"><code>list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
 
 new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
 if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
@@ -486,7 +486,7 @@ experiment testing the heat shock response of <em>S. cerevisiae</em>,
 with additional columns of metadata about each gene. In later classes we
 will cover the details included, but we can already start answering
 questions.</p>
-<p>Using RStudio, answer the following questions:</p>
+<p><strong>Using RStudio, answer the following questions:</strong></p>
 <ol style="list-style-type: decimal">
 <li><p>How many genes are included in this study?</p></li>
 <li><p>Which gene has the highest log fold change (Phenol.HS.logFC) in
@@ -500,50 +500,57 @@ heat shock?</p></li>
 </ol>
 <p>Be sure to knit this file into a pdf or html file once you’re
 finished.</p>
-<pre class="r"><code>sessionInfo()</code></pre>
-<pre><code>## R version 4.2.2 (2022-10-31)
-## Platform: aarch64-apple-darwin20 (64-bit)
-## Running under: macOS Ventura 13.2.1
-## 
-## Matrix products: default
-## BLAS:   /Library/Frameworks/R.framework/Versions/4.2-arm64/Resources/lib/libRblas.0.dylib
-## LAPACK: /Library/Frameworks/R.framework/Versions/4.2-arm64/Resources/lib/libRlapack.dylib
-## 
-## locale:
-## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
-## 
-## attached base packages:
-## [1] stats     graphics  grDevices utils     datasets  methods   base     
-## 
-## other attached packages:
-##  [1] BiocManager_1.30.19 knitr_1.42          here_1.0.1         
-##  [4] forcats_0.5.2       stringr_1.5.0       dplyr_1.1.0        
-##  [7] purrr_1.0.1         readr_2.1.3         tidyr_1.3.0        
-## [10] tibble_3.1.8        ggplot2_3.4.1       tidyverse_1.3.2    
-## 
-## loaded via a namespace (and not attached):
-##  [1] lubridate_1.9.0     assertthat_0.2.1    rprojroot_2.0.3    
-##  [4] digest_0.6.31       utf8_1.2.3          R6_2.5.1           
-##  [7] cellranger_1.1.0    backports_1.4.1     reprex_2.0.2       
-## [10] evaluate_0.20       httr_1.4.5          pillar_1.8.1       
-## [13] rlang_1.0.6         curl_5.0.0          googlesheets4_1.0.1
-## [16] readxl_1.4.1        rstudioapi_0.14     jquerylib_0.1.4    
-## [19] rmarkdown_2.20      googledrive_2.0.0   bit_4.0.5          
-## [22] munsell_0.5.0       broom_1.0.1         compiler_4.2.2     
-## [25] modelr_0.1.10       xfun_0.39           pkgconfig_2.0.3    
-## [28] htmltools_0.5.4     tidyselect_1.2.0    fansi_1.0.4        
-## [31] crayon_1.5.2        tzdb_0.3.0          dbplyr_2.2.1       
-## [34] withr_2.5.0         grid_4.2.2          jsonlite_1.8.4     
-## [37] gtable_0.3.1        lifecycle_1.0.3     DBI_1.1.3          
-## [40] magrittr_2.0.3      scales_1.2.1        cli_3.6.0          
-## [43] stringi_1.7.12      vroom_1.6.0         cachem_1.0.7       
-## [46] fs_1.6.1            xml2_1.3.3          bslib_0.4.2        
-## [49] ellipsis_0.3.2      generics_0.1.3      vctrs_0.5.2        
-## [52] tools_4.2.2         bit64_4.0.5         glue_1.6.2         
-## [55] hms_1.1.2           parallel_4.2.2      fastmap_1.1.1      
-## [58] yaml_2.3.7          timechange_0.1.1    colorspace_2.1-0   
-## [61] gargle_1.2.1        rvest_1.0.3         haven_2.5.1        
-## [64] sass_0.4.5</code></pre>
+<p><br></p>
+<p>System information for reproducibility:</p>
+<pre class="r"><code>pander::pander(sessionInfo())</code></pre>
+<p><strong>R version 4.2.2 (2022-10-31)</strong></p>
+<p><strong>Platform:</strong> aarch64-apple-darwin20 (64-bit)</p>
+<p><strong>locale:</strong>
+en_US.UTF-8||en_US.UTF-8||en_US.UTF-8||C||en_US.UTF-8||en_US.UTF-8</p>
+<p><strong>attached base packages:</strong> <em>stats</em>,
+<em>graphics</em>, <em>grDevices</em>, <em>utils</em>,
+<em>datasets</em>, <em>methods</em> and <em>base</em></p>
+<p><strong>other attached packages:</strong>
+<em>BiocManager(v.1.30.19)</em>, <em>pander(v.0.6.5)</em>,
+<em>knitr(v.1.42)</em>, <em>here(v.1.0.1)</em>,
+<em>forcats(v.0.5.2)</em>, <em>stringr(v.1.5.0)</em>,
+<em>dplyr(v.1.1.0)</em>, <em>purrr(v.1.0.1)</em>,
+<em>readr(v.2.1.3)</em>, <em>tidyr(v.1.3.0)</em>,
+<em>tibble(v.3.1.8)</em>, <em>ggplot2(v.3.4.1)</em> and
+<em>tidyverse(v.1.3.2)</em></p>
+<p><strong>loaded via a namespace (and not attached):</strong>
+<em>Rcpp(v.1.0.10)</em>, <em>lubridate(v.1.9.0)</em>,
+<em>assertthat(v.0.2.1)</em>, <em>rprojroot(v.2.0.3)</em>,
+<em>digest(v.0.6.31)</em>, <em>utf8(v.1.2.3)</em>, <em>R6(v.2.5.1)</em>,
+<em>cellranger(v.1.1.0)</em>, <em>backports(v.1.4.1)</em>,
+<em>reprex(v.2.0.2)</em>, <em>evaluate(v.0.20)</em>,
+<em>httr(v.1.4.5)</em>, <em>pillar(v.1.8.1)</em>,
+<em>rlang(v.1.0.6)</em>, <em>curl(v.5.0.0)</em>,
+<em>googlesheets4(v.1.0.1)</em>, <em>readxl(v.1.4.1)</em>,
+<em>rstudioapi(v.0.14)</em>, <em>jquerylib(v.0.1.4)</em>,
+<em>rmarkdown(v.2.20)</em>, <em>googledrive(v.2.0.0)</em>,
+<em>bit(v.4.0.5)</em>, <em>munsell(v.0.5.0)</em>,
+<em>broom(v.1.0.1)</em>, <em>compiler(v.4.2.2)</em>,
+<em>modelr(v.0.1.10)</em>, <em>xfun(v.0.39)</em>,
+<em>pkgconfig(v.2.0.3)</em>, <em>htmltools(v.0.5.4)</em>,
+<em>tidyselect(v.1.2.0)</em>, <em>fansi(v.1.0.4)</em>,
+<em>crayon(v.1.5.2)</em>, <em>tzdb(v.0.3.0)</em>,
+<em>dbplyr(v.2.2.1)</em>, <em>withr(v.2.5.0)</em>,
+<em>grid(v.4.2.2)</em>, <em>jsonlite(v.1.8.4)</em>,
+<em>gtable(v.0.3.1)</em>, <em>lifecycle(v.1.0.3)</em>,
+<em>DBI(v.1.1.3)</em>, <em>magrittr(v.2.0.3)</em>,
+<em>scales(v.1.2.1)</em>, <em>vroom(v.1.6.0)</em>,
+<em>cli(v.3.6.0)</em>, <em>stringi(v.1.7.12)</em>,
+<em>cachem(v.1.0.7)</em>, <em>fs(v.1.6.1)</em>, <em>xml2(v.1.3.3)</em>,
+<em>bslib(v.0.4.2)</em>, <em>ellipsis(v.0.3.2)</em>,
+<em>generics(v.0.1.3)</em>, <em>vctrs(v.0.5.2)</em>,
+<em>tools(v.4.2.2)</em>, <em>bit64(v.4.0.5)</em>,
+<em>glue(v.1.6.2)</em>, <em>hms(v.1.1.2)</em>,
+<em>parallel(v.4.2.2)</em>, <em>fastmap(v.1.1.1)</em>,
+<em>yaml(v.2.3.7)</em>, <em>timechange(v.0.1.1)</em>,
+<em>colorspace(v.2.1-0)</em>, <em>gargle(v.1.2.1)</em>,
+<em>rvest(v.1.0.3)</em>, <em>haven(v.2.5.1)</em> and
+<em>sass(v.0.4.5)</em></p>
 </div>
 </div>
 

@@ -12,12 +12,14 @@ knitr::opts_chunk$set(echo = TRUE)
 # here::i_am("exercises/Getting_Started_in_R.Rmd")
 ```
 
+#TODO: make new data file on github with only the phenol samples, will use the current one in gene_ontolgy lecture, but ismpler for this one.
+
 # Getting things setup
 
 The following code installs a set of R packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
 
 ```{r ready-packages, results="hide",message=FALSE}
-list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
+list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
@@ -106,8 +108,12 @@ This dataset includes the log fold changes of gene expression in an experiment t
 
 5.  Which isoform of phosphoglucomutase is upregulated in response to heat shock?
 
+
 Be sure to knit this file into a pdf or html file once you're finished.
 
+<br>
+
+System information for reproducibility:
 ```{r}
-sessionInfo()
+pander::pander(sessionInfo())
 ```

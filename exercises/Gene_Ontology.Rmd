@@ -14,6 +14,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Getting Things Setup
 
+
+##TODO: number of large categories vs number in genome
+  so like for genes with carbohydrate metabolic process see how many are in DE vs total genome. Also just do some random GO term.
+
 The following code installs a set of R CRAN packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
 
 ```{r ready-packages, results="hide",message=FALSE}
@@ -37,6 +41,9 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 # install topGO for BiocManager::install() if it isn't already installed.
 # if (!requireNamespace("topGO", quietly = TRUE))
 #     BiocManager::install("topGO")
+
+if (!requireNamespace("igraph", quietly = TRUE))
+    install.packages("clusterProfiler")
 
 # try clusterProfiler too
 if (!requireNamespace("clusterProfiler", quietly = TRUE))
@@ -272,6 +279,8 @@ Answer the following questions:
 
 6. Challenge: Create a venn diagram of the GO terms in the GO analysis you ran with the GO_phenol_up_results output
 
+7. What GO terms are enriched for genes with pval < 0.01 but fdr > 0.01 and what is their average/median log fold change?
+
 ```{r create-vennDiagram}
 # if (!requireNamespace("ggVennDiagram", quietly = TRUE))
 #   install.packages("ggVennDiagram")
@@ -291,7 +300,11 @@ ggVennDiagram(GO_results_list,
 
 Be sure to knit this file into a pdf or html file once you're finished.
 
+<br>
+
+
+System information for reproducibility:
 ```{r}
-sessionInfo()
+pander::pander(sessionInfo())
 ```
 

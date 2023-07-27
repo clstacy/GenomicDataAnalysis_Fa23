@@ -1,5 +1,5 @@
 ---
-title: "Raw Data Quality Control"
+title: "Working with Sequences: Raw Data & Quality Control"
 author: "Carson Stacy & Jeffrey Lewis"
 date: "Fall 2023"
 output: html_document
@@ -9,7 +9,7 @@ last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# here::i_am("exercises/Gene_Ontology.Rmd")
+set.seed("1492")
 ```
 
 # Getting Things Setup
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 As usual, make sure we have the right packages for this exercise
 ```{r ready-packages, results="hide",message=FALSE}
 
-list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager")
+list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
@@ -25,64 +25,276 @@ lapply(list.of.packages, require, character.only = TRUE)
 
 ```
 
+We also need the bioconductor packages "shortread" and "rfastp" for today's activity.
 
-
-We also need the bioconductor package "shortread" for today's activity.
-
-Next, we need to install packages specific to our gene ontology bioinformatic analysis. Many of these packages aren't available on the R CRAN package repository, instead they are hosted on BioConductor repository that is focused on packages used in biological research. Today, we need to install the package topGO with the code below.
-
-```{r install-GOpackage, results="hide", message=FALSE, warning=FALSE}
+```{r install-FastqPackages, results="hide", message=FALSE, warning=FALSE}
 # make sure we have the CRAN package installed for getting bioconductor packages
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
 if (!requireNamespace("Rfastp", quietly = TRUE))
     BiocManager::install("Rfastp")
 
-
-# BiocManager::install("ShortRead")
-
-
+if (!requireNamespace("ShortRead", quietly = TRUE))
+    BiocManager::install("ShortRead")
 ```
 
 # Description
 
-This activity is intended to familiarize you with raw bioinformatic data.
+This activity is intended to familiarize you with raw bioinformatic sequence files. Specifically, we'll be working with short read sequencing data generated from an Illumina platform.
 
 # Learning outcomes
 
 At the end of this exercise, you should be able to:
 
--   
--   
--   
-
-
+-   Load and read into R a raw zipped fastq file
+-   Inspect sequence quality and evaluate results
+-   Perform quality control on raw data and save processed output
 
 ```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
+library(ShortRead)
 library(Rfastp)
 ```
 
-Let's use the same file from last class, this time performing GO term enrichment
+Note that instead of \{r\}, this chunk uses \{bash\}, meaning this isn't r code but bash code (what is used in the terminal). The -nc flag ensures the files are only downloaded if they don't already exist where you are downloading them. 
 
+This may take awhile. The below script is a bash command that downloads these files to your computer
 
-## read in files
-```{r access-data}
-# assign url to a variable
-DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv"
+```{bash download-fq, message=FALSE}
+# Be sure to change this file path to the path you want your data to go
+DATA_DIR="/Users/clstacy/Desktop"
+# WARNING: curl doesn't work with relative paths
 
-# download the data from the web
-DE_results_heatshock_annotated <-
-  read_delim(DE_data_url, 
-    delim = "\t", escape_double = FALSE, 
-    trim_ws = TRUE)
+curl -C - -o $DATA_DIR/phenol_heat_rep1.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/001/SRR9908461/SRR9908461.fastq.gz
+curl -C - -o $DATA_DIR/phenol_heat_rep4.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/004/SRR9908464/SRR9908464.fastq.gz
+curl -C - -o $DATA_DIR/phenol_unstressed_rep1.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/007/SRR9908457/SRR9908457.fastq.gz
+curl -C - -o $DATA_DIR/phenol_unstressed_rep4.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/000/SRR9908460/SRR9908460.fastq.gz
+curl -C - -o $DATA_DIR/phenol_unstressed_rep2.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/008/SRR9908458/SRR9908458.fastq.gz
+curl -C - -o $DATA_DIR/phenol_heat_rep2.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/002/SRR9908462/SRR9908462.fastq.gz
+curl -C - -o $DATA_DIR/phenol_heat_rep3.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/003/SRR9908463/SRR9908463.fastq.gz
+curl -C - -o $DATA_DIR/phenol_unstressed_rep3.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR990/009/SRR9908459/SRR9908459.fastq.gz
+
+# where these files came from: https://www.ebi.ac.uk/ena/browser/view/PRJNA558910
 ```
 
-Read in the example paired-end reads from the Rfastp package
+
+We have the data downloaded onto our system now, so let's first take a look at some of these files ourselves
+
+The R package ShortRead allows us to look at and process raw fastq files. It has many more features than we will use today.
+
+## Let's take a look at a fastq file
 ```{r}
-pe_read1 <- system.file("extdata","reads1.fastq.gz",package="Rfastp")
-pe_read2 <- system.file("extdata","reads2.fastq.gz",package="Rfastp")
+# change his directory here to where you have the file saved
+path_fastq_phenol_heat_rep4 <- "/Users/clstacy/Desktop/phenol_heat_rep4.fastq.gz"
+
+
+fastq_phenol_heat_rep4 <- readFastq("~/Desktop/phenol_heat_rep4.fastq.gz")
+fastq_phenol_heat_rep4 <- readFastq(path_fastq_phenol_heat_rep4)
+
+# file too big? swap readFastq() for:
+fastq_phenol_heat_rep4 <- yield(FastqSampler(path_fastq_phenol_heat_rep4, n=250000))
+#  to subsample the file and only read in n lines, 100k random reads should give
+#  a good idea regarding sequencing quality.
 ```
+
+A few quick ways to examine the fastq data oject
+```{r}
+# Typing the name of the object gives us a simple summary
+fastq_phenol_heat_rep4
+
+# the length() function gives us the total number of reads
+length(fastq_phenol_heat_rep4)
+
+# We can use the width() function to find the size of each read/sequence in fastq
+width(fastq_phenol_heat_rep4)
+
+
+#sread() - Retrieve sequence of reads.
+sread(fastq_phenol_heat_rep4)
+
+#quality() - Retrieve quality of reads as ASCII scores.
+quality(fastq_phenol_heat_rep4)
+
+#id() - Retrieve IDs of reads
+id(fastq_phenol_heat_rep4)
+```
+
+The output of sread() is a DNAStringSet object, so we can use all of the commands from the biostrings library on the output
+
+```{r}
+# first, let's save the output of sread as an object
+sequence_of_reads <- sread(fastq_phenol_heat_rep4)
+
+# Now, let's use the biostrings function alphabetFrequency to see
+# the occurrence of nucleotide bases in reads.
+alph_freq <- alphabetFrequency(sequence_of_reads)
+
+# subset just the first two reads
+alph_freq[1:2,]
+```
+
+We see most of the nucleotides are assigned to A, C, G, or T, with one base in each read an N. 
+
+A fundamental difference between fasta and fastq files is the Quality scores containined in fastQ.
+
+Quality scores are stored as ASCII characters representing -log10 probability of base being wrong (Larger scores would be associated to more confident base calls).
+
+A comprehensive description of phred quality can be found on the wiki page for FastQ.
+
+To see the fastq encodings, we can run:
+```{r}
+encoding(quality(fastq_phenol_heat_rep4))
+```
+
+The ShortRead package has many functions available to allow us to collect useful metrics from our ShortRead object.
+
+One very useful function is the alphabetByCycle() function which provides a quick method to summarise base occurrence of cycles.
+
+Here we apply alphabetByCycle() function to the sequence information and show the occurrence of main 4 bases over first 15 cycles.
+
+```{r}
+alph_by_cycle <- alphabetByCycle(sequence_of_reads)
+alph_by_cycle[1:4,1:15]
+```
+
+We can use the table function to identify the number of times a sequence appears in our FastQ file's sequence reads.
+
+```{r}
+readOccurence <- table(sequence_of_reads)
+
+# see the top 3 sequences that appear the highest number of times
+sort(readOccurence,decreasing = TRUE)[1:3]
+```
+We can identify duplicated reads (potentially arising from PCR over amplification) by using the srduplicated() function and the ShortReadQ object.
+
+This returns a logical vector identifying which reads' sequences are duplicates (occur more than once in file). Note that the first time a sequence appears in file is not a duplicate but the second, third, fourth times etc are.
+
+```{r}
+duplicates <- srduplicated(fastq_phenol_heat_rep4)
+duplicates[1:3]
+
+# we can use table() to get a quick summary of the seq duplication rate
+table(duplicates)
+```
+
+
+The ShortRead package also contains a function to generate a simple quality control report.
+
+The qa() function accepts a FastQ file and returns a FastqQA object.
+
+```{r}
+qa_phenol_heat_rep4 <- qa("~/Desktop/phenol_heat_rep4.fastq.gz")
+qa_phenol_heat_rep4
+```
+
+
+We can then use the report() function to generate a simple report.
+```{r}
+myReport <- report(qa_phenol_heat_rep4)
+myReport
+```
+
+Finally we can review the report in a browser or use the browseURL function to open it in a browser from R.
+
+```{r}
+browseURL(myReport)
+```
+
+
+# Trimming
+
+When we observe low quality at the end of reads we may wish to remove the low quality bases for later alignment to the genome. The trimTails() function trims reads from the 3', removing bases which fall below a desired quality. The trimTails() function accepts arguments specifying the ShortReadQ object, the minimum number of successive bases required to be below quality cut-off for trimming and the actual cut-off score. 
+```{r}
+trimmed_fastq_phenol_heat_rep4 <- trimTails(fastq_phenol_heat_rep4, # ShortReadQ object to trim
+                          k=10, # integer number of failing letters to trigger trim
+                          a="5") # character giving letter at or below to "fail"
+trimmed_fastq_phenol_heat_rep4
+```
+
+Now we have trimmed our FastQ reads, we can export these reads for further analysis using the writeFastq() function
+
+```{r}
+writeFastq(trimmed_fastq_phenol_heat_rep4,
+           "~/Desktop/phenol_heat_rep4_trimmed.fastq.gz") #path to save file
+```
+
+## Is there any way we can automate some of this?
+
+There are several utility programs that will provide you with QC and trim your data for you, with less input from you. We are fans of the fastp as it does some basic QC and trims your fastq files, and it does it very quickly. To make this available in R, it has been made available in the Bioconductor package Rfastp.
+
+```{r}
+# Let's run fastp on one of the files to see how it works. Details for this command can be found with ?rfastp
+
+rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/phenol_heat_rep4.fastq.gz", #note rel path doesn't work here on mac.
+                        outputFastq ="/Users/clstacy/Desktop/phenol_heat_rep4_rfastp_trimmed.fastq.gz")
+
+```
+
+By default, fastp will make a html report to summarize your result. But the Rfastp wrapper allows you to look at some of them in R. 
+
+```{r}
+df_summary <- qcSummary(rfastp_report)
+df_summary
+```
+
+# Batch file processing
+
+That's nice, but we rarely just have a single fastq file, and we'd like to look at them all at once. Luckily, we can do that with rfastp. Instead of the path to a single file, we provide a vector of names to read1:
+
+```{r}
+rfastp_report <- rfastp(read1 = as.vector(fastq.files), 
+                        # note rel path doesn't always work for these files
+                        outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed.fastq.gz")
+```
+
+
+```{r}
+# adjust to the path where you assigned in DATA_DIR above
+fq_file_dir <- "~/Desktop"
+
+# create a directory for the output to go into
+output_dir <- paste0(fq_file_dir, "/filtered")
+
+if (!dir.exists(output_dir)) {dir.create(output_dir)}
+
+# crate a list of all of the files
+fastq.files <- list.files(path = fq_file_dir, pattern = ".fastq.gz$", full.names = TRUE)
+
+
+# run rfastp on all samples
+for (i in 1:length(fastq.files)) {
+  # file path to single end read
+  read1 <- fastq.files[i]
+  # assign output file (putting it inside of filtered folder)
+  output_name <- paste0(dirname(fastq.files[i]),
+                        "/filtered/",
+                        "filtered_",
+                        basename(fastq.files[i]))
+  json_report <- rfastp(
+    read1 = read1,
+    outputFastq = output_name,
+    disableTrimPolyG = TRUE,
+    cutLowQualFront = TRUE,
+    cutFrontWindowSize = 29,
+    cutFrontMeanQual = 20,
+    cutLowQualTail = TRUE,
+    cutTailWindowSize = 1,
+    cutTailMeanQual = 5,
+    minReadLength = 29,
+    adapterSequenceRead1 = 'GTGTCAGTCACTTCCAGCGG'
+  )
+  
+  # Print the output file link in the R Markdown document
+  cat(paste0(
+    "[Download Processed File - ",
+    output_name,
+    "](./",
+    output_name,
+    ")\n\n"
+  ))
+}
+
+```
+
+
+
 
 
 ## QC and adapters
@@ -90,7 +302,7 @@ pe_read2 <- system.file("extdata","reads2.fastq.gz",package="Rfastp")
 pe_json_report <- rfastp(read1 = pe_read1, read2 = pe_read2,
     outputFastq = here("first_test_rfastp_pe"))
 
-clipr_json_report <- rfastp(read1 = pe_read1, 
+clipr_json_report <- rfastp(read1 = pe_read1,
                             read2 = pe_read2,
     outputFastq = here('second_test_rfastp_pe'),
     disableTrimPolyG = TRUE,
@@ -107,220 +319,30 @@ clipr_json_report <- rfastp(read1 = pe_read1,
 
 
 
+TODO:
 
+1) subset the number reads in each fastq file and save for upload to github (have students use those subset data instead of entire)
+
+2) decide if I want students to run fastqc and multiqc. tbh I want them to be able to
+
+3) Implement the above
+
+4) decide what we want the students to do with fastqc/rfastp.
 
 
 
 
 ## Get DE gene list
 
-We need a list of differentially expressed genes to test for over or under enrichment of terms. Here we choose genes significantly upregulated with a log2 fold change greater than 1.
-
-```{r get-UPgeneList_phenol}
-# subset to just genes with significant fdr & log2FC>1
-DE_results_heatshock_annotated %>%
-  filter(Phenol.HS.logFC > 1 & Phenol.HS.FDR < 0.05) 
-
-DE_genes_upregulated_phenol <- DE_results_heatshock_annotated %>%
-  filter(Phenol.HS.logFC > 1 & Phenol.HS.FDR < 0.05) %>%
-  pull(ID) # get just the gene names
-```
-
-```{r get-phenolUPresults}
-GO_phenol_up_results <- enrichGO(
-  gene = DE_genes_upregulated_phenol,
-  OrgDb = "org.Sc.sgd.db",
-  universe = DE_results_heatshock_annotated$ID,
-  keyType = "ORF",
-  ont= "BP"
-) %>%
-  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
-```
-
-```{r view-phenolUPdata, eval=FALSE}
-# open up the results in a data frame to examine
-GO_phenol_up_results %>%
-  as_tibble() %>%
-  View()
-```
-
-Now we can visualize the enrichment results, which shows us gene ontology categories that are enriched in upregulated genes in the phenol samples of the heat shock experiment.
-
-```{r visualize-GOterms_upregulated_phenol}
-# a simple visualization
-plot(barplot(GO_phenol_up_results, showCategory = 10))
-
-# a more complicated visualization, with more information density
-ggplot(GO_phenol_up_results,
-       showCategory = 15,
-       aes(richFactor, fct_reorder(Description, richFactor))) +
-  geom_segment(aes(xend = 0, yend = Description)) +
-  geom_point(aes(color = p.adjust, size = Count)) +
-  scale_color_gradientn(
-    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
-    trans = "log10",
-    guide = guide_colorbar(reverse = TRUE, order = 1)
-  ) +
-  scale_size_continuous(range = c(2, 10)) +
-  xlab("Rich Factor") +
-  ylab(NULL) +
-  ggtitle("Biological Processes") +
-  theme_bw()
-```
-
-You can try adjusting the size of the output figures by clicking the gear icon in the top right of the code chunk and click "use custom figure size". Note this updates the chunk header so the change is saved.
-
-# The Hypergeometric Distribution in practice
-
-Notice that trehalose metabolic process does not have very many genes in the category, but they appear to be highly present in the the upregulated gene list. Specifically, `r GO_phenol_up_results %>% as_tibble %>% filter(ID == "GO:0005991") %>% pull(GeneRatio) %>% cat()` DE genes have this GO term, where in the entire genome, there are only `r GO_phenol_up_results %>% as_tibble %>% filter(ID == "GO:0005991") %>% mutate(tmp = as.numeric(sub("/\\d+", "", BgRatio))) %>% pull(tmp) %>% cat()` genes. What are the odds that we see this by random chance? let's do the math:
-
-```{r prepare-phyper}
-# number of genes that have GO:0005991 (trehalose metabolic process)
-trehalose_genes = 12
-# number of genes that are DE (here phenol group heat shock, logFC>1)
-DE_genes = 710
-# number of genes that are both DE and trehalose genes
-Overlap = 10
-# total number of genes in experiment
-total = 5650 # number of genes in genome
-```
-
-Without doing the math, do you expect these to be underrepresented, overrepresented, or neither?
-
-
-### I need to give variable names for the below commands before I move on!
-
-```{r test-phyper}
-# test for underrepresentation (depletion)
-phyper(q = Overlap, # number of trehalose genes that were DE
-       m = DE_genes, # number of DE genes
-       n = total-DE_genes, # number of non DE genes
-       k = trehalose_genes, # number of observed DE trehalose genes
-       lower.tail = TRUE) # the probability that X <= x
-
-# test for overrepresentation (enrichmen t)
-phyper(q = Overlap-1, # number of trehalose genes that were DE
-                      # we subtract 1 b/c of lower.tail=FALSE means greater than
-                      # without equality, so have to do one less
-       m = DE_genes, # number of DE genes
-       n = total-DE_genes, # number of non DE genes
-       k = trehalose_genes, # number of observed DE trehalose genes
-       lower.tail = FALSE) # the probability that X > x
-```
-
-As we see, there is strong evidence that the number of genes with this GO term is unlikely to be seen due to chance. In laymen's terms, this GO term is enriched in upregulated genes in response to heat shock. The test for underrepresenation shows there is no support for a hypothesis that this gene is underrepresented in the DE gene list.
-
-Interestingly, the hypergeometric distribution is the same thing as the Fisher's Exact test, so we can rerun the same tests above with a different command:
-```{r test-exactFisher}
-#fisher test for underrepresentation
-fisher.test(matrix(c(Overlap, DE_genes-Overlap, trehalose_genes-Overlap, total-DE_genes-trehalose_genes + Overlap), 2, 2), alternative='less')$p.value
-
-#fisher test for overrepresentation
-fisher.test(matrix(c(Overlap, DE_genes-Overlap, trehalose_genes-Overlap, total-DE_genes-trehalose_genes + Overlap), 2, 2), alternative='greater')$p.value
-```
-
-How does the p-value that we get from this test compare to the results table? They should match.
-
 
 # Now it is your turn 
-
-Try doing the same, except now create a different gene list. Some options could be:
-
-- Downregulated in phenol+Heatshock instead of upregulated
-- genes that are upregulated in either RNeasy or direct.zol heatshock columns.
-- look at a different GO category (we only looked at BP, not MF or CC)
-
-The code below is a template for you to modify to complete this activity.
-The example code below looks at the RNeasy heatshock upregulated genes (choose something else for your gene list)
-```{r get-[direction]geneList_[treatment]}
-# subset to just genes meeting your requirements
-DE_genes_GIVE_NAME <- DE_results_heatshock_annotated %>%
-  filter(RNeasy.HS.logFC > 1 & RNeasy.HS.FDR<0.05) %>% # change for the filters that you want (see example above)
-  pull(ID) # grabbing just the gene names
-```
-
-### Run Enrichment
-```{r get-[treatment][direction]results}
-GO_GIVE_NAME_results <- enrichGO(
-  gene = DE_genes_GIVE_NAME,
-  OrgDb = "org.Sc.sgd.db",
-  universe = DE_results_heatshock_annotated$ID,
-  keyType = "ORF",
-  ont= "BP"
-) %>%
-  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
-```
-
-### see the data
-```{r view-[treatment][direction]data, eval=FALSE}
-# open up the results in a data frame to examine
-GO_GIVE_NAME_results %>%
-  as_tibble() %>%
-  View()
-```
-
-### create plots
-```{r visualize-GOterms_[direction]_[treatment]}
-# a simple visualization
-plot(barplot(GO_GIVE_NAME_results, showCategory = 10))
-
-# built in visualization with dots instead
-dotplot(GO_GIVE_NAME_results, showCategory=10) 
-
-# a more complicated visualization, with more information density
-ggplot(GO_GIVE_NAME_results,
-       showCategory = 15,
-       aes(richFactor, fct_reorder(Description, richFactor))) +
-  geom_segment(aes(xend = 0, yend = Description)) +
-  geom_point(aes(color = p.adjust, size = Count)) +
-  scale_color_gradientn(
-    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
-    trans = "log10",
-    guide = guide_colorbar(reverse = TRUE, order = 1)
-  ) +
-  scale_size_continuous(range = c(2, 10)) +
-  xlab("Rich Factor") +
-  ylab(NULL) +
-  ggtitle("Biological Processes") +
-  theme_bw()
-```
-
-
-
-Answer the following questions:
-
-1.  Which GO term had the smallest adjusted p-value in the Phenol.HS upregulated example that we did together?
-
-2.  What percent of the genes would we expect to have that GO term in the DE list under the null hypothesis? What percent of the DE genes actually had that GO term?
-
-3.  Briefly explain your rationale for the cutoffs you chose for your gene list.
-
-4.  Which GO term had the smallest adjusted p-value in the genelist that you chose yourself?
-
-5.  In simple terms, how would you describe what the "Rich Factor" tells about a given GO term in the gene list.
-
-6. Challenge: Create a venn diagram of the GO terms in the GO analysis you ran with the GO_phenol_up_results output
-
-```{r create-vennDiagram}
-# if (!requireNamespace("ggVennDiagram", quietly = TRUE))
-#   install.packages("ggVennDiagram")
-library(ggVennDiagram)
-
-GO_results_list <- list(data.frame(GO_phenol_up_results)$ID,
-                        data.frame(GO_GIVE_NAME_results)$ID)
-
-ggVennDiagram(GO_results_list,
-              category.names = c("Phenol_upregulated", "[GIVE_NAME]")) +
-  scale_x_continuous(expand = expansion(mult = .2)) +
-  scale_fill_distiller(palette = "RdBu"
-  )
-```
 
 
 
 Be sure to knit this file into a pdf or html file once you're finished.
 
+System information for reproducibility:
 ```{r}
-sessionInfo()
+pander::pander(sessionInfo())
 ```
 

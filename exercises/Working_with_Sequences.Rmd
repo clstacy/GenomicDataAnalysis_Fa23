@@ -82,6 +82,14 @@ The R package ShortRead allows us to look at and process raw fastq files. It has
 ## Let's take a look at a fastq file
 ```{r}
 # change his directory here to where you have the file saved
+path_fastq_phenol_unstressed_rep1 <- "/Users/clstacy/Desktop/phenol_unstressed_rep1.fastq.gz"
+path_fastq_phenol_unstressed_rep2 <- "/Users/clstacy/Desktop/phenol_unstressed_rep2.fastq.gz"
+path_fastq_phenol_unstressed_rep3 <- "/Users/clstacy/Desktop/phenol_unstressed_rep3.fastq.gz"
+path_fastq_phenol_unstressed_rep4 <- "/Users/clstacy/Desktop/phenol_unstressed_rep4.fastq.gz"
+
+path_fastq_phenol_heat_rep1 <- "/Users/clstacy/Desktop/phenol_heat_rep1.fastq.gz"
+path_fastq_phenol_heat_rep2 <- "/Users/clstacy/Desktop/phenol_heat_rep2.fastq.gz"
+path_fastq_phenol_heat_rep3 <- "/Users/clstacy/Desktop/phenol_heat_rep3.fastq.gz"
 path_fastq_phenol_heat_rep4 <- "/Users/clstacy/Desktop/phenol_heat_rep4.fastq.gz"
 
 
@@ -89,9 +97,35 @@ fastq_phenol_heat_rep4 <- readFastq("~/Desktop/phenol_heat_rep4.fastq.gz")
 fastq_phenol_heat_rep4 <- readFastq(path_fastq_phenol_heat_rep4)
 
 # file too big? swap readFastq() for:
-fastq_phenol_heat_rep4 <- yield(FastqSampler(path_fastq_phenol_heat_rep4, n=250000))
-#  to subsample the file and only read in n lines, 100k random reads should give
+fastq_phenol_unstressed_rep1 <- yield(FastqSampler(path_fastq_phenol_unstressed_rep1, n=round(rnorm(1, mean=250000, sd=50000))))
+fastq_phenol_unstressed_rep2 <- yield(FastqSampler(path_fastq_phenol_unstressed_rep2, n=round(rnorm(1, mean=250000, sd=50000))))
+fastq_phenol_unstressed_rep3 <- yield(FastqSampler(path_fastq_phenol_unstressed_rep3, n=round(rnorm(1, mean=250000, sd=50000))))
+fastq_phenol_unstressed_rep4 <- yield(FastqSampler(path_fastq_phenol_unstressed_rep4, n=round(rnorm(1, mean=250000, sd=50000))))
+
+fastq_phenol_heat_rep1 <- yield(FastqSampler(path_fastq_phenol_heat_rep1, n=round(rnorm(1, mean=250000, sd=50000))))
+fastq_phenol_heat_rep2 <- yield(FastqSampler(path_fastq_phenol_heat_rep2, n=round(rnorm(1, mean=250000, sd=50000))))
+fastq_phenol_heat_rep3 <- yield(FastqSampler(path_fastq_phenol_heat_rep3, n=round(rnorm(1, mean=250000, sd=50000))))
+fastq_phenol_heat_rep4 <- yield(FastqSampler(path_fastq_phenol_heat_rep4, n=round(rnorm(1, mean=250000, sd=50000))))
+#  to subsample the file and only read in n lines, n random reads should give
 #  a good idea regarding sequencing quality.
+
+writeFastq(fastq_phenol_unstressed_rep1,
+           here("data/heat_shock/subset_phenol_unstressed_rep1.fastq.gz")) #path to save file
+writeFastq(fastq_phenol_unstressed_rep2,
+           here("data/heat_shock/subset_phenol_unstressed_rep2.fastq.gz")) #path to save file
+writeFastq(fastq_phenol_unstressed_rep3,
+           here("data/heat_shock/subset_phenol_unstressed_rep3.fastq.gz")) #path to save file
+writeFastq(fastq_phenol_unstressed_rep4,
+           here("data/heat_shock/subset_phenol_unstressed_rep4.fastq.gz")) #path to save file
+
+writeFastq(fastq_phenol_heat_rep1,
+           here("data/heat_shock/subset_phenol_heat_rep1.fastq.gz")) #path to save file
+writeFastq(fastq_phenol_heat_rep2,
+           here("data/heat_shock/subset_phenol_heat_rep2.fastq.gz")) #path to save file
+writeFastq(fastq_phenol_heat_rep3,
+           here("data/heat_shock/subset_phenol_heat_rep3.fastq.gz")) #path to save file
+writeFastq(fastq_phenol_heat_rep4,
+           here("data/heat_shock/subset_phenol_heat_rep4.fastq.gz")) #path to save file
 ```
 
 A few quick ways to examine the fastq data oject

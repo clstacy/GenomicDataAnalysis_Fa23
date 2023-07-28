@@ -8,7 +8,7 @@ output: html_document
 last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, root.dir = "~/Desktop")
 set.seed("1492")
 ```
 
@@ -16,7 +16,6 @@ set.seed("1492")
 As usual, make sure we have the right packages for this exercise
 
 ```{r ready-packages, results="hide",message=FALSE}
-
 list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -25,7 +24,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 
 ```
 
-We also need the bioconductor packages "Rsubread" for today's activity.
+We also need the bioconductor package "Rsubread" for today's activity.
 
 ```{r install-BiocPackages, results="hide", message=FALSE, warning=FALSE}
 # make sure we have the CRAN package installed for getting bioconductor packages
@@ -35,6 +34,7 @@ if (!requireNamespace("Rsubread", quietly = TRUE))
 
 Previously, we filtered and trimmed our raw fastq files. They should be in your ~/Desktop/filtered folder unless you chose a different place to store them.
 ```{r}
+
 trimmed.fq_file_dir <- "~/Desktop/filtered"
 
 trimmed.fastq.files <- list.files(path = trimmed.fq_file_dir, 
@@ -99,11 +99,43 @@ args(align)
 ```
 
 
-```{r mapReads}
-align(index=index_reference_genome, readfile1=trimmed.fastq.files)
-trimmed.fastq.files
+```{r alignReads}
+# set where we would like the file to be output
+##NOTE: I don't think we need this. but if it doesn't put them in the same folder where the trimmed fastq files, then maybe setwd in this chunk.
+# setwd("~/Desktop")
+
+# run the alignment on all of the trimmed.fastq.files
+align(index=index_reference_genome, 
+      readfile1=trimmed.fastq.files,
+      type = "rna",
+      input_format = "gzFASTQ",
+      output_format = "BAM",
+      unique = FALSE,
+      nBestLocations = 1
+      )
 ```
 
+The output of the alignment are bam corresponding to each fastq file. 
+
+We can get a summary of the proportion of reads that mapped to the reference genome using the propmapped function.
+
+```{r summaryOutput}
+# create an object in R listing
+bam.files <- list.files(path = "~/Desktop/filtered", pattern = ".BAM$", full.names = TRUE)
+bam.files
+
+# find the proportion of reads that mapped for each sample
+props <- propmapped(files=bam.files)
+
+props
+```
+
+
+
+
+Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 “best” locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting “.fastq.gz” with “.multi.bam” so we don’t overwrite our unique alignment bam files.
+
+Question 2: Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
 
 
 

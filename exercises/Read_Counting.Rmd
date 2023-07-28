@@ -1,0 +1,205 @@
+---
+title: "Read Counting"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed("1492")
+```
+
+
+#TODO:
+ftp://ftp.ensembl.org/pub/release-110/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz
+
+I need to implement this in this document
+
+
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages, results="hide",message=FALSE}
+list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
+lapply(list.of.packages, require, character.only = TRUE)
+
+```
+
+We also need the bioconductor package "Rsubread" for today's activity again.
+
+```{r install-BiocPackages, results="hide", message=FALSE, warning=FALSE}
+# make sure we have the CRAN package installed for getting bioconductor packages
+if (!requireNamespace("Rsubread", quietly = TRUE))
+    BiocManager::install("Rsubread")
+```
+
+Previously, we aligned our fastq files to the reference genome, generating BAM files. They should be in your ~/Desktop/filtered folder, unless you chose a different place to store them.
+```{r}
+
+bam_file_dir <- "~/Desktop/filtered"
+
+bam.files <- list.files(path = bam_file_dir, 
+                                  pattern = ".BAM$", 
+                                  full.names = TRUE)
+bam.files
+```
+
+You should see the full paths to all 8 trimmed fastq files that we will be mapping to the reference genome today.
+
+# Read Counting
+
+Read sequences are stored in compressed (gzipped) FASTQ files. Before the differential expression analysis can proceed, these reads must be aligned to the yeast genome and counted into annotated genes. This can be achieved with functions in the Rsubread package.
+
+## Retrieve the genome annotation
+
+We will use a bash code chunk to download the latest genome annotation
+```{bash fetchGenome}
+# Define the destination file path
+# Be sure to change this file path to the path you want your data to go
+REF_DIR="/Users/$USER/Desktop/reference_genome"
+
+# make that directory if it doesn't already
+mkdir $REF_DIR
+
+# Define the URL of reference genome
+# (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
+
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz" ]; then
+    echo "Reference genome annotation not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz" "$url"
+    echo "Downloading finished"
+else
+    echo "File already exists at $REF_DIR Skipping download."
+fi
+```
+Let's take a look at the first few lines of the gtf file
+
+```{r seeGTF}
+# see the header columns with metadata starting with #!
+read_csv("~/Desktop/reference_genome/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz", 
+    col_names = FALSE) %>% head()
+
+# We can also take a look at the first few entries to see the columns
+read_delim("~/Desktop/reference_genome/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz", 
+    delim = "\t", escape_double = FALSE, 
+    col_names = FALSE,  comment = "#", trim_ws = TRUE) %>% head(20)
+```
+There are 9 columns in a standard gtf file, information about each is available here: https://useast.ensembl.org/info/website/upload/gff.html
+
+Note that version 2 of gff is identical to the gtf format.
+
+## Counting with FeatureCounts
+
+```{r}
+library(Rsubread)
+
+# Set path of the reference annotation gzipped gtf file
+reference_annotation = "/Users/clstacy/Desktop/reference_genome/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
+```
+
+We can see the arguments available with the align function from the Rsubread package
+```{r argsCount}
+args(featureCounts)
+```
+
+
+```{r alignReads}
+# set where we would like the file to be output
+##NOTE: I don't think we need this. but if it doesn't put them in the same folder where the trimmed fastq files, then maybe setwd in this chunk.
+# setwd("~/Desktop")
+
+# This command counts the number of each feature per fastq file, generating an output we can use later.
+fc <- featureCounts(bam.files,
+                    annot.ext = reference_annotation,
+                    isGTFAnnotationFile = TRUE,
+                    GTF.featureType = "exon"
+                    )
+
+# run the alignment on all of the trimmed.fastq.files
+align(index=index_reference_genome, 
+      readfile1=trimmed.fastq.files,
+      type = "rna",
+      input_format = "gzFASTQ",
+      output_format = "BAM",
+      unique = FALSE,
+      nBestLocations = 1
+      )
+```
+
+We can see what all is stored in the featureCounts output object
+```{r identifyComponents}
+names(fc)
+```
+
+The statistics of the read mapping can be seen with `fc$stats`. This reports the numbers of unassigned reads and the reasons why they are not assigned (eg. ambiguity, multi-mapping, secondary alignment, mapping quality, fragment length, chimera, read duplicate, non-junction and so on), in addition to the number of successfully assigned reads for each library.
+
+```{r}
+fc$stat
+```
+
+## Counts
+The counts for the samples are stored in fc$counts.
+
+We can look at the dimensions of the counts to see how many genes and samples are present. The first number is the number of genes and the second number is the number of samples.
+```{r}
+dim(fc$counts)
+```
+
+let's take a look at the first few lines of fc$counts
+```{r}
+head(fc$counts)
+```
+
+The row names of the fc$counts matrix represent the Systematic Name for each gene (can be Entrez gene identifiers for other organisms) and the column names are the output filenames from calling the align function. 
+
+The annotation slot shows the annotation information that featureCounts used to summarise reads over genes.
+
+```{r}
+head(fc$annotation)
+```
+
+
+
+
+# Activity
+   
+1. Identify which gene has the highest counts
+
+2. Redo the counting over the exons, rather than the genes (specify useMetaFeatures = FALSE). Use the bam files generated doing alignment reporting only unique reads, and call the featureCounts object fc.exon. Check the dimension of the counts slot to see how much larger it is.
+
+
+
+
+
+
+
+Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 “best” locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting “.fastq.gz” with “.multi.bam” so we don’t overwrite our unique alignment bam files.
+
+Question 2: Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
+
+
+
+
+
+
+
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+
+```{r}
+pander::pander(sessionInfo())
+```
+

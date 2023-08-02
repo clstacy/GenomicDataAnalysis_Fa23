@@ -54,7 +54,7 @@ library(ShortRead)
 library(Rfastp)
 ```
 
-Note that instead of {r}, this chunk uses {bash}, meaning this isn't r code but bash code (what is used in the terminal). The -nc flag ensures the files are only downloaded if they don't already exist where you are downloading them.
+Note that instead of {r}, this chunk uses {bash}, meaning this isn't r code but bash code (the language used in the terminal). The -nc flag ensures the files are only downloaded if they don't already exist where you are downloading them.
 
 This may take awhile. The below script is a bash command that downloads these files to your computer
 

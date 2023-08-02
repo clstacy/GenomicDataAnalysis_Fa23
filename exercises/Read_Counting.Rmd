@@ -8,15 +8,12 @@ output: html_document
 last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
 set.seed("1492")
 ```
 
 
-#TODO:
-ftp://ftp.ensembl.org/pub/release-110/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz
 
-I need to implement this in this document
 
 
 
@@ -159,18 +156,20 @@ head(fc$annotation)
 ```
 
 
+# Saving `fc` object for future use
+
+We will need to use this object in our next class. We can use the R function `saveRDS()` to save the R object to your computer, so it can be accessed at a later date.
+
+```{r save-fc}
+saveRDS(object = fc, file = "~/Desktop/yeast_fc_output.Rds")
+```
 
 
 # Activity
    
-1. Identify which gene has the highest counts
+1. Identify which gene has the highest counts across all samples.
 
 2. Redo the counting over the exons, rather than the genes (specify useMetaFeatures = FALSE). Use the bam files generated doing alignment reporting only unique reads, and call the featureCounts object fc.exon. Check the dimension of the counts slot to see how much larger it is.
-
-
-
-
-
 
 
 Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 “best” locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting “.fastq.gz” with “.multi.bam” so we don’t overwrite our unique alignment bam files.

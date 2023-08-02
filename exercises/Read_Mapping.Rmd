@@ -32,7 +32,7 @@ if (!requireNamespace("Rsubread", quietly = TRUE))
     BiocManager::install("Rsubread")
 ```
 
-Previously, we filtered and trimmed our raw fastq files. They should be in your ~/Desktop/filtered folder unless you chose a different place to store them.
+Previously, we filtered and trimmed our raw fastq files. They should be in your ~/Desktop/filtered folder, unless you chose a different place to store them.
 ```{r}
 
 trimmed.fq_file_dir <- "~/Desktop/filtered"

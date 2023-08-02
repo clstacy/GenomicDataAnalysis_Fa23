@@ -124,16 +124,6 @@ fc <- featureCounts(bam.files,
                     isGTFAnnotationFile = TRUE,
                     GTF.featureType = "exon"
                     )
-
-# run the alignment on all of the trimmed.fastq.files
-align(index=index_reference_genome, 
-      readfile1=trimmed.fastq.files,
-      type = "rna",
-      input_format = "gzFASTQ",
-      output_format = "BAM",
-      unique = FALSE,
-      nBestLocations = 1
-      )
 ```
 
 We can see what all is stored in the featureCounts output object

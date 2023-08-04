@@ -33,8 +33,9 @@ We also need the bioconductor package "edgeR" for today's activity.
 if (!requireNamespace("edgeR", quietly = TRUE))
     BiocManager::install("edgeR")
 
-# if (!requireNamespace("ShortRead", quietly = TRUE))
-#     BiocManager::install("ShortRead")
+# this loads the saccharomyces cerevesiae database from sgd
+if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
+    BiocManager::install("org.Sc.sgd.db")
 ```
 
 # Description
@@ -50,18 +51,135 @@ At the end of this exercise, you should be able to:
 -   Utilize the edgeR package to identify differentially expressed genes.
 
 
-```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
+```{r load-libraries}
 library(edgeR)
+library(org.Sc.sgd.db, quietly = T)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+# Loading in the featureCounts object 
+
+We saved this file at the end of last exercise (Read_Counting.Rmd). Now we can load that object back in and assing it to the variable fc. Be sure to change the file path if you have saved it in a different location.
+```{r load-fc, error=TRUE}
+fc <- readRDS(file = "~/Desktop/yeast_fc_output.Rds")
+```
+
+
+If you don't have that file for any reason, the below code chunk will load a copy of it from Github.
+```{r altLoad-fc}
+if( !exists("fc") )
+{
+  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/yeast_fc_output.Rds')
+}
+```
+
+So far, we've been able to process all of the fastq files without much information about what each sample is in the experimental design. Now, we need the metadata for the samples
+
+```{r generate-metadata}
+sample_metadata <- tribble(
+  ~FileName,                                                    ~GEOAccession, ~Condition,
+  "filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz",   "GSM4008796", "unstressed",
+  "filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz",   "GSM4008797", "unstressed",
+  "filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz",   "GSM4008798", "unstressed",
+  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008799", "unstressed",
+  "filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz",   "GSM4008800", "heat",
+  "filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz",   "GSM4008801", "heat",
+  "filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz",   "GSM4008802", "heat",
+  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008803", "heat"
+) %>%
+  # make Condition a factor (with baseline as first level) for edgeR
+  mutate(Condition = factor(Condition, levels = c("unstressed", "heat")))
+
+```
+
+Now, let's create a design matrix with this information
+
+```{r}
+group <- sample_metadata$Condition
+design <- model.matrix(~ group)
+colnames(design) <- levels(group)
+design
+```
+
+
+# Count loading and Annotation
+
+The count matrix is used to construct a DGEList class object. This is the main data class in the edgeR package. The DGEList object is used to store all the information required to fit a generalized linear model to the data, including library sizes and dispersion estimates as well as counts for each gene.
+
+```{r load-counts}
+y <- DGEList(fc$counts, group=group)
+colnames(y) <- sample_metadata$GEOAccession
+y
+```
+
+Human-readable gene symbols can also be added to complement the gene ID for each gene, using the annotation in the org.Sc.sgd.db package.
+
+```{r}
+y$genes <- select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
+
+head(y$genes)
+```
+
+# Filtering to remove low counts
+
+
+Genes with very low counts across all libraries provide little evidence for differential ex- pression. In addition, the pronounced discreteness of these counts interferes with some of the statistical approximations that are used later in the pipeline. These genes should be filtered out prior to further analysis. Here, a gene is only retained if it is expressed at a count-per-million (CPM) above 50 in at least four samples.
+
+```{r filter-lowCounts}
+keep <- rowSums(cpm(y) > 50) >= 4
+y <- y[keep,]
+summary(keep)
+```
+
+Where did those cutoff numbers come from?
+
+As a general rule, we don't want to exclude a gene that is expressed in only one group, so a cutoff number equal to the number of replicates can be a good starting point. For counts, a good threshold can be chosen by identifying the CPM that corresponds to a count of 10, which in this case would be about 50 (due to our fastq files being subsets of the full reads):
+```{r estimate-cpmCutoff}
+cpm(10, mean(y$samples$lib.size))
+```
+
+Smaller CPM thresholds are usually appropriate for larger libraries.
+
+
+# Normalization for composition bias
+
+TMM normalization is performed to eliminate composition biases between libraries. This generates a set of normalization factors, where the product of these factors and the library sizes defines the effective library size. The calcNormFactors function returns the DGEList argument with only the norm.factors changed.
+
+```{r}
+y <- calcNormFactors(y)
+y$samples
+```
+
+The normalization factors multiply to unity across all libraries. A normalization factor below unity indicates that the library size will be scaled down, as there is more suppression (i.e., composition bias) in that library relative to the other libraries. This is also equivalent to scaling the counts upwards in that sample. Conversely, a factor above unity scales up the library size and is equivalent to downscaling the counts.
+The performance of the TMM normalization procedure can be examined using mean- difference (MD) plots. This visualizes the library size-adjusted log-fold change between two libraries (the difference) against the average log-expression across those libraries (the mean). The below command plots an MD plot, comparing sample 1 against an artificial library constructed from the average of all other samples.
+
+```{r plotMDS}
+for (sample in 1:nrow(y$samples)) {
+  plotMD(cpm(y, log=TRUE), column=sample)
+  abline(h=0, col="red", lty=2, lwd=2)
+}
+```
+
+# Exploring differences between libraries
+
+The data can be explored by generating multi-dimensional scaling (MDS) plots. This visualizes the differences between the expression profiles of different samples in two dimensions. The next plot shows the MDS plot for the yeast heatshock data.
+
+```{r plot-MDS}
+points <- c(0,1,2,15,16,17)
+colors <- rep(c("blue", "darkgreen", "red"), 2)
+plotMDS(y, col=colors[group], pch=points[group])
+legend("topleft", legend=levels(group),
+     pch=points, col=colors, ncol=2)
 ```
 
 
 
-```{bash download-fq, message=FALSE}
-# Be sure to change this file path to the path you want your data to go
-DATA_DIR="/Users/$USER/Desktop"
-# WARNING: curl doesn't work with relative paths
-curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep1.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep1.fastq.gz?raw=TRUE
-```
+
+
+
+
+
 
 
 

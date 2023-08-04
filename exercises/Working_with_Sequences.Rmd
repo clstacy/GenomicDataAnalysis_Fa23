@@ -221,13 +221,6 @@ writeFastq(trimmed_fastq_phenol_heat_rep4,
 
 There are several utility programs that will provide you with QC and trim your data for you, with less input from you. We like fastp as it does some basic QC and trims your fastq files, and it does it very quickly. To make this available in R, it has been made available in the Bioconductor package Rfastp.
 
-```{r}
-# Let's run fastp on one of the files to see how it works. Details for this command can be found with ?rfastp
-
-rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/subset_phenol_heat_rep4.fastq.gz", #note rel path doesn't work here on mac.
-                        outputFastq ="/Users/clstacy/Desktop/phenol_heat_rep4_rfastp_trimmed.fastq.gz")
-
-```
 
 By default, fastp will make a html report to summarize your result. But the Rfastp wrapper allows you to look at some of them in R.
 
@@ -267,7 +260,6 @@ print(fastq.files)
 Now we have all of the file paths
 ```{r eval=FALSE}
 # if we wanted to just run a single file, we would do so like this:
-# NOT RUN
 
 # rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz",
 #                         outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz")
@@ -300,13 +292,13 @@ for (i in 1:length(fastq.files)) {
     cutTailWindowSize = 1,
     # cutTailMeanQual = 5,
     minReadLength = 15,
-    trimFrontRead1 = 10,
+    # trimFrontRead1 = 10,
     # adapterSequenceRead1 = 'GTGTCAGTCACTTCCAGCGG'
   )
   
   # Print the output file link in the R Markdown document
   cat(paste0(
-    "[Download Processed File - ",
+    "[Processing Complete - ",
     basename(output_name),
     "](",
     output_name,

@@ -53,7 +53,7 @@ At the end of this exercise, you should be able to:
 
 ```{r load-libraries}
 library(edgeR)
-library(org.Sc.sgd.db, quietly = T)
+library(org.Sc.sgd.db)
 # for ease of use, set max number of digits after decimal
 options(digits=3)
 ```
@@ -79,17 +79,19 @@ So far, we've been able to process all of the fastq files without much informati
 ```{r generate-metadata}
 sample_metadata <- tribble(
   ~FileName,                                                    ~GEOAccession, ~Condition,
+  "filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz",         "GSM4008800", "heat",
+  "filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz",         "GSM4008801", "heat",
+  "filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz",         "GSM4008802", "heat",
+  "filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz",         "GSM4008803", "heat",
   "filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz",   "GSM4008796", "unstressed",
   "filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz",   "GSM4008797", "unstressed",
   "filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz",   "GSM4008798", "unstressed",
-  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008799", "unstressed",
-  "filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz",   "GSM4008800", "heat",
-  "filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz",   "GSM4008801", "heat",
-  "filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz",   "GSM4008802", "heat",
-  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008803", "heat"
-) %>%
+  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008799", "unstressed") %>%
   # make Condition a factor (with baseline as first level) for edgeR
-  mutate(Condition = factor(Condition, levels = c("unstressed", "heat")))
+  mutate(Condition = factor(Condition, 
+                            levels = c("unstressed", "heat")
+                            ))
+         
 
 ```
 
@@ -97,7 +99,8 @@ Now, let's create a design matrix with this information
 
 ```{r}
 group <- sample_metadata$Condition
-design <- model.matrix(~ group)
+design <- model.matrix(~ 0+ group, data=y$samples)
+design
 colnames(design) <- levels(group)
 design
 ```
@@ -116,7 +119,7 @@ y
 Human-readable gene symbols can also be added to complement the gene ID for each gene, using the annotation in the org.Sc.sgd.db package.
 
 ```{r}
-y$genes <- select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
+y$genes <- AnnotationDbi::select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
 
 head(y$genes)
 ```
@@ -176,12 +179,100 @@ legend("topleft", legend=levels(group),
 
 
 
+# Estimate Dispersion
+
+The trended NB dispersion is estimated using the estimateDisp function. This returns
+the DGEList object with additional entries for the estimated NB dispersions for all genes.
+These estimates can be visualized with plotBCV, which shows the root-estimate, i.e., the
+biological coefficient of variation for each gene
+
+```{r estimate-dispersion}
+y <- estimateDisp(y, design, robust=TRUE)
+plotBCV(y)
+```
+
+In general, the trend in the NB dispersions should decrease smoothly with increasing
+abundance. This is because the expression of high-abundance genes is expected to be more
+stable than that of low-abundance genes. Any substantial increase at high abundances may
+be indicative of batch effects or trended biases. The value of the trended NB dispersions
+should range between 0.005 to 0.05 for laboratory-controlled biological systems like mice
+or cell lines, though larger values will be observed for patient-derived data (> 0.1)
 
 
+For the QL dispersions, estimation can be performed using the glmQLFit function. This
+returns a DGEGLM object containing the estimated values of the GLM coefficients for each
+gene
+```{r}
+fit <- glmQLFit(y, design, robust=TRUE)
+head(fit$coefficients)
+plotQLDisp(fit)
+```
+
+EB squeezing of the raw dispersion estimators towards the trend reduces the uncertainty of the final estimators. The extent of this moderation is determined by the value of the prior df, as estimated from the data. Large estimates for the prior df indicate that the QL dispersions are less variable between genes, meaning that stronger EB moderation can be performed. Small values for the prior df indicate that the dispersions are highly
+variable, meaning that strong moderation would be inappropriate
+
+Setting robust=TRUE in glmQLFit is strongly recommended. This causes glmQLFit to estimate a vector of df.prior values, with lower values for outlier genes and larger values for the main body of genes.
 
 
+# Testing for differential expression
+
+The final step is to actually test for significant differential expression in each gene, using
+the QL F-test. The contrast of interest can be specified using the makeContrasts function.
+Here, genes are detected that are DE between the stressed and unstressed.
+This is done by defining the null hypothesis as heat stressed - unstressed = 0.
+
+```{r}
+con <- makeContrasts(heat - unstressed, levels=design)
+res <- glmQLFTest(fit, #coef="heat")
+                  contrast = con)
+```
+
+```{r}
+topTags(res, n=Inf) %>% data.frame() %>% View()# arrange((logFC))
+```
+
+```{r}
+is.de <- decideTestsDGE(res, p.value=0.05)
+summary(is.de)
+```
+
+```{r}
+plotSmear(res, de.tags=rownames(res)[is.de!=0])
+```
 
 
+# Gene Ontology
+```{r}
+alias2Symbol()
+
+go <- goana(res, species.KEGG="sce")
+topGO(go, n=10)
+
+kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
+      plot=T)
+
+topKEGG(kegg, sort="up")
+
+
+gene_data_logFC <- res$table %>% select(logFC)
+
+library("pathview")
+test <- pathview(gene.data  = gene_data_logFC,
+                     # pathway.id = "sce01100", #metabolic pathways
+                     pathway.id = "sce00010", #glycolysis/gluconeogenesis
+                  # pathway.id = "sce03050", # proteasome cycle
+                 # pathway.id = "sce00020", # TCA cycle
+                     species    = "sce",
+                     gene.idtype="orf",
+                 expand.node = TRUE,
+                 split.group = T,
+                 map.symbol = T,
+                 kegg.native = F, 
+                 # match.data = F, 
+                 multi.state = F, 
+                 same.layer = F)#,
+                     # limit      = list(gene=max(abs(res)), cpd=1))
+```
 
 
 Be sure to knit this file into a pdf or html file once you're finished.

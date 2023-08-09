@@ -1,0 +1,243 @@
+---
+title: "Differential Expression Analysis with DeSeq2"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed("1492")
+```
+
+# Getting Things Setup
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages, results="hide",message=FALSE}
+
+list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager", "reactable")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
+lapply(list.of.packages, require, character.only = TRUE)
+
+```
+
+We also need the bioconductor package "edgeR" for today's activity.
+
+```{r install-FastqPackages, results="hide", message=FALSE, warning=FALSE}
+# make sure we have the CRAN package installed for getting bioconductor packages
+if (!requireNamespace("DESeq2", quietly = TRUE))
+    BiocManager::install("DESeq2")
+
+# this loads the saccharomyces cerevesiae database from sgd
+if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
+    BiocManager::install("org.Sc.sgd.db")
+```
+
+# Description
+
+This will be our second differential expression analysis workflow, converting gene counts across samples into meaningful information about genes that appear to be significantly differentially expressed between samples
+
+# Learning outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Utilize the DESeq2 package to identify differentially expressed genes.
+
+
+```{r load-libraries}
+library(DESeq2)
+library(org.Sc.sgd.db)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+# Loading in the featureCounts object 
+
+We saved this file at the end the exercise (Read_Counting.Rmd). Now we can load that object back in and assign it to the variable fc. Be sure to change the file path if you have saved it in a different location. This is the same way we started the edgeR analysis.
+
+```{r load-fc, error=TRUE}
+fc <- readRDS(file = "~/Desktop/yeast_fc_output.Rds")
+```
+
+
+If you don't have that file for any reason, the below code chunk will load a copy of it from Github.
+```{r altLoad-fc}
+if( !exists("fc") )
+{
+  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/yeast_fc_output.Rds')
+}
+```
+
+We will create the data frame again that has all of the metadata information. 
+
+```{r generate-metadata}
+sample_metadata <- tribble(
+  ~FileName,                                                    ~GEOAccession, ~Condition,
+  "filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz",         "GSM4008800", "heat",
+  "filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz",         "GSM4008801", "heat",
+  "filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz",         "GSM4008802", "heat",
+  "filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz",         "GSM4008803", "heat",
+  "filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz",   "GSM4008796", "unstressed",
+  "filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz",   "GSM4008797", "unstressed",
+  "filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz",   "GSM4008798", "unstressed",
+  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008799", "unstressed") %>%
+  # make Condition a factor (with baseline as first level) for edgeR
+  mutate(Condition = factor(Condition, 
+                            levels = c("unstressed", "heat")
+                            ))
+         
+
+```
+
+Now, let's create a design matrix with this information
+
+```{r}
+# group <- sample_metadata$Condition
+# design <- model.matrix(~ 0 + group)
+# design
+# colnames(design) <- levels(group)
+# design
+```
+
+
+# Count loading and Annotation
+
+The count matrix is used to construct a DESeqDataSet class object. This is the main data class in the DESeq2 package. The DESeqDataSet object is used to store all the information required to fit a generalized linear model to the data, including library sizes and dispersion estimates as well as counts for each gene.
+
+Because we used the featureCounts function (Liao, Smyth, and Shi 2013) in the Rsubread package, the matrix of read counts can be directly provided from the `"counts"` element in the list output. The count matrix and column data can typically be read into R from flat files using base R functions such as read.csv or read.delim.
+
+With the count matrix, cts, and the sample information, coldata, we can construct a DESeqDataSet:
+
+```{r load-counts}
+dds <- DESeqDataSetFromMatrix(countData = fc$counts,
+                              colData = sample_metadata,
+                              design = ~ 0 + Condition)
+dds
+
+# compare this to the edgeR process below:
+# y <- DGEList(fc$counts, group=group)
+# colnames(y) <- sample_metadata$GEOAccession
+# y
+```
+
+Human-readable gene symbols can also be added to complement the gene ID for each gene, using the annotation in the org.Sc.sgd.db package.
+
+```{r}
+# dds$genes <- AnnotationDbi::select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
+# 
+# head(y$genes)
+```
+
+
+# Filtering to remove low counts
+
+
+While it is not necessary to pre-filter low count genes before running the DESeq2 functions, there are two reasons which make pre-filtering useful: by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of count modeling within DESeq2. It can also improve visualizations, as features with no information for differential expression are not plotted in dispersion plots or MA-plots.
+
+Here we perform pre-filtering to keep only rows that have a count of at least 10 for a minimal number of samples. The count of 10 is a reasonable choice for bulk RNA-seq. A recommendation for the minimal number of samples is to specify the smallest group size, e.g. here there are 3 treated samples. If there are not discrete groups, one can use the minimal number of samples where non-zero counts would be considered interesting. One can also omit this step entirely and just rely on the independent filtering procedures available in results(), either IHW or genefilter. See independent filtering section.
+
+```{r filter-lowCounts}
+smallestGroupSize <- 4
+keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
+dds <- dds[keep,]
+
+keep <- rowSums(cpm(y) > 50) >= 4
+y <- y[keep,]
+summary(keep)
+```
+
+
+
+
+# Testing for differential expression
+
+The standard differential expression analysis steps are wrapped into a single function, DESeq. The estimation steps performed by this function are described below, in the manual page for `?DESeq` and in the Methods section of the DESeq2 publication (Love, Huber, and Anders 2014).
+
+Results tables are generated using the function `results`, which extracts a results table with log2 fold changes, p values and adjusted p values. With no additional arguments to `results`, the log2 fold change and Wald test p value will be for the last variable in the design formula, and if this is a factor, the comparison will be the *last level* of this variable over the *reference level* However, the order of the variables of the design do not matter so long as the user specifies the comparison to build a results table for, using the name or contrast arguments of results.
+
+Details about the comparison are printed to the console, directly above the results table. The text, condition treated vs untreated, tells you that the estimates are of the logarithmic fold change log2(treated/untreated).
+
+```{r}
+dds <- DESeq(dds)
+res <- results(dds)
+res
+```
+
+Note that we could have specified the coefficient or contrast we want to build a results table for, using either of the following equivalent commands:
+
+```{r}
+res <- results(dds, name="condition_heat_vs_unstressed")
+res <- results(dds, contrast=c("Condition","heat","unstressed"))
+```
+
+
+```{r}
+topTags(res, n=Inf) %>% data.frame() %>% 
+  arrange(desc(logFC)) %>%
+  mutate(logFC=round(logFC,2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
+```
+
+```{r}
+is.de <- decideTestsDGE(res, p.value=0.05)
+summary(is.de)
+```
+Let's take a quick look at the differential expression
+```{r}
+plotSmear(res, de.tags=rownames(res)[is.de!=0])
+```
+
+
+# Gene Ontology
+```{r}
+# alias2Symbol()
+
+# go <- goana(res, species.KEGG="sce")
+# topGO(go, n=10)
+
+kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
+      plot=T)
+
+topKEGG(kegg, sort="up")
+
+
+gene_data_logFC <- res$table %>% dplyr::select(logFC)
+
+
+if (!requireNamespace("pathview", quietly = TRUE))
+    BiocManager::install("pathview")
+
+library("pathview")
+test <- pathview(gene.data  = gene_data_logFC,
+                     # pathway.id = "sce01100", #metabolic pathways
+                     pathway.id = "sce00010", #glycolysis/gluconeogenesis
+                     # pathway.id = "sce03050", # proteasome cycle
+                     # pathway.id = "sce00020", # TCA cycle
+                     # pathway.id = "sce00500", # starch & sucrose metabolism (trehalose)
+                     # pathway.id = "sce00030", #PPP
+                     species    = "sce",
+                     gene.idtype="orf",
+                     expand.node = TRUE,
+                     map.symbol = T,
+                     kegg.native = F, 
+                     match.data = T, 
+                     multi.state = T, 
+                     bins=20,
+                     same.layer = F,
+                     pdf.size=c(7,7),
+                     limit = list(gene=5, cpd=1))
+```
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+```{r}
+pander::pander(sessionInfo())
+```

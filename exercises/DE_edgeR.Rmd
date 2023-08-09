@@ -18,7 +18,7 @@ As usual, make sure we have the right packages for this exercise
 
 ```{r ready-packages, results="hide",message=FALSE}
 
-list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
+list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager", "reactable")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
@@ -99,7 +99,7 @@ Now, let's create a design matrix with this information
 
 ```{r}
 group <- sample_metadata$Condition
-design <- model.matrix(~ 0+ group, data=y$samples)
+design <- model.matrix(~ 0 + group)
 design
 colnames(design) <- levels(group)
 design
@@ -124,10 +124,11 @@ y$genes <- AnnotationDbi::select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAM
 head(y$genes)
 ```
 
+
 # Filtering to remove low counts
 
 
-Genes with very low counts across all libraries provide little evidence for differential ex- pression. In addition, the pronounced discreteness of these counts interferes with some of the statistical approximations that are used later in the pipeline. These genes should be filtered out prior to further analysis. Here, a gene is only retained if it is expressed at a count-per-million (CPM) above 50 in at least four samples.
+Genes with very low counts across all libraries provide little evidence for differential ex- pression. In addition, the pronounced discreteness of these counts interferes with some of the statistical approximations that are used later in the pipeline. These genes should be filtered out prior to further analysis. Here, we will retain a gene only if it is expressed at a count-per-million (CPM) above 50 in at least four samples.
 
 ```{r filter-lowCounts}
 keep <- rowSums(cpm(y) > 50) >= 4
@@ -172,7 +173,7 @@ The data can be explored by generating multi-dimensional scaling (MDS) plots. Th
 points <- c(0,1,2,15,16,17)
 colors <- rep(c("blue", "darkgreen", "red"), 2)
 plotMDS(y, col=colors[group], pch=points[group])
-legend("topleft", legend=levels(group),
+legend("top", legend=levels(group),
      pch=points, col=colors, ncol=2)
 ```
 
@@ -228,14 +229,18 @@ res <- glmQLFTest(fit, #coef="heat")
 ```
 
 ```{r}
-topTags(res, n=Inf) %>% data.frame() %>% View()# arrange((logFC))
+topTags(res, n=Inf) %>% data.frame() %>% 
+  arrange(desc(logFC)) %>%
+  mutate(logFC=round(logFC,2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
 ```
 
 ```{r}
 is.de <- decideTestsDGE(res, p.value=0.05)
 summary(is.de)
 ```
-
+Let's take a quick look at the differential expression
 ```{r}
 plotSmear(res, de.tags=rownames(res)[is.de!=0])
 ```
@@ -243,10 +248,10 @@ plotSmear(res, de.tags=rownames(res)[is.de!=0])
 
 # Gene Ontology
 ```{r}
-alias2Symbol()
+# alias2Symbol()
 
-go <- goana(res, species.KEGG="sce")
-topGO(go, n=10)
+# go <- goana(res, species.KEGG="sce")
+# topGO(go, n=10)
 
 kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
       plot=T)
@@ -254,24 +259,31 @@ kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
 topKEGG(kegg, sort="up")
 
 
-gene_data_logFC <- res$table %>% select(logFC)
+gene_data_logFC <- res$table %>% dplyr::select(logFC)
+
+
+if (!requireNamespace("pathview", quietly = TRUE))
+    BiocManager::install("pathview")
 
 library("pathview")
 test <- pathview(gene.data  = gene_data_logFC,
                      # pathway.id = "sce01100", #metabolic pathways
                      pathway.id = "sce00010", #glycolysis/gluconeogenesis
-                  # pathway.id = "sce03050", # proteasome cycle
-                 # pathway.id = "sce00020", # TCA cycle
+                     # pathway.id = "sce03050", # proteasome cycle
+                     # pathway.id = "sce00020", # TCA cycle
+                     # pathway.id = "sce00500", # starch & sucrose metabolism (trehalose)
+                     # pathway.id = "sce00030", #PPP
                      species    = "sce",
                      gene.idtype="orf",
-                 expand.node = TRUE,
-                 split.group = T,
-                 map.symbol = T,
-                 kegg.native = F, 
-                 # match.data = F, 
-                 multi.state = F, 
-                 same.layer = F)#,
-                     # limit      = list(gene=max(abs(res)), cpd=1))
+                     expand.node = TRUE,
+                     map.symbol = T,
+                     kegg.native = F, 
+                     match.data = T, 
+                     multi.state = T, 
+                     bins=20,
+                     same.layer = F,
+                     pdf.size=c(7,7),
+                     limit = list(gene=5, cpd=1))
 ```
 
 

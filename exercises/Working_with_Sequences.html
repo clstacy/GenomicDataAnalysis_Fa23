@@ -357,11 +357,18 @@ Quality Control</h1>
 </div>
 
 
-<p>last updated: 2023-08-02</p>
+<p>last updated: 2023-08-14</p>
 <div id="getting-things-setup" class="section level1">
 <h1>Getting Things Setup</h1>
 <p>As usual, make sure we have the right packages for this exercise</p>
-<pre class="r"><code>list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
+<pre class="r"><code>if (!require(&quot;pacman&quot;)) install.packages(&quot;pacman&quot;); library(pacman)
+
+p_load(&quot;tidyverse&quot;, &quot;here&quot;, 
+       &quot;knitr&quot;, &quot;readr&quot;,
+       &quot;pander&quot;, &quot;BiocManager&quot;, 
+       &quot;dplyr&quot;, &quot;stringr&quot;)
+
+list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
 
 new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
 if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
@@ -420,8 +427,8 @@ gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8</code></pre>
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## ** Resuming transfer from byte position 10850882
 ##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
@@ -431,15 +438,14 @@ gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8</code></pre>
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## ** Resuming transfer from byte position 7375039
 ##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
 ##                                  Dload  Upload   Total   Spent    Left  Speed
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## ** Resuming transfer from byte position 10624861
 ##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
@@ -449,7 +455,6 @@ gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8</code></pre>
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## ** Resuming transfer from byte position 6402391
 ##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
 ##                                  Dload  Upload   Total   Spent    Left  Speed
@@ -458,11 +463,11 @@ gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8</code></pre>
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## ** Resuming transfer from byte position 10651634
 ##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
 ##                                  Dload  Upload   Total   Spent    Left  Speed
 ## 
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
@@ -473,8 +478,8 @@ gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8</code></pre>
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## ** Resuming transfer from byte position 6504742
 ##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
@@ -484,7 +489,7 @@ gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8</code></pre>
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
 ## 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0
 ## @SRR9908460.4463773 4463773/1
 ## GCCATTTTGAAAAGTAAGACCACGGAGAGATCAGAAAGGTTGATTCTGCG
 ## +
@@ -670,7 +675,7 @@ qa_phenol_heat_rep4</code></pre>
 report.</p>
 <pre class="r"><code>myReport_phenol_heat_rep4 &lt;- report(qa_phenol_heat_rep4)
 myReport_phenol_heat_rep4</code></pre>
-<pre><code>## [1] &quot;/var/folders/y1/f7wyg4vj50dgrg8drv0bn4nc0000gn/T//RtmpCzKacv/filee08b7fbe5ad4/index.html&quot;</code></pre>
+<pre><code>## [1] &quot;/var/folders/y1/f7wyg4vj50dgrg8drv0bn4nc0000gn/T//RtmpafWc3L/file50de35b5fcc9/index.html&quot;</code></pre>
 <p>Finally we can review the report in a browser or use the browseURL
 function to open it in a browser from R.</p>
 <pre class="r"><code>browseURL(myReport_phenol_heat_rep4)</code></pre>
@@ -702,23 +707,24 @@ trim your data for you, with less input from you. We like fastp as it
 does some basic QC and trims your fastq files, and it does it very
 quickly. To make this available in R, it has been made available in the
 Bioconductor package Rfastp.</p>
-<pre class="r"><code># Let&#39;s run fastp on one of the files to see how it works. Details for this command can be found with ?rfastp
-
-rfastp_report &lt;- rfastp(read1 = &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep4.fastq.gz&quot;, #note rel path doesn&#39;t work here on mac.
-                        outputFastq =&quot;/Users/clstacy/Desktop/phenol_heat_rep4_rfastp_trimmed.fastq.gz&quot;)</code></pre>
 <p>By default, fastp will make a html report to summarize your result.
 But the Rfastp wrapper allows you to look at some of them in R.</p>
-<pre class="r"><code>df_summary &lt;- qcSummary(rfastp_report)
+<pre class="r"><code># if we wanted to just run a single file, we would do so like this:
+
+rfastp_report &lt;- rfastp(read1 = &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz&quot;,
+                        outputFastq =&quot;/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz&quot;)
+
+df_summary &lt;- qcSummary(rfastp_report)
 df_summary</code></pre>
 <pre><code>##                      Before_QC     After_QC
-## total_reads       3.105840e+05 3.091500e+05
-## total_bases       1.552920e+07 1.543000e+07
-## q20_bases         1.538052e+07 1.528321e+07
-## q30_bases         1.504818e+07 1.495474e+07
-## q20_rate          9.904250e-01 9.904870e-01
-## q30_rate          9.690250e-01 9.691990e-01
-## read1_mean_length 5.000000e+01 4.900000e+01
-## gc_content        4.265840e-01 4.260070e-01</code></pre>
+## total_reads       1.878860e+05 1.878710e+05
+## total_bases       9.394300e+06 9.393550e+06
+## q20_bases         9.284122e+06 9.283721e+06
+## q30_bases         9.074983e+06 9.074742e+06
+## q20_rate          9.882720e-01 9.883080e-01
+## q30_rate          9.660090e-01 9.660610e-01
+## read1_mean_length 5.000000e+01 5.000000e+01
+## gc_content        4.089060e-01 4.089170e-01</code></pre>
 </div>
 </div>
 <div id="batch-file-processing" class="section level1">
@@ -747,21 +753,17 @@ fastq.files &lt;- list.files(path = fq_file_dir, # where to look
                           full.names = TRUE) # save the full path to the file
 
 print(fastq.files)</code></pre>
-<pre><code>## [1] &quot;/Users/clstacy/Desktop/phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz&quot;
-## [2] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz&quot;                    
-## [3] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep2.fastq.gz&quot;                    
-## [4] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep3.fastq.gz&quot;                    
-## [5] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep4.fastq.gz&quot;                    
-## [6] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep1.fastq.gz&quot;              
-## [7] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep2.fastq.gz&quot;              
-## [8] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep3.fastq.gz&quot;              
-## [9] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep4.fastq.gz&quot;</code></pre>
+<pre><code>##  [1] &quot;/Users/clstacy/Desktop/phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz&quot;
+##  [2] &quot;/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz&quot;
+##  [3] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz&quot;                    
+##  [4] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep2.fastq.gz&quot;                    
+##  [5] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep3.fastq.gz&quot;                    
+##  [6] &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep4.fastq.gz&quot;                    
+##  [7] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep1.fastq.gz&quot;              
+##  [8] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep2.fastq.gz&quot;              
+##  [9] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep3.fastq.gz&quot;              
+## [10] &quot;/Users/clstacy/Desktop/subset_phenol_unstressed_rep4.fastq.gz&quot;</code></pre>
 <p>Now we have all of the file paths</p>
-<pre class="r"><code># if we wanted to just run a single file, we would do so like this:
-# NOT RUN
-
-# rfastp_report &lt;- rfastp(read1 = &quot;/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz&quot;,
-#                         outputFastq =&quot;/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz&quot;)</code></pre>
 <p>We can loop through all of the files to perform filtering and
 trimming. Note there are many arguments that can be modified. Use
 ?rfastp to learn more.</p>
@@ -795,30 +797,32 @@ for (i in 1:length(fastq.files)) {
   
   # Print the output file link in the R Markdown document
   cat(paste0(
-    &quot;[Download Processed File - &quot;,
+    &quot;[Processing Complete - &quot;,
     basename(output_name),
     &quot;](&quot;,
     output_name,
     &quot;)\n\n&quot;
   ))
 }</code></pre>
-<pre><code>## [Download Processed File - filtered_phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz)
+<pre><code>## [Processing Complete - filtered_phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_heat_rep1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep1.fastq.gz)
+## [Processing Complete - filtered_rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_heat_rep2.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep2.fastq.gz)
+## [Processing Complete - filtered_subset_phenol_heat_rep1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep1.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_heat_rep3.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep3.fastq.gz)
+## [Processing Complete - filtered_subset_phenol_heat_rep2.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep2.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_heat_rep4.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep4.fastq.gz)
+## [Processing Complete - filtered_subset_phenol_heat_rep3.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep3.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_unstressed_rep1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep1.fastq.gz)
+## [Processing Complete - filtered_subset_phenol_heat_rep4.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep4.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_unstressed_rep2.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep2.fastq.gz)
+## [Processing Complete - filtered_subset_phenol_unstressed_rep1.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep1.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_unstressed_rep3.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep3.fastq.gz)
+## [Processing Complete - filtered_subset_phenol_unstressed_rep2.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep2.fastq.gz)
 ## 
-## [Download Processed File - filtered_subset_phenol_unstressed_rep4.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep4.fastq.gz)</code></pre>
+## [Processing Complete - filtered_subset_phenol_unstressed_rep3.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep3.fastq.gz)
+## 
+## [Processing Complete - filtered_subset_phenol_unstressed_rep4.fastq.gz](/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep4.fastq.gz)</code></pre>
 <div id="qc-and-adapters" class="section level2">
 <h2>QC and adapters</h2>
 <p>Another common tool for quality control is called FastQC, useable via
@@ -868,6 +872,48 @@ fi</code></pre>
 ## Approx 90% complete for phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz
 ## Approx 95% complete for phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz
 ## Analysis complete for phenol_heat_rep4_rfastp_trimmed.fastq.gz_R1.fastq.gz
+## Started analysis of phenol_heat_rep4_trimmed.fastq.gz
+## Approx 5% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 10% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 15% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 20% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 25% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 30% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 35% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 40% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 45% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 50% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 55% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 60% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 65% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 70% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 75% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 80% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 85% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 90% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Approx 95% complete for phenol_heat_rep4_trimmed.fastq.gz
+## Analysis complete for phenol_heat_rep4_trimmed.fastq.gz
+## Started analysis of rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 5% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 10% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 15% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 20% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 25% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 30% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 35% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 40% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 45% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 50% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 55% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 60% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 65% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 70% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 75% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 80% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 85% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 90% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Approx 95% complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
+## Analysis complete for rfastp_trimmed_phenol_heat_rep1.fastq.gz_R1.fastq.gz
 ## Started analysis of subset_phenol_heat_rep1.fastq.gz
 ## Approx 5% complete for subset_phenol_heat_rep1.fastq.gz
 ## Approx 10% complete for subset_phenol_heat_rep1.fastq.gz
@@ -1057,6 +1103,27 @@ fi</code></pre>
 ## Approx 90% complete for filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz
 ## Approx 95% complete for filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz
 ## Analysis complete for filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz
+## Started analysis of filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 5% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 10% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 15% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 20% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 25% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 30% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 35% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 40% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 45% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 50% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 55% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 60% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 65% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 70% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 75% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 80% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 85% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 90% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Approx 95% complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
+## Analysis complete for filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz
 ## Started analysis of filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz
 ## Approx 5% complete for filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz
 ## Approx 10% complete for filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz
@@ -1246,58 +1313,50 @@ en_US.UTF-8||en_US.UTF-8||en_US.UTF-8||C||en_US.UTF-8||en_US.UTF-8</p>
 <p><strong>other attached packages:</strong> <em>Rfastp(v.1.8.0)</em>,
 <em>ShortRead(v.1.56.1)</em>, <em>GenomicAlignments(v.1.34.1)</em>,
 <em>SummarizedExperiment(v.1.28.0)</em>, <em>Biobase(v.2.58.0)</em>,
-<em>MatrixGenerics(v.1.10.0)</em>, <em>matrixStats(v.0.63.0)</em>,
+<em>MatrixGenerics(v.1.10.0)</em>, <em>matrixStats(v.1.0.0)</em>,
 <em>Rsamtools(v.2.14.0)</em>, <em>GenomicRanges(v.1.50.2)</em>,
-<em>Biostrings(v.2.66.0)</em>, <em>GenomeInfoDb(v.1.34.4)</em>,
+<em>Biostrings(v.2.66.0)</em>, <em>GenomeInfoDb(v.1.34.9)</em>,
 <em>XVector(v.0.38.0)</em>, <em>IRanges(v.2.32.0)</em>,
-<em>S4Vectors(v.0.36.2)</em>, <em>BiocParallel(v.1.32.4)</em>,
-<em>BiocGenerics(v.0.44.0)</em>, <em>BiocManager(v.1.30.19)</em>,
-<em>pander(v.0.6.5)</em>, <em>knitr(v.1.42)</em>,
-<em>here(v.1.0.1)</em>, <em>forcats(v.0.5.2)</em>,
-<em>stringr(v.1.5.0)</em>, <em>dplyr(v.1.1.0)</em>,
-<em>purrr(v.1.0.1)</em>, <em>readr(v.2.1.3)</em>,
-<em>tidyr(v.1.3.0)</em>, <em>tibble(v.3.1.8)</em>,
-<em>ggplot2(v.3.4.1)</em> and <em>tidyverse(v.1.3.2)</em></p>
+<em>S4Vectors(v.0.36.2)</em>, <em>BiocParallel(v.1.32.6)</em>,
+<em>BiocGenerics(v.0.44.0)</em>, <em>BiocManager(v.1.30.21.1)</em>,
+<em>pander(v.0.6.5)</em>, <em>knitr(v.1.43)</em>,
+<em>here(v.1.0.1)</em>, <em>lubridate(v.1.9.2)</em>,
+<em>forcats(v.1.0.0)</em>, <em>stringr(v.1.5.0)</em>,
+<em>dplyr(v.1.1.2)</em>, <em>purrr(v.1.0.1)</em>,
+<em>readr(v.2.1.4)</em>, <em>tidyr(v.1.3.0)</em>,
+<em>tibble(v.3.2.1)</em>, <em>ggplot2(v.3.4.2)</em>,
+<em>tidyverse(v.2.0.0)</em> and <em>pacman(v.0.5.1)</em></p>
 <p><strong>loaded via a namespace (and not attached):</strong>
-<em>bitops(v.1.0-7)</em>, <em>fs(v.1.6.1)</em>,
-<em>lubridate(v.1.9.0)</em>, <em>RColorBrewer(v.1.1-3)</em>,
-<em>httr(v.1.4.5)</em>, <em>rprojroot(v.2.0.3)</em>,
-<em>tools(v.4.2.2)</em>, <em>backports(v.1.4.1)</em>,
-<em>bslib(v.0.4.2)</em>, <em>utf8(v.1.2.3)</em>, <em>R6(v.2.5.1)</em>,
-<em>DBI(v.1.1.3)</em>, <em>colorspace(v.2.1-0)</em>,
-<em>withr(v.2.5.0)</em>, <em>tidyselect(v.1.2.0)</em>,
-<em>compiler(v.4.2.2)</em>, <em>cli(v.3.6.0)</em>,
-<em>rvest(v.1.0.3)</em>, <em>xml2(v.1.3.3)</em>,
-<em>DelayedArray(v.0.24.0)</em>, <em>sass(v.0.4.5)</em>,
-<em>scales(v.1.2.1)</em>, <em>digest(v.0.6.31)</em>,
-<em>rmarkdown(v.2.20)</em>, <em>jpeg(v.0.1-10)</em>,
-<em>pkgconfig(v.2.0.3)</em>, <em>htmltools(v.0.5.4)</em>,
-<em>dbplyr(v.2.2.1)</em>, <em>fastmap(v.1.1.1)</em>,
-<em>rlang(v.1.0.6)</em>, <em>readxl(v.1.4.1)</em>,
-<em>rstudioapi(v.0.14)</em>, <em>jquerylib(v.0.1.4)</em>,
-<em>generics(v.0.1.3)</em>, <em>hwriter(v.1.3.2.1)</em>,
-<em>jsonlite(v.1.8.4)</em>, <em>googlesheets4(v.1.0.1)</em>,
-<em>RCurl(v.1.98-1.9)</em>, <em>magrittr(v.2.0.3)</em>,
-<em>GenomeInfoDbData(v.1.2.9)</em>, <em>interp(v.1.1-4)</em>,
-<em>Matrix(v.1.5-1)</em>, <em>Rcpp(v.1.0.10)</em>,
-<em>munsell(v.0.5.0)</em>, <em>fansi(v.1.0.4)</em>,
-<em>lifecycle(v.1.0.3)</em>, <em>stringi(v.1.7.12)</em>,
-<em>yaml(v.2.3.7)</em>, <em>zlibbioc(v.1.44.0)</em>,
-<em>plyr(v.1.8.8)</em>, <em>grid(v.4.2.2)</em>,
-<em>parallel(v.4.2.2)</em>, <em>crayon(v.1.5.2)</em>,
-<em>deldir(v.1.0-9)</em>, <em>lattice(v.0.20-45)</em>,
-<em>haven(v.2.5.1)</em>, <em>hms(v.1.1.2)</em>,
-<em>pillar(v.1.8.1)</em>, <em>rjson(v.0.2.21)</em>,
-<em>codetools(v.0.2-18)</em>, <em>reshape2(v.1.4.4)</em>,
-<em>reprex(v.2.0.2)</em>, <em>glue(v.1.6.2)</em>,
-<em>evaluate(v.0.20)</em>, <em>latticeExtra(v.0.6-30)</em>,
-<em>modelr(v.0.1.10)</em>, <em>png(v.0.1-8)</em>,
-<em>vctrs(v.0.5.2)</em>, <em>tzdb(v.0.3.0)</em>,
-<em>cellranger(v.1.1.0)</em>, <em>gtable(v.0.3.1)</em>,
-<em>assertthat(v.0.2.1)</em>, <em>cachem(v.1.0.7)</em>,
-<em>xfun(v.0.39)</em>, <em>broom(v.1.0.1)</em>,
-<em>googledrive(v.2.0.0)</em>, <em>gargle(v.1.2.1)</em>,
-<em>timechange(v.0.1.1)</em> and <em>ellipsis(v.0.3.2)</em></p>
+<em>sass(v.0.4.7)</em>, <em>jsonlite(v.1.8.7)</em>,
+<em>bslib(v.0.5.0)</em>, <em>latticeExtra(v.0.6-30)</em>,
+<em>GenomeInfoDbData(v.1.2.9)</em>, <em>yaml(v.2.3.7)</em>,
+<em>pillar(v.1.9.0)</em>, <em>lattice(v.0.21-8)</em>,
+<em>glue(v.1.6.2)</em>, <em>digest(v.0.6.33)</em>,
+<em>RColorBrewer(v.1.1-3)</em>, <em>colorspace(v.2.1-0)</em>,
+<em>htmltools(v.0.5.5)</em>, <em>Matrix(v.1.6-0)</em>,
+<em>plyr(v.1.8.8)</em>, <em>pkgconfig(v.2.0.3)</em>,
+<em>zlibbioc(v.1.44.0)</em>, <em>scales(v.1.2.1)</em>,
+<em>jpeg(v.0.1-10)</em>, <em>tzdb(v.0.4.0)</em>,
+<em>timechange(v.0.2.0)</em>, <em>generics(v.0.1.3)</em>,
+<em>cachem(v.1.0.8)</em>, <em>withr(v.2.5.0)</em>,
+<em>cli(v.3.6.1)</em>, <em>deldir(v.1.0-9)</em>,
+<em>magrittr(v.2.0.3)</em>, <em>crayon(v.1.5.2)</em>,
+<em>evaluate(v.0.21)</em>, <em>fansi(v.1.0.4)</em>,
+<em>hwriter(v.1.3.2.1)</em>, <em>tools(v.4.2.2)</em>,
+<em>hms(v.1.1.3)</em>, <em>lifecycle(v.1.0.3)</em>,
+<em>interp(v.1.1-4)</em>, <em>munsell(v.0.5.0)</em>,
+<em>DelayedArray(v.0.24.0)</em>, <em>compiler(v.4.2.2)</em>,
+<em>jquerylib(v.0.1.4)</em>, <em>rlang(v.1.1.1)</em>,
+<em>grid(v.4.2.2)</em>, <em>RCurl(v.1.98-1.12)</em>,
+<em>rstudioapi(v.0.15.0)</em>, <em>rjson(v.0.2.21)</em>,
+<em>bitops(v.1.0-7)</em>, <em>rmarkdown(v.2.23)</em>,
+<em>gtable(v.0.3.3)</em>, <em>codetools(v.0.2-19)</em>,
+<em>reshape2(v.1.4.4)</em>, <em>R6(v.2.5.1)</em>,
+<em>fastmap(v.1.1.1)</em>, <em>utf8(v.1.2.3)</em>,
+<em>rprojroot(v.2.0.3)</em>, <em>stringi(v.1.7.12)</em>,
+<em>parallel(v.4.2.2)</em>, <em>Rcpp(v.1.0.11)</em>,
+<em>png(v.0.1-8)</em>, <em>vctrs(v.0.6.3)</em>,
+<em>tidyselect(v.1.2.0)</em> and <em>xfun(v.0.39)</em></p>
 </div>
 </div>
 

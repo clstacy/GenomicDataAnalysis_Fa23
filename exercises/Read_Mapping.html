@@ -356,7 +356,7 @@ display: none;
 </div>
 
 
-<p>last updated: 2023-08-02</p>
+<p>last updated: 2023-08-14</p>
 <p>As usual, make sure we have the right packages for this exercise</p>
 <pre class="r"><code>list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
 
@@ -377,15 +377,16 @@ trimmed.fastq.files &lt;- list.files(path = trimmed.fq_file_dir,
                                   pattern = &quot;.fastq.gz$&quot;, 
                                   full.names = TRUE)
 trimmed.fastq.files</code></pre>
-<pre><code>## [1] &quot;/Users/clstacy/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz&quot;
-## [2] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz&quot;        
-## [3] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz&quot;        
-## [4] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz&quot;        
-## [5] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz&quot;        
-## [6] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz&quot;  
-## [7] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz&quot;  
-## [8] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz&quot;  
-## [9] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz&quot;</code></pre>
+<pre><code>##  [1] &quot;/Users/clstacy/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz&quot;
+##  [2] &quot;/Users/clstacy/Desktop/filtered/filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz&quot;
+##  [3] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz&quot;        
+##  [4] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz&quot;        
+##  [5] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz&quot;        
+##  [6] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz&quot;        
+##  [7] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz&quot;  
+##  [8] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz&quot;  
+##  [9] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz&quot;  
+## [10] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz&quot;</code></pre>
 <p>You should see the full paths to all 8 trimmed fastq files that we
 will be mapping to the reference genome today.</p>
 <div id="alignment" class="section level1">
@@ -419,7 +420,16 @@ else
     echo &quot;File already exists at $REF_DIR Skipping download.&quot;
 fi</code></pre>
 <pre><code>## mkdir: /Users/clstacy/Desktop/reference_genome: File exists
-## File already exists at /Users/clstacy/Desktop/reference_genome Skipping download.</code></pre>
+## Reference genome not found, downloading...
+##   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+##                                  Dload  Upload   Total   Spent    Left  Speed
+## 
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0
+ 20 3695k   20  747k    0     0   285k      0  0:00:12  0:00:02  0:00:10  285k
+100 3695k  100 3695k    0     0  1176k      0  0:00:03  0:00:03 --:--:-- 1178k
+## Downloading finished</code></pre>
 </div>
 <div id="build-the-index" class="section level2">
 <h2>Build the index</h2>
@@ -459,7 +469,7 @@ buildindex(basename=index_reference_genome, reference=reference_genome)</code></
 ## ||          Repeat threshold : 100 repeats                                    ||
 ## ||              Gapped index : no                                             ||
 ## ||                                                                            ||
-## ||       Free / total memory : 1.8GB / 8.0GB                                  ||
+## ||       Free / total memory : 1.4GB / 8.0GB                                  ||
 ## ||                                                                            ||
 ## ||               Input files : 1 file in total                                ||
 ## ||                             o Saccharomyces_cerevisiae.R64-1-1.dna.top ... ||
@@ -478,34 +488,34 @@ buildindex(basename=index_reference_genome, reference=reference_genome)</code></
 ## || 11 uninformative subreads were found.                                      ||
 ## || These subreads were excluded from index building.                          ||
 ## || Estimate the index size...                                                 ||
-## ||    8%,   0 mins elapsed, rate=9608.5k bps/s                                ||
-## ||   16%,   0 mins elapsed, rate=11147.6k bps/s                               ||
-## ||   24%,   0 mins elapsed, rate=11587.5k bps/s                               ||
-## ||   33%,   0 mins elapsed, rate=11934.0k bps/s                               ||
-## ||   41%,   0 mins elapsed, rate=12074.1k bps/s                               ||
-## ||   49%,   0 mins elapsed, rate=12271.0k bps/s                               ||
-## ||   58%,   0 mins elapsed, rate=12398.6k bps/s                               ||
-## ||   66%,   0 mins elapsed, rate=12537.4k bps/s                               ||
-## ||   74%,   0 mins elapsed, rate=12651.1k bps/s                               ||
-## ||   83%,   0 mins elapsed, rate=12724.2k bps/s                               ||
-## ||   91%,   0 mins elapsed, rate=12778.8k bps/s                               ||
+## ||    8%,   0 mins elapsed, rate=6867.4k bps/s                                ||
+## ||   16%,   0 mins elapsed, rate=7017.6k bps/s                                ||
+## ||   24%,   0 mins elapsed, rate=7074.2k bps/s                                ||
+## ||   33%,   0 mins elapsed, rate=7267.8k bps/s                                ||
+## ||   41%,   0 mins elapsed, rate=7243.4k bps/s                                ||
+## ||   49%,   0 mins elapsed, rate=7208.0k bps/s                                ||
+## ||   58%,   0 mins elapsed, rate=7201.3k bps/s                                ||
+## ||   66%,   0 mins elapsed, rate=7193.6k bps/s                                ||
+## ||   74%,   0 mins elapsed, rate=7192.3k bps/s                                ||
+## ||   83%,   0 mins elapsed, rate=7160.1k bps/s                                ||
+## ||   91%,   0 mins elapsed, rate=7116.6k bps/s                                ||
 ## ||                                                                            ||
 ## ||              WARNING: available memory is lower than 3.0 GB.               ||
 ## ||                           The program may run very slow.                   ||
 ## || Build a gapped index and/or split index into blocks to reduce memory use.  ||
 ## ||                                                                            ||
 ## || Build the index...                                                         ||
-## ||    8%,   0 mins elapsed, rate=247.8k bps/s                                 ||
-## ||   16%,   0 mins elapsed, rate=307.0k bps/s                                 ||
-## ||   24%,   0 mins elapsed, rate=318.1k bps/s                                 ||
-## ||   33%,   0 mins elapsed, rate=327.4k bps/s                                 ||
-## ||   41%,   0 mins elapsed, rate=340.9k bps/s                                 ||
-## ||   49%,   0 mins elapsed, rate=349.8k bps/s                                 ||
-## ||   58%,   0 mins elapsed, rate=353.2k bps/s                                 ||
-## ||   66%,   0 mins elapsed, rate=360.6k bps/s                                 ||
-## ||   74%,   0 mins elapsed, rate=361.0k bps/s                                 ||
-## ||   83%,   0 mins elapsed, rate=365.8k bps/s                                 ||
-## ||   91%,   0 mins elapsed, rate=362.8k bps/s                                 ||
+## ||    8%,   0 mins elapsed, rate=198.1k bps/s                                 ||
+## ||   16%,   0 mins elapsed, rate=223.6k bps/s                                 ||
+## ||   24%,   0 mins elapsed, rate=236.4k bps/s                                 ||
+## ||   33%,   0 mins elapsed, rate=244.0k bps/s                                 ||
+## ||   41%,   0 mins elapsed, rate=249.8k bps/s                                 ||
+## ||   49%,   0 mins elapsed, rate=253.4k bps/s                                 ||
+## ||   58%,   0 mins elapsed, rate=255.4k bps/s                                 ||
+## ||   66%,   0 mins elapsed, rate=258.2k bps/s                                 ||
+## ||   74%,   0 mins elapsed, rate=259.9k bps/s                                 ||
+## ||   83%,   0 mins elapsed, rate=261.0k bps/s                                 ||
+## ||   91%,   0 mins elapsed, rate=261.3k bps/s                                 ||
 ## || Save current index block...                                                ||
 ## ||  [ 0.0% finished ]                                                         ||
 ## ||  [ 10.0% finished ]                                                        ||
@@ -519,7 +529,7 @@ buildindex(basename=index_reference_genome, reference=reference_genome)</code></
 ## ||  [ 90.0% finished ]                                                        ||
 ## ||  [ 100.0% finished ]                                                       ||
 ## ||                                                                            ||
-## ||                      Total running time: 1.0 minutes.                      ||
+## ||                      Total running time: 1.4 minutes.                      ||
 ## ||Index /Users/clstacy/Desktop/reference_genome/sacCer3 was successfully ... ||
 ## ||                                                                            ||
 ## \\============================================================================//</code></pre>
@@ -583,7 +593,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 10:58:48, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:09:24, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -597,25 +607,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    2% completed, 2.2 mins elapsed, rate=9.6k reads per second              ||
-## ||    8% completed, 2.2 mins elapsed, rate=13.0k reads per second             ||
-## ||   15% completed, 2.3 mins elapsed, rate=13.7k reads per second             ||
-## ||   22% completed, 2.3 mins elapsed, rate=14.2k reads per second             ||
-## ||   28% completed, 2.3 mins elapsed, rate=14.0k reads per second             ||
-## ||   35% completed, 2.3 mins elapsed, rate=14.0k reads per second             ||
-## ||   42% completed, 2.4 mins elapsed, rate=14.2k reads per second             ||
-## ||   48% completed, 2.4 mins elapsed, rate=14.6k reads per second             ||
-## ||   55% completed, 2.4 mins elapsed, rate=15.3k reads per second             ||
-## ||   62% completed, 2.4 mins elapsed, rate=15.7k reads per second             ||
-## ||   69% completed, 2.4 mins elapsed, rate=1.5k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.6k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.6k reads per second              ||
-## ||   80% completed, 2.4 mins elapsed, rate=1.7k reads per second              ||
-## ||   83% completed, 2.4 mins elapsed, rate=1.8k reads per second              ||
-## ||   86% completed, 2.4 mins elapsed, rate=1.8k reads per second              ||
-## ||   90% completed, 2.4 mins elapsed, rate=1.9k reads per second              ||
-## ||   93% completed, 2.4 mins elapsed, rate=2.0k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=2.0k reads per second              ||
+## ||    2% completed, 3.6 mins elapsed, rate=8.5k reads per second              ||
+## ||    8% completed, 3.6 mins elapsed, rate=11.2k reads per second             ||
+## ||   15% completed, 3.6 mins elapsed, rate=11.9k reads per second             ||
+## ||   22% completed, 3.6 mins elapsed, rate=12.2k reads per second             ||
+## ||   28% completed, 3.7 mins elapsed, rate=12.3k reads per second             ||
+## ||   35% completed, 3.7 mins elapsed, rate=12.3k reads per second             ||
+## ||   42% completed, 3.7 mins elapsed, rate=12.8k reads per second             ||
+## ||   48% completed, 3.7 mins elapsed, rate=13.7k reads per second             ||
+## ||   55% completed, 3.7 mins elapsed, rate=14.6k reads per second             ||
+## ||   62% completed, 3.8 mins elapsed, rate=15.3k reads per second             ||
+## ||   69% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   73% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   76% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   80% completed, 3.8 mins elapsed, rate=1.1k reads per second              ||
+## ||   83% completed, 3.8 mins elapsed, rate=1.1k reads per second              ||
+## ||   86% completed, 3.8 mins elapsed, rate=1.2k reads per second              ||
+## ||   90% completed, 3.8 mins elapsed, rate=1.2k reads per second              ||
+## ||   93% completed, 3.8 mins elapsed, rate=1.3k reads per second              ||
+## ||   96% completed, 3.8 mins elapsed, rate=1.3k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -632,7 +642,88 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 309                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 3.8 minutes                                  ||
+## ||                                                                            ||
+## \\============================================================================//
+## 
+## 
+##         ==========     _____ _    _ ____  _____  ______          _____  
+##         =====         / ____| |  | |  _ \|  __ \|  ____|   /\   |  __ \ 
+##           =====      | (___ | |  | | |_) | |__) | |__     /  \  | |  | |
+##             ====      \___ \| |  | |  _ &lt;|  _  /|  __|   / /\ \ | |  | |
+##               ====    ____) | |__| | |_) | | \ \| |____ / ____ \| |__| |
+##         ==========   |_____/ \____/|____/|_|  \_\______/_/    \_\_____/
+##        Rsubread 2.12.3
+## 
+## //================================= setting ==================================\\
+## ||                                                                            ||
+## || Function      : Read alignment (RNA-Seq)                                   ||
+## || Input file    : filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fas ... ||
+## || Output file   : filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fas ... ||
+## || Index name    : sacCer3                                                    ||
+## ||                                                                            ||
+## ||                    ------------------------------------                    ||
+## ||                                                                            ||
+## ||                               Threads : 1                                  ||
+## ||                          Phred offset : 33                                 ||
+## ||                             Min votes : 3 / 10                             ||
+## ||                        Max mismatches : 3                                  ||
+## ||                      Max indel length : 5                                  ||
+## ||            Report multi-mapping reads : yes                                ||
+## || Max alignments per multi-mapping read : 1                                  ||
+## ||                                                                            ||
+## \\============================================================================//
+## 
+## //================ Running (14-Aug-2023 09:13:11, pid=21026) =================\\
+## ||                                                                            ||
+## || Check the input reads.                                                     ||
+## || The input file contains base space reads.                                  ||
+## || Initialise the memory objects.                                             ||
+## || Estimate the mean read length.                                             ||
+## || The range of Phred scores observed in the data is [2,41]                   ||
+## || Create the output BAM file.                                                ||
+## || Check the index.                                                           ||
+## || Init the voting space.                                                     ||
+## || Global environment is initialised.                                         ||
+## || Load the 1-th index block...                                               ||
+## || The index block has been loaded.                                           ||
+## || Start read mapping in chunk.                                               ||
+## ||    3% completed, 3.6 mins elapsed, rate=8.7k reads per second              ||
+## ||   10% completed, 3.6 mins elapsed, rate=10.3k reads per second             ||
+## ||   16% completed, 3.6 mins elapsed, rate=10.8k reads per second             ||
+## ||   23% completed, 3.6 mins elapsed, rate=11.0k reads per second             ||
+## ||   30% completed, 3.6 mins elapsed, rate=11.2k reads per second             ||
+## ||   36% completed, 3.7 mins elapsed, rate=11.4k reads per second             ||
+## ||   43% completed, 3.7 mins elapsed, rate=11.7k reads per second             ||
+## ||   50% completed, 3.7 mins elapsed, rate=11.8k reads per second             ||
+## ||   56% completed, 3.7 mins elapsed, rate=12.0k reads per second             ||
+## ||   63% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   70% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   73% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   76% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   80% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   83% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   86% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   90% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   93% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   96% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||                                                                            ||
+## ||                           Completed successfully.                          ||
+## ||                                                                            ||
+## \\====================================    ====================================//
+## 
+## //================================   Summary =================================\\
+## ||                                                                            ||
+## ||                 Total reads : 187,871                                      ||
+## ||                      Mapped : 180,883 (96.3%)                              ||
+## ||             Uniquely mapped : 160,882                                      ||
+## ||               Multi-mapping : 20,001                                       ||
+## ||                                                                            ||
+## ||                    Unmapped : 6,988                                        ||
+## ||                                                                            ||
+## ||                      Indels : 185                                          ||
+## ||                                                                            ||
+## ||                Running time : 3.7 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -664,7 +755,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:01:14, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:16:56, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -678,25 +769,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    3% completed, 2.2 mins elapsed, rate=10.5k reads per second             ||
-## ||   10% completed, 2.3 mins elapsed, rate=12.5k reads per second             ||
-## ||   16% completed, 2.3 mins elapsed, rate=13.0k reads per second             ||
-## ||   23% completed, 2.3 mins elapsed, rate=13.1k reads per second             ||
-## ||   30% completed, 2.3 mins elapsed, rate=13.3k reads per second             ||
-## ||   36% completed, 2.3 mins elapsed, rate=13.4k reads per second             ||
-## ||   43% completed, 2.3 mins elapsed, rate=13.7k reads per second             ||
-## ||   50% completed, 2.3 mins elapsed, rate=14.0k reads per second             ||
-## ||   56% completed, 2.3 mins elapsed, rate=14.3k reads per second             ||
-## ||   63% completed, 2.4 mins elapsed, rate=14.6k reads per second             ||
-## ||   70% completed, 2.4 mins elapsed, rate=0.9k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.0k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.0k reads per second              ||
-## ||   80% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   83% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   86% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   90% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   93% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
+## ||    3% completed, 3.6 mins elapsed, rate=9.8k reads per second              ||
+## ||   10% completed, 3.6 mins elapsed, rate=11.5k reads per second             ||
+## ||   16% completed, 3.6 mins elapsed, rate=12.1k reads per second             ||
+## ||   23% completed, 3.7 mins elapsed, rate=12.2k reads per second             ||
+## ||   30% completed, 3.7 mins elapsed, rate=12.4k reads per second             ||
+## ||   36% completed, 3.7 mins elapsed, rate=12.6k reads per second             ||
+## ||   43% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   50% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   56% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   63% completed, 3.8 mins elapsed, rate=12.6k reads per second             ||
+## ||   70% completed, 3.8 mins elapsed, rate=0.6k reads per second              ||
+## ||   73% completed, 3.8 mins elapsed, rate=0.6k reads per second              ||
+## ||   76% completed, 3.8 mins elapsed, rate=0.6k reads per second              ||
+## ||   80% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   83% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   86% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   90% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   93% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
+## ||   96% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -713,7 +804,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 185                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 3.8 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -745,7 +836,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:03:37, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:20:42, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -759,25 +850,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    2% completed, 2.2 mins elapsed, rate=11.1k reads per second             ||
-## ||    8% completed, 2.3 mins elapsed, rate=12.7k reads per second             ||
-## ||   15% completed, 2.3 mins elapsed, rate=13.6k reads per second             ||
-## ||   22% completed, 2.3 mins elapsed, rate=13.5k reads per second             ||
-## ||   28% completed, 2.3 mins elapsed, rate=13.8k reads per second             ||
-## ||   35% completed, 2.4 mins elapsed, rate=13.9k reads per second             ||
-## ||   42% completed, 2.4 mins elapsed, rate=13.8k reads per second             ||
-## ||   48% completed, 2.4 mins elapsed, rate=14.6k reads per second             ||
-## ||   55% completed, 2.4 mins elapsed, rate=15.5k reads per second             ||
-## ||   62% completed, 2.4 mins elapsed, rate=16.3k reads per second             ||
-## ||   70% completed, 2.4 mins elapsed, rate=1.5k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.6k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.7k reads per second              ||
-## ||   80% completed, 2.5 mins elapsed, rate=1.7k reads per second              ||
-## ||   83% completed, 2.5 mins elapsed, rate=1.8k reads per second              ||
-## ||   86% completed, 2.5 mins elapsed, rate=1.9k reads per second              ||
-## ||   89% completed, 2.5 mins elapsed, rate=1.9k reads per second              ||
-## ||   93% completed, 2.5 mins elapsed, rate=2.0k reads per second              ||
-## ||   96% completed, 2.5 mins elapsed, rate=2.1k reads per second              ||
+## ||    2% completed, 3.6 mins elapsed, rate=8.7k reads per second              ||
+## ||    8% completed, 3.6 mins elapsed, rate=11.8k reads per second             ||
+## ||   15% completed, 3.6 mins elapsed, rate=12.4k reads per second             ||
+## ||   22% completed, 3.6 mins elapsed, rate=12.6k reads per second             ||
+## ||   28% completed, 3.7 mins elapsed, rate=12.8k reads per second             ||
+## ||   35% completed, 3.7 mins elapsed, rate=13.0k reads per second             ||
+## ||   42% completed, 3.7 mins elapsed, rate=13.6k reads per second             ||
+## ||   48% completed, 3.7 mins elapsed, rate=15.0k reads per second             ||
+## ||   55% completed, 3.7 mins elapsed, rate=16.1k reads per second             ||
+## ||   62% completed, 3.7 mins elapsed, rate=17.3k reads per second             ||
+## ||   70% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   73% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   76% completed, 3.8 mins elapsed, rate=1.1k reads per second              ||
+## ||   80% completed, 3.8 mins elapsed, rate=1.1k reads per second              ||
+## ||   83% completed, 3.8 mins elapsed, rate=1.2k reads per second              ||
+## ||   86% completed, 3.8 mins elapsed, rate=1.2k reads per second              ||
+## ||   89% completed, 3.8 mins elapsed, rate=1.3k reads per second              ||
+## ||   93% completed, 3.8 mins elapsed, rate=1.3k reads per second              ||
+## ||   96% completed, 3.8 mins elapsed, rate=1.4k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -794,7 +885,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 349                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.5 minutes                                  ||
+## ||                Running time : 3.8 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -826,7 +917,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:06:04, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:24:29, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -840,25 +931,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    3% completed, 2.2 mins elapsed, rate=11.9k reads per second             ||
-## ||    9% completed, 2.3 mins elapsed, rate=14.8k reads per second             ||
-## ||   16% completed, 2.3 mins elapsed, rate=15.3k reads per second             ||
-## ||   23% completed, 2.3 mins elapsed, rate=15.5k reads per second             ||
-## ||   29% completed, 2.3 mins elapsed, rate=15.7k reads per second             ||
-## ||   36% completed, 2.3 mins elapsed, rate=15.9k reads per second             ||
-## ||   43% completed, 2.3 mins elapsed, rate=15.9k reads per second             ||
-## ||   49% completed, 2.3 mins elapsed, rate=15.7k reads per second             ||
-## ||   56% completed, 2.4 mins elapsed, rate=15.7k reads per second             ||
-## ||   63% completed, 2.4 mins elapsed, rate=15.7k reads per second             ||
-## ||   70% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   79% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   83% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
-## ||   86% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
-## ||   90% completed, 2.4 mins elapsed, rate=1.4k reads per second              ||
-## ||   93% completed, 2.4 mins elapsed, rate=1.4k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=1.5k reads per second              ||
+## ||    3% completed, 3.6 mins elapsed, rate=7.1k reads per second              ||
+## ||    9% completed, 3.6 mins elapsed, rate=9.4k reads per second              ||
+## ||   16% completed, 3.6 mins elapsed, rate=10.3k reads per second             ||
+## ||   23% completed, 3.7 mins elapsed, rate=10.3k reads per second             ||
+## ||   29% completed, 3.7 mins elapsed, rate=10.4k reads per second             ||
+## ||   36% completed, 3.7 mins elapsed, rate=10.7k reads per second             ||
+## ||   43% completed, 3.7 mins elapsed, rate=11.0k reads per second             ||
+## ||   49% completed, 3.7 mins elapsed, rate=11.3k reads per second             ||
+## ||   56% completed, 3.8 mins elapsed, rate=11.8k reads per second             ||
+## ||   63% completed, 3.8 mins elapsed, rate=12.3k reads per second             ||
+## ||   70% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   73% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   76% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   79% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
+## ||   83% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
+## ||   86% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
+## ||   90% completed, 3.8 mins elapsed, rate=0.9k reads per second              ||
+## ||   93% completed, 3.8 mins elapsed, rate=0.9k reads per second              ||
+## ||   96% completed, 3.8 mins elapsed, rate=0.9k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -875,7 +966,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 213                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 3.8 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -907,7 +998,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:08:28, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:28:17, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -921,25 +1012,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    2% completed, 2.3 mins elapsed, rate=10.2k reads per second             ||
-## ||    8% completed, 2.3 mins elapsed, rate=11.7k reads per second             ||
-## ||   15% completed, 2.3 mins elapsed, rate=12.0k reads per second             ||
-## ||   22% completed, 2.4 mins elapsed, rate=12.4k reads per second             ||
-## ||   28% completed, 2.4 mins elapsed, rate=13.0k reads per second             ||
-## ||   35% completed, 2.4 mins elapsed, rate=12.8k reads per second             ||
-## ||   42% completed, 2.4 mins elapsed, rate=13.3k reads per second             ||
-## ||   48% completed, 2.4 mins elapsed, rate=14.1k reads per second             ||
-## ||   55% completed, 2.5 mins elapsed, rate=15.1k reads per second             ||
-## ||   62% completed, 2.5 mins elapsed, rate=16.1k reads per second             ||
-## ||   69% completed, 2.5 mins elapsed, rate=1.5k reads per second              ||
-## ||   73% completed, 2.5 mins elapsed, rate=1.5k reads per second              ||
-## ||   76% completed, 2.5 mins elapsed, rate=1.6k reads per second              ||
-## ||   80% completed, 2.5 mins elapsed, rate=1.7k reads per second              ||
-## ||   83% completed, 2.5 mins elapsed, rate=1.7k reads per second              ||
-## ||   86% completed, 2.5 mins elapsed, rate=1.8k reads per second              ||
-## ||   90% completed, 2.5 mins elapsed, rate=1.9k reads per second              ||
-## ||   93% completed, 2.5 mins elapsed, rate=1.9k reads per second              ||
-## ||   96% completed, 2.5 mins elapsed, rate=2.0k reads per second              ||
+## ||    2% completed, 3.6 mins elapsed, rate=8.7k reads per second              ||
+## ||    8% completed, 3.6 mins elapsed, rate=10.6k reads per second             ||
+## ||   15% completed, 3.6 mins elapsed, rate=11.7k reads per second             ||
+## ||   22% completed, 3.7 mins elapsed, rate=11.9k reads per second             ||
+## ||   28% completed, 3.7 mins elapsed, rate=11.7k reads per second             ||
+## ||   35% completed, 3.7 mins elapsed, rate=11.6k reads per second             ||
+## ||   42% completed, 3.7 mins elapsed, rate=12.3k reads per second             ||
+## ||   48% completed, 3.8 mins elapsed, rate=13.1k reads per second             ||
+## ||   55% completed, 3.8 mins elapsed, rate=13.9k reads per second             ||
+## ||   62% completed, 3.8 mins elapsed, rate=14.8k reads per second             ||
+## ||   69% completed, 3.8 mins elapsed, rate=0.9k reads per second              ||
+## ||   73% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   76% completed, 3.8 mins elapsed, rate=1.0k reads per second              ||
+## ||   80% completed, 3.8 mins elapsed, rate=1.1k reads per second              ||
+## ||   83% completed, 3.8 mins elapsed, rate=1.1k reads per second              ||
+## ||   86% completed, 3.8 mins elapsed, rate=1.2k reads per second              ||
+## ||   90% completed, 3.8 mins elapsed, rate=1.2k reads per second              ||
+## ||   93% completed, 3.8 mins elapsed, rate=1.3k reads per second              ||
+## ||   96% completed, 3.8 mins elapsed, rate=1.3k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -956,7 +1047,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 309                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.5 minutes                                  ||
+## ||                Running time : 3.8 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -988,7 +1079,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:10:58, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:32:07, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -1002,25 +1093,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    3% completed, 2.3 mins elapsed, rate=11.7k reads per second             ||
-## ||   10% completed, 2.3 mins elapsed, rate=13.6k reads per second             ||
-## ||   16% completed, 2.3 mins elapsed, rate=14.1k reads per second             ||
-## ||   23% completed, 2.3 mins elapsed, rate=14.3k reads per second             ||
-## ||   30% completed, 2.3 mins elapsed, rate=14.2k reads per second             ||
-## ||   36% completed, 2.3 mins elapsed, rate=14.4k reads per second             ||
-## ||   43% completed, 2.3 mins elapsed, rate=14.2k reads per second             ||
-## ||   50% completed, 2.4 mins elapsed, rate=14.2k reads per second             ||
-## ||   56% completed, 2.4 mins elapsed, rate=13.9k reads per second             ||
-## ||   63% completed, 2.4 mins elapsed, rate=13.9k reads per second             ||
-## ||   70% completed, 2.4 mins elapsed, rate=0.9k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.0k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.0k reads per second              ||
-## ||   80% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   83% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   86% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   90% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   93% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
+## ||    3% completed, 3.6 mins elapsed, rate=8.8k reads per second              ||
+## ||   10% completed, 3.6 mins elapsed, rate=11.4k reads per second             ||
+## ||   16% completed, 3.6 mins elapsed, rate=12.0k reads per second             ||
+## ||   23% completed, 3.6 mins elapsed, rate=12.4k reads per second             ||
+## ||   30% completed, 3.6 mins elapsed, rate=12.4k reads per second             ||
+## ||   36% completed, 3.7 mins elapsed, rate=12.6k reads per second             ||
+## ||   43% completed, 3.7 mins elapsed, rate=12.6k reads per second             ||
+## ||   50% completed, 3.7 mins elapsed, rate=12.6k reads per second             ||
+## ||   56% completed, 3.7 mins elapsed, rate=12.7k reads per second             ||
+## ||   63% completed, 3.7 mins elapsed, rate=12.7k reads per second             ||
+## ||   70% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   73% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   76% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   80% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   83% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   86% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   90% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   93% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   96% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -1037,7 +1128,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 161                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 3.7 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -1069,7 +1160,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:13:23, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:35:52, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -1083,25 +1174,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    2% completed, 2.2 mins elapsed, rate=11.8k reads per second             ||
-## ||    8% completed, 2.3 mins elapsed, rate=6.0k reads per second              ||
-## ||   15% completed, 2.3 mins elapsed, rate=8.9k reads per second              ||
-## ||   22% completed, 2.3 mins elapsed, rate=12.2k reads per second             ||
-## ||   28% completed, 2.3 mins elapsed, rate=15.6k reads per second             ||
-## ||   35% completed, 2.3 mins elapsed, rate=18.7k reads per second             ||
-## ||   42% completed, 2.3 mins elapsed, rate=21.4k reads per second             ||
-## ||   48% completed, 2.3 mins elapsed, rate=24.0k reads per second             ||
-## ||   55% completed, 2.3 mins elapsed, rate=25.0k reads per second             ||
-## ||   62% completed, 2.4 mins elapsed, rate=25.4k reads per second             ||
-## ||   70% completed, 2.4 mins elapsed, rate=1.6k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.6k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.7k reads per second              ||
-## ||   79% completed, 2.4 mins elapsed, rate=1.8k reads per second              ||
-## ||   83% completed, 2.4 mins elapsed, rate=1.9k reads per second              ||
-## ||   86% completed, 2.4 mins elapsed, rate=1.9k reads per second              ||
-## ||   90% completed, 2.4 mins elapsed, rate=2.0k reads per second              ||
-## ||   93% completed, 2.4 mins elapsed, rate=2.1k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=2.1k reads per second              ||
+## ||    2% completed, 3.6 mins elapsed, rate=5.1k reads per second              ||
+## ||    8% completed, 3.7 mins elapsed, rate=6.7k reads per second              ||
+## ||   15% completed, 3.7 mins elapsed, rate=6.7k reads per second              ||
+## ||   22% completed, 3.8 mins elapsed, rate=6.2k reads per second              ||
+## ||   28% completed, 3.8 mins elapsed, rate=6.6k reads per second              ||
+## ||   35% completed, 3.8 mins elapsed, rate=7.1k reads per second              ||
+## ||   42% completed, 3.9 mins elapsed, rate=7.3k reads per second              ||
+## ||   48% completed, 3.9 mins elapsed, rate=7.5k reads per second              ||
+## ||   55% completed, 4.0 mins elapsed, rate=7.4k reads per second              ||
+## ||   62% completed, 4.0 mins elapsed, rate=7.6k reads per second              ||
+## ||   70% completed, 4.0 mins elapsed, rate=0.9k reads per second              ||
+## ||   73% completed, 4.0 mins elapsed, rate=1.0k reads per second              ||
+## ||   76% completed, 4.0 mins elapsed, rate=1.0k reads per second              ||
+## ||   79% completed, 4.0 mins elapsed, rate=1.0k reads per second              ||
+## ||   83% completed, 4.1 mins elapsed, rate=1.1k reads per second              ||
+## ||   86% completed, 4.1 mins elapsed, rate=1.1k reads per second              ||
+## ||   90% completed, 4.1 mins elapsed, rate=1.2k reads per second              ||
+## ||   93% completed, 4.1 mins elapsed, rate=1.2k reads per second              ||
+## ||   96% completed, 4.1 mins elapsed, rate=1.3k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -1118,7 +1209,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 291                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 4.1 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -1150,7 +1241,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:15:46, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:39:56, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -1164,25 +1255,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    3% completed, 2.2 mins elapsed, rate=15.5k reads per second             ||
-## ||   10% completed, 2.2 mins elapsed, rate=22.7k reads per second             ||
-## ||   16% completed, 2.2 mins elapsed, rate=24.7k reads per second             ||
-## ||   23% completed, 2.2 mins elapsed, rate=25.0k reads per second             ||
-## ||   30% completed, 2.3 mins elapsed, rate=23.6k reads per second             ||
-## ||   36% completed, 2.3 mins elapsed, rate=21.7k reads per second             ||
-## ||   43% completed, 2.3 mins elapsed, rate=19.5k reads per second             ||
-## ||   49% completed, 2.3 mins elapsed, rate=16.4k reads per second             ||
-## ||   56% completed, 2.3 mins elapsed, rate=16.2k reads per second             ||
-## ||   63% completed, 2.4 mins elapsed, rate=14.3k reads per second             ||
-## ||   70% completed, 2.4 mins elapsed, rate=1.0k reads per second              ||
-## ||   73% completed, 2.4 mins elapsed, rate=1.0k reads per second              ||
-## ||   76% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   80% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   83% completed, 2.4 mins elapsed, rate=1.1k reads per second              ||
-## ||   86% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   90% completed, 2.4 mins elapsed, rate=1.2k reads per second              ||
-## ||   93% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
+## ||    3% completed, 3.6 mins elapsed, rate=8.4k reads per second              ||
+## ||   10% completed, 3.6 mins elapsed, rate=11.7k reads per second             ||
+## ||   16% completed, 3.6 mins elapsed, rate=13.1k reads per second             ||
+## ||   23% completed, 3.6 mins elapsed, rate=14.6k reads per second             ||
+## ||   30% completed, 3.6 mins elapsed, rate=15.2k reads per second             ||
+## ||   36% completed, 3.7 mins elapsed, rate=15.7k reads per second             ||
+## ||   43% completed, 3.7 mins elapsed, rate=16.2k reads per second             ||
+## ||   49% completed, 3.7 mins elapsed, rate=16.6k reads per second             ||
+## ||   56% completed, 3.7 mins elapsed, rate=16.9k reads per second             ||
+## ||   63% completed, 3.7 mins elapsed, rate=17.5k reads per second             ||
+## ||   70% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   73% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   76% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   80% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   83% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   86% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   90% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   93% completed, 3.7 mins elapsed, rate=0.8k reads per second              ||
+## ||   96% completed, 3.7 mins elapsed, rate=0.9k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -1199,7 +1290,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 213                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 3.7 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
@@ -1231,7 +1322,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## \\============================================================================//
 ## 
-## //================ Running (02-Aug-2023 11:18:10, pid=57599) =================\\
+## //================ Running (14-Aug-2023 09:43:39, pid=21026) =================\\
 ## ||                                                                            ||
 ## || Check the input reads.                                                     ||
 ## || The input file contains base space reads.                                  ||
@@ -1245,25 +1336,25 @@ align(index=index_reference_genome,
 ## || Load the 1-th index block...                                               ||
 ## || The index block has been loaded.                                           ||
 ## || Start read mapping in chunk.                                               ||
-## ||    3% completed, 2.2 mins elapsed, rate=13.4k reads per second             ||
-## ||   10% completed, 2.3 mins elapsed, rate=17.1k reads per second             ||
-## ||   16% completed, 2.3 mins elapsed, rate=17.5k reads per second             ||
-## ||   23% completed, 2.3 mins elapsed, rate=18.8k reads per second             ||
-## ||   30% completed, 2.3 mins elapsed, rate=19.9k reads per second             ||
-## ||   36% completed, 2.3 mins elapsed, rate=19.9k reads per second             ||
-## ||   43% completed, 2.3 mins elapsed, rate=20.2k reads per second             ||
-## ||   50% completed, 2.3 mins elapsed, rate=20.5k reads per second             ||
-## ||   56% completed, 2.3 mins elapsed, rate=20.5k reads per second             ||
-## ||   63% completed, 2.3 mins elapsed, rate=20.9k reads per second             ||
-## ||   70% completed, 2.3 mins elapsed, rate=1.0k reads per second              ||
-## ||   73% completed, 2.3 mins elapsed, rate=1.0k reads per second              ||
-## ||   76% completed, 2.3 mins elapsed, rate=1.0k reads per second              ||
-## ||   79% completed, 2.3 mins elapsed, rate=1.1k reads per second              ||
-## ||   83% completed, 2.3 mins elapsed, rate=1.1k reads per second              ||
-## ||   86% completed, 2.3 mins elapsed, rate=1.2k reads per second              ||
-## ||   89% completed, 2.3 mins elapsed, rate=1.2k reads per second              ||
-## ||   93% completed, 2.3 mins elapsed, rate=1.3k reads per second              ||
-## ||   96% completed, 2.4 mins elapsed, rate=1.3k reads per second              ||
+## ||    3% completed, 3.6 mins elapsed, rate=8.9k reads per second              ||
+## ||   10% completed, 3.6 mins elapsed, rate=10.4k reads per second             ||
+## ||   16% completed, 3.6 mins elapsed, rate=10.8k reads per second             ||
+## ||   23% completed, 3.6 mins elapsed, rate=11.3k reads per second             ||
+## ||   30% completed, 3.7 mins elapsed, rate=11.8k reads per second             ||
+## ||   36% completed, 3.7 mins elapsed, rate=12.3k reads per second             ||
+## ||   43% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   50% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   56% completed, 3.7 mins elapsed, rate=12.5k reads per second             ||
+## ||   63% completed, 3.7 mins elapsed, rate=12.8k reads per second             ||
+## ||   69% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   73% completed, 3.7 mins elapsed, rate=0.6k reads per second              ||
+## ||   76% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   79% completed, 3.7 mins elapsed, rate=0.7k reads per second              ||
+## ||   83% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   86% completed, 3.8 mins elapsed, rate=0.7k reads per second              ||
+## ||   89% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
+## ||   93% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
+## ||   96% completed, 3.8 mins elapsed, rate=0.8k reads per second              ||
 ## ||                                                                            ||
 ## ||                           Completed successfully.                          ||
 ## ||                                                                            ||
@@ -1280,7 +1371,7 @@ align(index=index_reference_genome,
 ## ||                                                                            ||
 ## ||                      Indels : 244                                          ||
 ## ||                                                                            ||
-## ||                Running time : 2.4 minutes                                  ||
+## ||                Running time : 3.8 minutes                                  ||
 ## ||                                                                            ||
 ## \\============================================================================//</code></pre>
 <pre><code>##                       filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz.subread.BAM
@@ -1290,6 +1381,13 @@ align(index=index_reference_genome,
 ## Multi_mapping_reads                                                                     36241
 ## Unmapped_reads                                                                           4230
 ## Indels                                                                                    309
+##                       filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM
+## Total_reads                                                                            187871
+## Mapped_reads                                                                           180883
+## Uniquely_mapped_reads                                                                  160882
+## Multi_mapping_reads                                                                     20001
+## Unmapped_reads                                                                           6988
+## Indels                                                                                    185
 ##                       filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM
 ## Total_reads                                                                    187871
 ## Mapped_reads                                                                   180883
@@ -1353,21 +1451,23 @@ reference genome using the propmapped function.</p>
 <pre class="r"><code># create an object in R listing
 bam.files &lt;- list.files(path = &quot;~/Desktop/filtered&quot;, pattern = &quot;.BAM$&quot;, full.names = TRUE)
 bam.files</code></pre>
-<pre><code>## [1] &quot;/Users/clstacy/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz.subread.BAM&quot;
-## [2] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM&quot;        
-## [3] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz.subread.BAM&quot;        
-## [4] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz.subread.BAM&quot;        
-## [5] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz.subread.BAM&quot;        
-## [6] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz.subread.BAM&quot;  
-## [7] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz.subread.BAM&quot;  
-## [8] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz.subread.BAM&quot;  
-## [9] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz.subread.BAM&quot;</code></pre>
+<pre><code>##  [1] &quot;/Users/clstacy/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz.subread.BAM&quot;
+##  [2] &quot;/Users/clstacy/Desktop/filtered/filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM&quot;
+##  [3] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM&quot;        
+##  [4] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz.subread.BAM&quot;        
+##  [5] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz.subread.BAM&quot;        
+##  [6] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz.subread.BAM&quot;        
+##  [7] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz.subread.BAM&quot;  
+##  [8] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz.subread.BAM&quot;  
+##  [9] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz.subread.BAM&quot;  
+## [10] &quot;/Users/clstacy/Desktop/filtered/filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz.subread.BAM&quot;</code></pre>
 <pre class="r"><code># find the proportion of reads that mapped for each sample
 props &lt;- propmapped(files=bam.files)
 
 props</code></pre>
 <pre><code>##                                                                         NumTotal
 ## filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz.subread.BAM   309150
+## filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM   187871
 ## filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM           187871
 ## filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz.subread.BAM           317483
 ## filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz.subread.BAM           216676
@@ -1378,6 +1478,7 @@ props</code></pre>
 ## filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz.subread.BAM     192225
 ##                                                                         NumMapped
 ## filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz.subread.BAM    304920
+## filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM    180883
 ## filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM            180883
 ## filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz.subread.BAM            309809
 ## filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz.subread.BAM            211418
@@ -1388,6 +1489,7 @@ props</code></pre>
 ## filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz.subread.BAM      182754
 ##                                                                         PropMapped
 ## filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz.subread.BAM   0.986317
+## filtered_rfastp_trimmed_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM   0.962804
 ## filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz.subread.BAM           0.962804
 ## filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz.subread.BAM           0.975829
 ## filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz.subread.BAM           0.975733
@@ -1414,44 +1516,36 @@ finished.</p>
 <em>graphics</em>, <em>grDevices</em>, <em>utils</em>,
 <em>datasets</em>, <em>methods</em> and <em>base</em></p>
 <p><strong>other attached packages:</strong>
-<em>Rsubread(v.2.12.3)</em>, <em>BiocManager(v.1.30.19)</em>,
-<em>pander(v.0.6.5)</em>, <em>knitr(v.1.42)</em>,
-<em>here(v.1.0.1)</em>, <em>forcats(v.0.5.2)</em>,
-<em>stringr(v.1.5.0)</em>, <em>dplyr(v.1.1.0)</em>,
-<em>purrr(v.1.0.1)</em>, <em>readr(v.2.1.3)</em>,
-<em>tidyr(v.1.3.0)</em>, <em>tibble(v.3.1.8)</em>,
-<em>ggplot2(v.3.4.1)</em> and <em>tidyverse(v.1.3.2)</em></p>
+<em>Rsubread(v.2.12.3)</em>, <em>BiocManager(v.1.30.21.1)</em>,
+<em>pander(v.0.6.5)</em>, <em>knitr(v.1.43)</em>,
+<em>here(v.1.0.1)</em>, <em>lubridate(v.1.9.2)</em>,
+<em>forcats(v.1.0.0)</em>, <em>stringr(v.1.5.0)</em>,
+<em>dplyr(v.1.1.2)</em>, <em>purrr(v.1.0.1)</em>,
+<em>readr(v.2.1.4)</em>, <em>tidyr(v.1.3.0)</em>,
+<em>tibble(v.3.2.1)</em>, <em>ggplot2(v.3.4.2)</em> and
+<em>tidyverse(v.2.0.0)</em></p>
 <p><strong>loaded via a namespace (and not attached):</strong>
-<em>Rcpp(v.1.0.10)</em>, <em>lattice(v.0.20-45)</em>,
-<em>lubridate(v.1.9.0)</em>, <em>assertthat(v.0.2.1)</em>,
-<em>rprojroot(v.2.0.3)</em>, <em>digest(v.0.6.31)</em>,
-<em>utf8(v.1.2.3)</em>, <em>R6(v.2.5.1)</em>,
-<em>cellranger(v.1.1.0)</em>, <em>backports(v.1.4.1)</em>,
-<em>reprex(v.2.0.2)</em>, <em>evaluate(v.0.20)</em>,
-<em>httr(v.1.4.5)</em>, <em>pillar(v.1.8.1)</em>,
-<em>rlang(v.1.0.6)</em>, <em>googlesheets4(v.1.0.1)</em>,
-<em>readxl(v.1.4.1)</em>, <em>rstudioapi(v.0.14)</em>,
-<em>jquerylib(v.0.1.4)</em>, <em>Matrix(v.1.5-1)</em>,
-<em>rmarkdown(v.2.20)</em>, <em>googledrive(v.2.0.0)</em>,
-<em>munsell(v.0.5.0)</em>, <em>broom(v.1.0.1)</em>,
-<em>compiler(v.4.2.2)</em>, <em>modelr(v.0.1.10)</em>,
-<em>xfun(v.0.39)</em>, <em>pkgconfig(v.2.0.3)</em>,
-<em>htmltools(v.0.5.4)</em>, <em>tidyselect(v.1.2.0)</em>,
-<em>fansi(v.1.0.4)</em>, <em>crayon(v.1.5.2)</em>,
-<em>tzdb(v.0.3.0)</em>, <em>dbplyr(v.2.2.1)</em>,
-<em>withr(v.2.5.0)</em>, <em>grid(v.4.2.2)</em>,
-<em>jsonlite(v.1.8.4)</em>, <em>gtable(v.0.3.1)</em>,
-<em>lifecycle(v.1.0.3)</em>, <em>DBI(v.1.1.3)</em>,
+<em>Rcpp(v.1.0.11)</em>, <em>bslib(v.0.5.0)</em>,
+<em>compiler(v.4.2.2)</em>, <em>pillar(v.1.9.0)</em>,
+<em>jquerylib(v.0.1.4)</em>, <em>tools(v.4.2.2)</em>,
+<em>digest(v.0.6.33)</em>, <em>lattice(v.0.21-8)</em>,
+<em>timechange(v.0.2.0)</em>, <em>jsonlite(v.1.8.7)</em>,
+<em>evaluate(v.0.21)</em>, <em>lifecycle(v.1.0.3)</em>,
+<em>gtable(v.0.3.3)</em>, <em>pkgconfig(v.2.0.3)</em>,
+<em>rlang(v.1.1.1)</em>, <em>Matrix(v.1.6-0)</em>,
+<em>cli(v.3.6.1)</em>, <em>rstudioapi(v.0.15.0)</em>,
+<em>yaml(v.2.3.7)</em>, <em>xfun(v.0.39)</em>,
+<em>fastmap(v.1.1.1)</em>, <em>withr(v.2.5.0)</em>,
+<em>hms(v.1.1.3)</em>, <em>generics(v.0.1.3)</em>,
+<em>sass(v.0.4.7)</em>, <em>vctrs(v.0.6.3)</em>,
+<em>rprojroot(v.2.0.3)</em>, <em>grid(v.4.2.2)</em>,
+<em>tidyselect(v.1.2.0)</em>, <em>glue(v.1.6.2)</em>,
+<em>R6(v.2.5.1)</em>, <em>fansi(v.1.0.4)</em>,
+<em>rmarkdown(v.2.23)</em>, <em>tzdb(v.0.4.0)</em>,
 <em>magrittr(v.2.0.3)</em>, <em>scales(v.1.2.1)</em>,
-<em>cli(v.3.6.0)</em>, <em>stringi(v.1.7.12)</em>,
-<em>cachem(v.1.0.7)</em>, <em>fs(v.1.6.1)</em>, <em>xml2(v.1.3.3)</em>,
-<em>bslib(v.0.4.2)</em>, <em>ellipsis(v.0.3.2)</em>,
-<em>generics(v.0.1.3)</em>, <em>vctrs(v.0.5.2)</em>,
-<em>tools(v.4.2.2)</em>, <em>glue(v.1.6.2)</em>, <em>hms(v.1.1.2)</em>,
-<em>fastmap(v.1.1.1)</em>, <em>yaml(v.2.3.7)</em>,
-<em>timechange(v.0.1.1)</em>, <em>colorspace(v.2.1-0)</em>,
-<em>gargle(v.1.2.1)</em>, <em>rvest(v.1.0.3)</em>,
-<em>haven(v.2.5.1)</em> and <em>sass(v.0.4.5)</em></p>
+<em>htmltools(v.0.5.5)</em>, <em>colorspace(v.2.1-0)</em>,
+<em>utf8(v.1.2.3)</em>, <em>stringi(v.1.7.12)</em>,
+<em>munsell(v.0.5.0)</em> and <em>cachem(v.1.0.8)</em></p>
 </div>
 </div>
 

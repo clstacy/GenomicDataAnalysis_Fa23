@@ -20,6 +20,8 @@ set.seed("1492")
 As usual, make sure we have the right packages for this exercise
 
 ```{r ready-packages, results="hide",message=FALSE}
+
+
 list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]

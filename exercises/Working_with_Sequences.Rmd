@@ -9,7 +9,7 @@ last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-set.seed("1492")
+set.seed("832")
 ```
 
 # Getting Things Setup

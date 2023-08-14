@@ -356,18 +356,27 @@ display: none;
 </div>
 
 
-<p>last updated: 2023-07-21</p>
+<p>last updated: 2023-08-14</p>
+<p>#TODO: make new data file on github with only the phenol samples,
+will use the current one in gene_ontolgy lecture, but ismpler for this
+one.</p>
 <div id="getting-things-setup" class="section level1">
 <h1>Getting things setup</h1>
 <p>The following code installs a set of R packages used in this document
 – if not already installed – and then loads the packages into R. Note
 that we utilize the US CRAN repository, but other repositories may be
 more convenient according to geographic location.</p>
-<pre class="r"><code>list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
+<pre class="r"><code>if (!require(&quot;pacman&quot;)) install.packages(&quot;pacman&quot;); library(pacman)
 
-new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
-if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
-lapply(list.of.packages, require, character.only = TRUE)</code></pre>
+p_load(&quot;tidyverse&quot;, &quot;here&quot;, 
+       &quot;knitr&quot;, &quot;readr&quot;,
+       &quot;pander&quot;, &quot;BiocManager&quot;, &quot;dplyr&quot;)
+
+# list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
+# 
+# new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
+# if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
+# lapply(list.of.packages, require, character.only = TRUE)</code></pre>
 </div>
 <div id="description" class="section level1">
 <h1>Description</h1>
@@ -460,20 +469,19 @@ RStudio</p>
 To see just the first few lines we can run the following command:</p>
 <pre class="r"><code>head(DE_results_heatshock_annotated)</code></pre>
 <pre><code>## # A tibble: 6 × 18
-##   ID      Object.S…¹ Objec…² Pheno…³ Phenol…⁴ Phenol…⁵ RNeas…⁶ RNeasy…⁷ RNeasy…⁸
-##   &lt;chr&gt;   &lt;chr&gt;      &lt;chr&gt;     &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;
-## 1 YAL001C TFC3       Subuni…   0.135 5.61e- 2 7.50e- 2   0.138 4.62e- 2 6.27e- 2
-## 2 YAL002W VPS8       Membra…   0.553 1.42e- 8 5.52e- 8   0.599 3.45e- 9 1.46e- 8
-## 3 YAL003W EFB1       Transl…  -0.765 2.57e- 9 1.20e- 8  -0.818 7.80e-10 4.00e- 9
-## 4 YAL005C SSA1       ATPase…   3.16  6.55e-15 2.75e-13   2.92  2.75e-14 8.34e-13
-## 5 YAL007C ERP2       Member…  -0.998 1.05e- 8 4.18e- 8  -0.858 1.20e- 7 3.76e- 7
-## 6 YAL008W FUN14      Integr…   1.36  1.35e-13 3.02e-12   1.43  3.98e-14 1.08e-12
-## # … with 9 more variables: Direct.zol.HS.logFC &lt;dbl&gt;,
+##   ID      Object.Symbol Object.Name            Phenol.HS.logFC Phenol.HS.p.value
+##   &lt;chr&gt;   &lt;chr&gt;         &lt;chr&gt;                            &lt;dbl&gt;             &lt;dbl&gt;
+## 1 YAL001C TFC3          Subunit of RNA polyme…           0.135          5.61e- 2
+## 2 YAL002W VPS8          Membrane-binding comp…           0.553          1.42e- 8
+## 3 YAL003W EFB1          Translation elongatio…          -0.765          2.57e- 9
+## 4 YAL005C SSA1          ATPase involved in pr…           3.16           6.55e-15
+## 5 YAL007C ERP2          Member of the p24 fam…          -0.998          1.05e- 8
+## 6 YAL008W FUN14         Integral mitochondria…           1.36           1.35e-13
+## # ℹ 13 more variables: Phenol.HS.FDR &lt;dbl&gt;, RNeasy.HS.logFC &lt;dbl&gt;,
+## #   RNeasy.HS.p.value &lt;dbl&gt;, RNeasy.HS.FDR &lt;dbl&gt;, Direct.zol.HS.logFC &lt;dbl&gt;,
 ## #   Direct.zol.HS.p.value &lt;dbl&gt;, Direct.zol.HS.FDR &lt;dbl&gt;, DB &lt;chr&gt;,
 ## #   Object.ID &lt;chr&gt;, Object.Synonym &lt;chr&gt;, Object.Type &lt;chr&gt;, Taxon &lt;chr&gt;,
-## #   GO.ID &lt;chr&gt;, and abbreviated variable names ¹​Object.Symbol, ²​Object.Name,
-## #   ³​Phenol.HS.logFC, ⁴​Phenol.HS.p.value, ⁵​Phenol.HS.FDR, ⁶​RNeasy.HS.logFC,
-## #   ⁷​RNeasy.HS.p.value, ⁸​RNeasy.HS.FDR</code></pre>
+## #   GO.ID &lt;chr&gt;</code></pre>
 <p>This can be difficult to look at. For looking at data similar to an
 Excel file, RStudio allows this by clicking on the name of the
 data.frame in the top right corner of the IDE. To open in a new window,
@@ -511,46 +519,38 @@ en_US.UTF-8||en_US.UTF-8||en_US.UTF-8||C||en_US.UTF-8||en_US.UTF-8</p>
 <em>graphics</em>, <em>grDevices</em>, <em>utils</em>,
 <em>datasets</em>, <em>methods</em> and <em>base</em></p>
 <p><strong>other attached packages:</strong>
-<em>BiocManager(v.1.30.19)</em>, <em>pander(v.0.6.5)</em>,
-<em>knitr(v.1.42)</em>, <em>here(v.1.0.1)</em>,
-<em>forcats(v.0.5.2)</em>, <em>stringr(v.1.5.0)</em>,
-<em>dplyr(v.1.1.0)</em>, <em>purrr(v.1.0.1)</em>,
-<em>readr(v.2.1.3)</em>, <em>tidyr(v.1.3.0)</em>,
-<em>tibble(v.3.1.8)</em>, <em>ggplot2(v.3.4.1)</em> and
-<em>tidyverse(v.1.3.2)</em></p>
+<em>BiocManager(v.1.30.21.1)</em>, <em>pander(v.0.6.5)</em>,
+<em>knitr(v.1.43)</em>, <em>here(v.1.0.1)</em>,
+<em>lubridate(v.1.9.2)</em>, <em>forcats(v.1.0.0)</em>,
+<em>stringr(v.1.5.0)</em>, <em>dplyr(v.1.1.2)</em>,
+<em>purrr(v.1.0.1)</em>, <em>readr(v.2.1.4)</em>,
+<em>tidyr(v.1.3.0)</em>, <em>tibble(v.3.2.1)</em>,
+<em>ggplot2(v.3.4.2)</em>, <em>tidyverse(v.2.0.0)</em> and
+<em>pacman(v.0.5.1)</em></p>
 <p><strong>loaded via a namespace (and not attached):</strong>
-<em>Rcpp(v.1.0.10)</em>, <em>lubridate(v.1.9.0)</em>,
-<em>assertthat(v.0.2.1)</em>, <em>rprojroot(v.2.0.3)</em>,
-<em>digest(v.0.6.31)</em>, <em>utf8(v.1.2.3)</em>, <em>R6(v.2.5.1)</em>,
-<em>cellranger(v.1.1.0)</em>, <em>backports(v.1.4.1)</em>,
-<em>reprex(v.2.0.2)</em>, <em>evaluate(v.0.20)</em>,
-<em>httr(v.1.4.5)</em>, <em>pillar(v.1.8.1)</em>,
-<em>rlang(v.1.0.6)</em>, <em>curl(v.5.0.0)</em>,
-<em>googlesheets4(v.1.0.1)</em>, <em>readxl(v.1.4.1)</em>,
-<em>rstudioapi(v.0.14)</em>, <em>jquerylib(v.0.1.4)</em>,
-<em>rmarkdown(v.2.20)</em>, <em>googledrive(v.2.0.0)</em>,
-<em>bit(v.4.0.5)</em>, <em>munsell(v.0.5.0)</em>,
-<em>broom(v.1.0.1)</em>, <em>compiler(v.4.2.2)</em>,
-<em>modelr(v.0.1.10)</em>, <em>xfun(v.0.39)</em>,
-<em>pkgconfig(v.2.0.3)</em>, <em>htmltools(v.0.5.4)</em>,
-<em>tidyselect(v.1.2.0)</em>, <em>fansi(v.1.0.4)</em>,
-<em>crayon(v.1.5.2)</em>, <em>tzdb(v.0.3.0)</em>,
-<em>dbplyr(v.2.2.1)</em>, <em>withr(v.2.5.0)</em>,
-<em>grid(v.4.2.2)</em>, <em>jsonlite(v.1.8.4)</em>,
-<em>gtable(v.0.3.1)</em>, <em>lifecycle(v.1.0.3)</em>,
-<em>DBI(v.1.1.3)</em>, <em>magrittr(v.2.0.3)</em>,
-<em>scales(v.1.2.1)</em>, <em>vroom(v.1.6.0)</em>,
-<em>cli(v.3.6.0)</em>, <em>stringi(v.1.7.12)</em>,
-<em>cachem(v.1.0.7)</em>, <em>fs(v.1.6.1)</em>, <em>xml2(v.1.3.3)</em>,
-<em>bslib(v.0.4.2)</em>, <em>ellipsis(v.0.3.2)</em>,
-<em>generics(v.0.1.3)</em>, <em>vctrs(v.0.5.2)</em>,
-<em>tools(v.4.2.2)</em>, <em>bit64(v.4.0.5)</em>,
-<em>glue(v.1.6.2)</em>, <em>hms(v.1.1.2)</em>,
-<em>parallel(v.4.2.2)</em>, <em>fastmap(v.1.1.1)</em>,
-<em>yaml(v.2.3.7)</em>, <em>timechange(v.0.1.1)</em>,
-<em>colorspace(v.2.1-0)</em>, <em>gargle(v.1.2.1)</em>,
-<em>rvest(v.1.0.3)</em>, <em>haven(v.2.5.1)</em> and
-<em>sass(v.0.4.5)</em></p>
+<em>tidyselect(v.1.2.0)</em>, <em>xfun(v.0.39)</em>,
+<em>bslib(v.0.5.0)</em>, <em>colorspace(v.2.1-0)</em>,
+<em>vctrs(v.0.6.3)</em>, <em>generics(v.0.1.3)</em>,
+<em>htmltools(v.0.5.5)</em>, <em>yaml(v.2.3.7)</em>,
+<em>utf8(v.1.2.3)</em>, <em>rlang(v.1.1.1)</em>,
+<em>jquerylib(v.0.1.4)</em>, <em>pillar(v.1.9.0)</em>,
+<em>glue(v.1.6.2)</em>, <em>withr(v.2.5.0)</em>,
+<em>bit64(v.4.0.5)</em>, <em>lifecycle(v.1.0.3)</em>,
+<em>munsell(v.0.5.0)</em>, <em>gtable(v.0.3.3)</em>,
+<em>evaluate(v.0.21)</em>, <em>tzdb(v.0.4.0)</em>,
+<em>fastmap(v.1.1.1)</em>, <em>curl(v.5.0.1)</em>,
+<em>parallel(v.4.2.2)</em>, <em>fansi(v.1.0.4)</em>,
+<em>Rcpp(v.1.0.11)</em>, <em>scales(v.1.2.1)</em>,
+<em>cachem(v.1.0.8)</em>, <em>vroom(v.1.6.3)</em>,
+<em>jsonlite(v.1.8.7)</em>, <em>bit(v.4.0.5)</em>,
+<em>hms(v.1.1.3)</em>, <em>digest(v.0.6.33)</em>,
+<em>stringi(v.1.7.12)</em>, <em>grid(v.4.2.2)</em>,
+<em>rprojroot(v.2.0.3)</em>, <em>cli(v.3.6.1)</em>,
+<em>tools(v.4.2.2)</em>, <em>magrittr(v.2.0.3)</em>,
+<em>sass(v.0.4.7)</em>, <em>crayon(v.1.5.2)</em>,
+<em>pkgconfig(v.2.0.3)</em>, <em>timechange(v.0.2.0)</em>,
+<em>rmarkdown(v.2.23)</em>, <em>rstudioapi(v.0.15.0)</em>,
+<em>R6(v.2.5.1)</em> and <em>compiler(v.4.2.2)</em></p>
 </div>
 </div>
 

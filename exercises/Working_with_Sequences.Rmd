@@ -17,6 +17,12 @@ set.seed("1492")
 As usual, make sure we have the right packages for this exercise
 
 ```{r ready-packages, results="hide",message=FALSE}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+p_load("tidyverse", "here", 
+       "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr")
 
 list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
 
@@ -221,10 +227,14 @@ writeFastq(trimmed_fastq_phenol_heat_rep4,
 
 There are several utility programs that will provide you with QC and trim your data for you, with less input from you. We like fastp as it does some basic QC and trims your fastq files, and it does it very quickly. To make this available in R, it has been made available in the Bioconductor package Rfastp.
 
-
 By default, fastp will make a html report to summarize your result. But the Rfastp wrapper allows you to look at some of them in R.
 
 ```{r}
+# if we wanted to just run a single file, we would do so like this:
+
+rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz",
+                        outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz")
+
 df_summary <- qcSummary(rfastp_report)
 df_summary
 ```
@@ -258,12 +268,7 @@ print(fastq.files)
 ```
 
 Now we have all of the file paths
-```{r eval=FALSE}
-# if we wanted to just run a single file, we would do so like this:
 
-# rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz",
-#                         outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz")
-```
 
 We can loop through all of the files to perform filtering and trimming. Note there are many arguments that can be modified. Use ?rfastp to learn more.
 

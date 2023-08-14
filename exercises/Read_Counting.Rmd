@@ -175,7 +175,7 @@ Let’s extract quality scores for 50 reads for the fastq file .
 
 ```{r check-qualityScores}
 # Extract quality scores
-qs <- qualityScores(filename="~/Desktop/filtered/filtered_phenol_heat_rep4_rfastp_trimmed_rfastp_R1.fastq.gz",
+qs <- qualityScores(filename="~/Desktop/filtered/filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz",
                     nreads=50)
 
 head(qs)

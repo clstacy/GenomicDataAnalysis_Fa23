@@ -19,11 +19,17 @@ knitr::opts_chunk$set(echo = TRUE)
 The following code installs a set of R packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
 
 ```{r ready-packages, results="hide",message=FALSE}
-list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
+if (!require("pacman")) install.packages("pacman"); library(pacman)
 
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
-lapply(list.of.packages, require, character.only = TRUE)
+p_load("tidyverse", "here", 
+       "knitr", "readr",
+       "pander", "BiocManager", "dplyr")
+
+# list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
+# 
+# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+# if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
+# lapply(list.of.packages, require, character.only = TRUE)
 
 ```
 

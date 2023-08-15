@@ -356,27 +356,30 @@ display: none;
 </div>
 
 
-<p>last updated: 2023-08-14</p>
-<p>#TODO: make new data file on github with only the phenol samples,
-will use the current one in gene_ontolgy lecture, but ismpler for this
-one.</p>
+<p>last updated: 2023-08-15</p>
 <div id="getting-things-setup" class="section level1">
 <h1>Getting things setup</h1>
+<p>First things first: Click the “Visual” button in the top-left corner
+of the code box. This makes the code look more like a word processor.
+You can always switch back to Source anytime you prefer.</p>
 <p>The following code installs a set of R packages used in this document
 – if not already installed – and then loads the packages into R. Note
 that we utilize the US CRAN repository, but other repositories may be
 more convenient according to geographic location.</p>
 <pre class="r"><code>if (!require(&quot;pacman&quot;)) install.packages(&quot;pacman&quot;); library(pacman)
 
-p_load(&quot;tidyverse&quot;, &quot;here&quot;, 
-       &quot;knitr&quot;, &quot;readr&quot;,
-       &quot;pander&quot;, &quot;BiocManager&quot;, &quot;dplyr&quot;)
+# the p_load function 
+#    A) installs the package if not installed (like install.packages(&quot;package_name&quot;)),
+#    B) loads the package (equivalent of library(package_name))
 
-# list.of.packages &lt;- c(&quot;tidyverse&quot;, &quot;here&quot;, &quot;knitr&quot;, &quot;pander&quot;, &quot;BiocManager&quot;)
-# 
-# new.packages &lt;- list.of.packages[!(list.of.packages %in% installed.packages()[,&quot;Package&quot;])]
-# if(length(new.packages)) install.packages(new.packages,repos = &quot;http://cran.us.r-project.org&quot;)
-# lapply(list.of.packages, require, character.only = TRUE)</code></pre>
+p_load(&quot;tidyverse&quot;, # An ecosystem of packages for making life in R easier
+       &quot;here&quot;, # For locating files easily
+       &quot;knitr&quot;, # For generating (&quot;knitting&quot;) html or pdf files from .Rmd file
+       &quot;readr&quot;, # For faster and easier reading in files to R
+       &quot;pander&quot;, # For session info at the end of the document
+       &quot;BiocManager&quot;, # For installing Bioconductor R packages
+       &quot;dplyr&quot; # A key part of the tidyverse ecosystem, has useful functions
+       )</code></pre>
 </div>
 <div id="description" class="section level1">
 <h1>Description</h1>
@@ -391,6 +394,9 @@ the R ecosystem to analyze genomic data</p>
 <li>relate Rmarkdown to a traditional lab notebook</li>
 <li>run commands in an Rmarkdown file</li>
 </ul>
+</div>
+<div id="using-r-and-rstudio" class="section level1">
+<h1>Using R and RStudio</h1>
 <p>This is an R Markdown document. Markdown is a simple formatting
 syntax for authoring HTML, PDF, and MS Word documents. For more details
 on using R Markdown see <a href="http://rmarkdown.rstudio.com" class="uri">http://rmarkdown.rstudio.com</a>.</p>
@@ -404,61 +410,79 @@ print(&quot;R code in a .Rmd chunk works just like a script&quot;)</code></pre>
 <pre class="r"><code># preform basic calculations
 2+2</code></pre>
 <pre><code>## [1] 4</code></pre>
-<p>Let’s pull some data files from a recent publication: <a href="https://doi.org/10.1186/s12864-020-6673-2" class="uri">https://doi.org/10.1186/s12864-020-6673-2</a>. We will use a
-file that has been modified for us to practice using RStudio.</p>
+<p>R is a useful tool for analyzing data. Let’s download a data file
+from GitHub to work with. First, we will download the file manually and
+open it. Later, we will download the same file directly from the
+url.</p>
+<ul>
+<li><p><a href="https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt">Click
+here</a> to open the file in GitHub and click the download icon to
+download it to your computer.</p></li>
+<li><p>Use the “Import Dataset” in the Environment panel of RStudio to
+open the file browser and select the downloaded file</p>
+<ul>
+<li>You’ll want to use the “From text (readr)…” option</li>
+</ul></li>
+<li><p>Adjust settings to make sure the file loads in properly.</p></li>
+<li><p>Copy the code that the Import Dataset feature provides for
+reading in the file and paste it in the code chunk below</p></li>
+</ul>
+<pre class="r"><code># insert here the code used to load the file in from your computer</code></pre>
+<div id="load-data-directly-from-the-url" class="section level2">
+<h2>Load data directly from the URL</h2>
+<p>Rather than downloading the file manually and then loading it in from
+where we downloaded it to, we can just load it directly from the URL, as
+shown below. A word of caution, this won’t work with any URL and you
+can’t guarantee the URL will always work in the future.</p>
 <pre class="r"><code># assign url to a variable
-DE_data_url &lt;- &quot;https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv&quot;
+DE_data_url &lt;- &quot;https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt&quot;
 
 # download the data from the web
-DE_results_heatshock_annotated &lt;-
-  read_delim(DE_data_url, 
-    delim = &quot;\t&quot;, escape_double = FALSE, 
-    trim_ws = TRUE)</code></pre>
-<pre><code>## Rows: 6000 Columns: 18
+DE_results_msn24_EtOH &lt;-
+  read_tsv(file=DE_data_url)</code></pre>
+<pre><code>## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat &lt;- vroom(...)
+##   problems(dat)</code></pre>
+<pre><code>## Rows: 5756 Columns: 18
 ## ── Column specification ────────────────────────────────────────────────────────
 ## Delimiter: &quot;\t&quot;
-## chr (9): ID, Object.Symbol, Object.Name, DB, Object.ID, Object.Synonym, Obje...
-## dbl (9): Phenol.HS.logFC, Phenol.HS.p.value, Phenol.HS.FDR, RNeasy.HS.logFC,...
+## chr  (3): Gene ID, Common Name, Annotation
+## dbl (15): logFC: YPS606 (WT) EtOH response, Pvalue: YPS606 (WT) EtOH respons...
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<p>That’s nice, but how can you load in data from a different source, or
-on your computer?</p>
-<p>Take a look at the Environment panel in the top-right of RStudio. If
-you click on the “Import Dataset” button, you can import data from your
-PC, or even via url links. This will allow you to load in the data,
-adjust settings to make sure it is formatted the way you want, and
-finally copy the code used to import the data so you can include in your
-script for reproducibility.</p>
 <p>Do remember that this function uses the package readr (a part of the
 tidyverse package we loaded above). If you don’t have that package (1)
-installed and (2) loaded into your script, it won’t work.</p>
+installed and (2) loaded into your script, it won’t work. Thankfully,
+the p_load function takes care of both of these simultaneously.</p>
+</div>
 <div id="working-with-data-in-r" class="section level2">
 <h2>Working with data in R</h2>
 <p>To get a quick summary of our data and how it looks</p>
 <pre class="r"><code># take a quick look at how the data is structured
-glimpse(DE_results_heatshock_annotated)</code></pre>
-<pre><code>## Rows: 6,000
+glimpse(DE_results_msn24_EtOH)</code></pre>
+<pre><code>## Rows: 5,756
 ## Columns: 18
-## $ ID                    &lt;chr&gt; &quot;YAL001C&quot;, &quot;YAL002W&quot;, &quot;YAL003W&quot;, &quot;YAL005C&quot;, &quot;YAL…
-## $ Object.Symbol         &lt;chr&gt; &quot;TFC3&quot;, &quot;VPS8&quot;, &quot;EFB1&quot;, &quot;SSA1&quot;, &quot;ERP2&quot;, &quot;FUN14&quot;,…
-## $ Object.Name           &lt;chr&gt; &quot;Subunit of RNA polymerase III transcription ini…
-## $ Phenol.HS.logFC       &lt;dbl&gt; 0.13484572, 0.55294457, -0.76467303, 3.16466340,…
-## $ Phenol.HS.p.value     &lt;dbl&gt; 5.614975e-02, 1.424290e-08, 2.568212e-09, 6.5480…
-## $ Phenol.HS.FDR         &lt;dbl&gt; 7.502824e-02, 5.522181e-08, 1.196461e-08, 2.7528…
-## $ RNeasy.HS.logFC       &lt;dbl&gt; 0.13810291, 0.59870123, -0.81809612, 2.91504530,…
-## $ RNeasy.HS.p.value     &lt;dbl&gt; 4.623890e-02, 3.451991e-09, 7.796079e-10, 2.7546…
-## $ RNeasy.HS.FDR         &lt;dbl&gt; 6.265521e-02, 1.460936e-08, 3.996767e-09, 8.3350…
-## $ Direct.zol.HS.logFC   &lt;dbl&gt; 0.19271361, 0.58496694, -0.85718754, 2.97212445,…
-## $ Direct.zol.HS.p.value &lt;dbl&gt; 8.189887e-03, 6.471539e-09, 3.362197e-10, 1.9569…
-## $ Direct.zol.HS.FDR     &lt;dbl&gt; 1.245457e-02, 2.650938e-08, 1.923596e-09, 6.1430…
-## $ DB                    &lt;chr&gt; &quot;SGD&quot;, &quot;SGD&quot;, &quot;SGD&quot;, &quot;SGD&quot;, &quot;SGD&quot;, &quot;SGD&quot;, &quot;SGD&quot;,…
-## $ Object.ID             &lt;chr&gt; &quot;S000000001&quot;, &quot;S000000002&quot;, &quot;S000000003&quot;, &quot;S0000…
-## $ Object.Synonym        &lt;chr&gt; &quot;YAL001C|FUN24|TSV115|tau 138|transcription fact…
-## $ Object.Type           &lt;chr&gt; &quot;protein&quot;, &quot;protein&quot;, &quot;protein&quot;, &quot;protein&quot;, &quot;pro…
-## $ Taxon                 &lt;chr&gt; &quot;taxon:559292&quot;, &quot;taxon:559292&quot;, &quot;taxon:559292&quot;, …
-## $ GO.ID                 &lt;chr&gt; &quot;GO:0000127|GO:0000127|GO:0000127|GO:0000127|GO:…</code></pre>
-<p>We see in the output there are 6000 rows and 18 columns in the data.
+## $ `Gene ID`                                &lt;chr&gt; &quot;YMR105C&quot;, &quot;YML100W&quot;, &quot;YER053…
+## $ `Common Name`                            &lt;chr&gt; &quot;PGM2&quot;, &quot;TSL1&quot;, &quot;PIC2&quot;, &quot;NCE1…
+## $ Annotation                               &lt;chr&gt; &quot;Phosphoglucomutase&quot;, &quot;Large …
+## $ `logFC: YPS606 (WT) EtOH response`       &lt;dbl&gt; 7.5999973, 7.7618280, 6.69400…
+## $ `Pvalue: YPS606 (WT) EtOH response`      &lt;dbl&gt; 9.40e-38, 1.04e-35, 3.03e-39,…
+## $ `FDR: YPS606 (WT) EtOH response`         &lt;dbl&gt; 3.26e-35, 1.54e-33, 2.07e-36,…
+## $ `logFC: YPS606 msn2/4ΔΔ EtOH response`   &lt;dbl&gt; 0.78481798, 0.60949852, 1.735…
+## $ `Pvalue: YPS606 msn2/4ΔΔ  EtOH response` &lt;dbl&gt; 3.430000e-06, 8.401730e-04, 4…
+## $ `FDR: YPS606 msn2/4ΔΔ  EtOH response`    &lt;dbl&gt; 7.420000e-06, 1.398507e-03, 2…
+## $ `logFC: WT v msn2/4ΔΔ: EtOH response`    &lt;dbl&gt; -6.815179, -7.152329, -4.9580…
+## $ `Pvalue: WT v msn2/4ΔΔ: EtOH response`   &lt;dbl&gt; 6.34e-32, 2.53e-30, 1.35e-27,…
+## $ `FDR: WT v msn2/4ΔΔ: EtOH response`      &lt;dbl&gt; 3.65e-28, 7.28e-27, 2.59e-24,…
+## $ `logFC: WT v msn2/4ΔΔ: unstressed`       &lt;dbl&gt; -0.144061475, -0.365016862, -…
+## $ `Pvalue: WT v msn2/4ΔΔ: unstressed`      &lt;dbl&gt; 0.350436027, 0.041423492, 0.4…
+## $ `FDR: WT v msn2/4ΔΔ:unstressed`          &lt;dbl&gt; 0.998531082, 0.998531082, 0.9…
+## $ `logFC: WT v msn2/4ΔΔ: EtOH absolute`    &lt;dbl&gt; -6.959241, -7.517346, -5.0845…
+## $ `Pvalue: WT v msn2/4ΔΔ: EtOH absolute`   &lt;dbl&gt; 8.55e-37, 2.04e-35, 3.06e-36,…
+## $ `FDR: WT v msn2/4ΔΔ: EtOH absolute`      &lt;dbl&gt; 1.64e-33, 1.96e-32, 3.52e-33,…</code></pre>
+<p>We see in the output there are 5756 rows and 18 columns in the data.
 The same information should be available in the environment panel of
 RStudio</p>
 </div>
@@ -467,44 +491,48 @@ RStudio</p>
 <h1>Seeing Data in RStudio</h1>
 <p>If we want to take a closer look at the data, we have a few options.
 To see just the first few lines we can run the following command:</p>
-<pre class="r"><code>head(DE_results_heatshock_annotated)</code></pre>
+<pre class="r"><code>head(DE_results_msn24_EtOH)</code></pre>
 <pre><code>## # A tibble: 6 × 18
-##   ID      Object.Symbol Object.Name            Phenol.HS.logFC Phenol.HS.p.value
-##   &lt;chr&gt;   &lt;chr&gt;         &lt;chr&gt;                            &lt;dbl&gt;             &lt;dbl&gt;
-## 1 YAL001C TFC3          Subunit of RNA polyme…           0.135          5.61e- 2
-## 2 YAL002W VPS8          Membrane-binding comp…           0.553          1.42e- 8
-## 3 YAL003W EFB1          Translation elongatio…          -0.765          2.57e- 9
-## 4 YAL005C SSA1          ATPase involved in pr…           3.16           6.55e-15
-## 5 YAL007C ERP2          Member of the p24 fam…          -0.998          1.05e- 8
-## 6 YAL008W FUN14         Integral mitochondria…           1.36           1.35e-13
-## # ℹ 13 more variables: Phenol.HS.FDR &lt;dbl&gt;, RNeasy.HS.logFC &lt;dbl&gt;,
-## #   RNeasy.HS.p.value &lt;dbl&gt;, RNeasy.HS.FDR &lt;dbl&gt;, Direct.zol.HS.logFC &lt;dbl&gt;,
-## #   Direct.zol.HS.p.value &lt;dbl&gt;, Direct.zol.HS.FDR &lt;dbl&gt;, DB &lt;chr&gt;,
-## #   Object.ID &lt;chr&gt;, Object.Synonym &lt;chr&gt;, Object.Type &lt;chr&gt;, Taxon &lt;chr&gt;,
-## #   GO.ID &lt;chr&gt;</code></pre>
+##   `Gene ID` `Common Name` Annotation                      logFC: YPS606 (WT) E…¹
+##   &lt;chr&gt;     &lt;chr&gt;         &lt;chr&gt;                                            &lt;dbl&gt;
+## 1 YMR105C   PGM2          Phosphoglucomutase                               7.60 
+## 2 YML100W   TSL1          Large subunit of trehalose 6-p…                  7.76 
+## 3 YER053C   PIC2          Mitochondrial copper and phosp…                  6.69 
+## 4 YPR149W   NCE102        Protein involved in regulation…                  0.714
+## 5 YKL035W   UGP1          UDP-glucose pyrophosphorylase …                  4.42 
+## 6 YLR258W   GSY2          Glycogen synthase                                7.52 
+## # ℹ abbreviated name: ¹​`logFC: YPS606 (WT) EtOH response`
+## # ℹ 14 more variables: `Pvalue: YPS606 (WT) EtOH response` &lt;dbl&gt;,
+## #   `FDR: YPS606 (WT) EtOH response` &lt;dbl&gt;,
+## #   `logFC: YPS606 msn2/4ΔΔ EtOH response` &lt;dbl&gt;,
+## #   `Pvalue: YPS606 msn2/4ΔΔ  EtOH response` &lt;dbl&gt;,
+## #   `FDR: YPS606 msn2/4ΔΔ  EtOH response` &lt;dbl&gt;,
+## #   `logFC: WT v msn2/4ΔΔ: EtOH response` &lt;dbl&gt;, …</code></pre>
 <p>This can be difficult to look at. For looking at data similar to an
 Excel file, RStudio allows this by clicking on the name of the
-data.frame in the top right corner of the IDE. To open in a new window,
+data.frame in the top right corner of the IDE. We can also view a file
+by typing <code>View(filename)</code>. To open the data in a new window,
 click the “pop out” button next to “filter” just above the opened
 dataset.</p>
 <div id="exploring-the-data" class="section level2">
 <h2>Exploring the data</h2>
 <p>This dataset includes the log fold changes of gene expression in an
-experiment testing the heat shock response of <em>S. cerevisiae</em>,
-with additional columns of metadata about each gene. In later classes we
-will cover the details included, but we can already start answering
-questions.</p>
+experiment testing the ethanol stress response for the YPS606 strain of
+<em>S. cerevisiae</em> and an msn2/4ΔΔ mutant. There are also additional
+columns of metadata about each gene. In later classes, we will cover the
+details included, but we can already start answering questions.</p>
 <p><strong>Using RStudio, answer the following questions:</strong></p>
 <ol style="list-style-type: decimal">
 <li><p>How many genes are included in this study?</p></li>
-<li><p>Which gene has the highest log fold change (Phenol.HS.logFC) in
-the heatshock + phenol extraction?</p></li>
-<li><p>How many HSP genes are downregulated in response to heat shock
-(meaning a negative logFC value).</p></li>
+<li><p>Which gene has the highest log fold change in the msn2/4ΔΔ mutant
+EtOH response?</p></li>
+<li><p>How many HSP genes are differentially expressed (FDR &lt; 0.01)
+in unstressed conditions for the mutant?</p></li>
 <li><p>Do the genes with the largest magnitude fold changes have the
 smallest p-values?</p></li>
 <li><p>Which isoform of phosphoglucomutase is upregulated in response to
-heat shock?</p></li>
+ethanol stress? Do you think msn2/4 is responsible for this
+difference?</p></li>
 </ol>
 <p>Be sure to knit this file into a pdf or html file once you’re
 finished.</p>

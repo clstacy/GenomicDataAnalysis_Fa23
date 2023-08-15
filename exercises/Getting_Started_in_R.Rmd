@@ -21,6 +21,10 @@ The following code installs a set of R packages used in this document -- if not 
 ```{r ready-packages, results="hide",message=FALSE}
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
+# the p_load function 
+#    A) installs the package if not installed (like install.packages("package_name")),
+#    B) loads the package (equivalent of library(package_name))
+
 p_load("tidyverse", # An ecosystem of packages for making life in R easier
        "here", # For locating files easily
        "knitr", # For generating ("knitting") html or pdf files from .Rmd file
@@ -43,6 +47,8 @@ At the end of this excercise, you should be able to:
 -   relate Rmarkdown to a traditional lab notebook
 -   run commands in an Rmarkdown file
 
+# Using R and RStudio
+
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
@@ -55,7 +61,7 @@ print("R code in a .Rmd chunk works just like a script")
 2+2
 ```
 
-R is a useful tool for analyzing data. Let's download a data file from GitHub to work with.
+R is a useful tool for analyzing data. Let's download a data file from GitHub to work with. First, we will download the file manually and open it. Later, we will download the same file directly from the url.
 
 -   [Click here](https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt) to open the file in GitHub and click the download icon to download it to your computer.
 
@@ -65,40 +71,28 @@ R is a useful tool for analyzing data. Let's download a data file from GitHub to
 
 -   Adjust settings to make sure the file loads in properly.
 
--   Copy the code that the import dataset feature provides for reading in the file and paste it in the code chunk below
+-   Copy the code that the Import Dataset feature provides for reading in the file and paste it in the code chunk below
 
 ```{r load-manually}
 # insert here the code used to load the file in from your computer
 
 ```
 
-Let's pull some data files from a current project in our lab. We will use a file that has been modified for us to practice using RStudio.
+## Load data directly from the URL
+
+Rather than downloading the file manually and then loading it in from where we downloaded it to, we can just load it directly from the URL, as shown below. A word of caution, this won't work with any URL and you can't guarantee the URL will always work in the future.
 
 ```{r access-data}
-
 # assign url to a variable
 DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt"
 
 # download the data from the web
-DE_results_heatshock_annotated <-
-  read_delim(DE_data_url, 
-    delim = "\t", escape_double = FALSE, 
-    trim_ws = TRUE)
-
-library(readr)
-msn2_4_mutants_EtOH <- read_delim("https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt", 
-    delim = "\t", escape_double = FALSE, 
-    # locale = locale(encoding = "ISO-8859-1"),
-    trim_ws = TRUE)
-View(msn2_4_mutants_EtOH)
+DE_results_msn24_EtOH <-
+  read_tsv(file=DE_data_url)
 
 ```
 
-That's nice, but how can you load in data from a different source, or on your computer?
-
-Take a look at the Environment panel in the top-right of RStudio. If you click on the "Import Dataset" button, you can import data from your PC, or even via url links. This will allow you to load in the data, adjust settings to make sure it is formatted the way you want, and finally copy the code used to import the data so you can include in your script for reproducibility.
-
-Do remember that this function uses the package readr (a part of the tidyverse package we loaded above). If you don't have that package (1) installed and (2) loaded into your script, it won't work.
+Do remember that this function uses the package readr (a part of the tidyverse package we loaded above). If you don't have that package (1) installed and (2) loaded into your script, it won't work. Thankfully, the p_load function takes care of both of these simultaneously.
 
 ## Working with data in R
 
@@ -106,36 +100,36 @@ To get a quick summary of our data and how it looks
 
 ```{r}
 # take a quick look at how the data is structured
-glimpse(DE_results_heatshock_annotated)
+glimpse(DE_results_msn24_EtOH)
 ```
 
-We see in the output there are `r nrow(DE_results_heatshock_annotated)` rows and `r ncol(DE_results_heatshock_annotated)` columns in the data. The same information should be available in the environment panel of RStudio
+We see in the output there are `r nrow(DE_results_msn24_EtOH)` rows and `r ncol(DE_results_msn24_EtOH)` columns in the data. The same information should be available in the environment panel of RStudio
 
 # Seeing Data in RStudio
 
 If we want to take a closer look at the data, we have a few options. To see just the first few lines we can run the following command:
 
 ```{r head-data}
-head(DE_results_heatshock_annotated)
+head(DE_results_msn24_EtOH)
 ```
 
-This can be difficult to look at. For looking at data similar to an Excel file, RStudio allows this by clicking on the name of the data.frame in the top right corner of the IDE. To open in a new window, click the "pop out" button next to "filter" just above the opened dataset.
+This can be difficult to look at. For looking at data similar to an Excel file, RStudio allows this by clicking on the name of the data.frame in the top right corner of the IDE. We can also view a file by typing `View(filename)`. To open the data in a new window, click the "pop out" button next to "filter" just above the opened dataset.
 
 ## Exploring the data
 
-This dataset includes the log fold changes of gene expression in an experiment testing the heat shock response of *S. cerevisiae*, with additional columns of metadata about each gene. In later classes we will cover the details included, but we can already start answering questions.
+This dataset includes the log fold changes of gene expression in an experiment testing the ethanol stress response for the YPS606 strain of *S. cerevisiae* and an msn2/4ΔΔ mutant. There are also additional columns of metadata about each gene. In later classes, we will cover the details included, but we can already start answering questions.
 
 **Using RStudio, answer the following questions:**
 
 1.  How many genes are included in this study?
 
-2.  Which gene has the highest log fold change (Phenol.HS.logFC) in the heatshock + phenol extraction?
+2.  Which gene has the highest log fold change in the msn2/4ΔΔ mutant EtOH response?
 
-3.  How many HSP genes are downregulated in response to heat shock (meaning a negative logFC value).
+3.  How many HSP genes are differentially expressed (FDR \< 0.01) in unstressed conditions for the mutant?
 
 4.  Do the genes with the largest magnitude fold changes have the smallest p-values?
 
-5.  Which isoform of phosphoglucomutase is upregulated in response to heat shock?
+5.  Which isoform of phosphoglucomutase is upregulated in response to ethanol stress? Do you think msn2/4 is responsible for this difference?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

@@ -88,7 +88,7 @@ DE_results_heatshock_annotated <-
 library(readr)
 msn2_4_mutants_EtOH <- read_delim("https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt", 
     delim = "\t", escape_double = FALSE, 
-    locale = locale(encoding = "ISO-8859-1"),
+    # locale = locale(encoding = "ISO-8859-1"),
     trim_ws = TRUE)
 View(msn2_4_mutants_EtOH)
 

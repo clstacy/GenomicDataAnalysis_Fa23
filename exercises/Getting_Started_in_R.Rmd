@@ -12,16 +12,23 @@ knitr::opts_chunk$set(echo = TRUE)
 # here::i_am("exercises/Getting_Started_in_R.Rmd")
 ```
 
-
 # Getting things setup
+
+First things first: Click the "Visual" button in the top-left corner of the code box. This makes the code look more like a word processor. You can always switch back to Source anytime you prefer.
 
 The following code installs a set of R packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
 
 ```{r ready-packages, results="hide",message=FALSE}
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
-p_load("tidyverse", "here", "knitr", "readr",
-       "pander", "BiocManager", "dplyr")
+p_load("tidyverse", # An ecosystem of packages for making life in R easier
+       "here", # For locating files easily
+       "knitr", # For generating ("knitting") html or pdf files from .Rmd file
+       "readr", # For faster and easier reading in files to R
+       "pander", # For session info at the end of the document
+       "BiocManager", # For installing Bioconductor R packages
+       "dplyr" # A key part of the tidyverse ecosystem, has useful functions
+       )
 ```
 
 # Description
@@ -48,6 +55,23 @@ print("R code in a .Rmd chunk works just like a script")
 2+2
 ```
 
+R is a useful tool for analyzing data. Let's download a data file from GitHub to work with.
+
+-   [Click here](https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt) to open the file in GitHub and click the download icon to download it to your computer.
+
+-   Use the "Import Dataset" in the Environment panel of RStudio to open the file browser and select the downloaded file
+
+    -   You'll want to use the "From text (readr)..." option
+
+-   Adjust settings to make sure the file loads in properly.
+
+-   Copy the code that the import dataset feature provides for reading in the file and paste it in the code chunk below
+
+```{r load-manually}
+# insert here the code used to load the file in from your computer
+
+```
+
 Let's pull some data files from a current project in our lab. We will use a file that has been modified for us to practice using RStudio.
 
 ```{r access-data}
@@ -60,6 +84,14 @@ DE_results_heatshock_annotated <-
   read_delim(DE_data_url, 
     delim = "\t", escape_double = FALSE, 
     trim_ws = TRUE)
+
+library(readr)
+msn2_4_mutants_EtOH <- read_delim("https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt", 
+    delim = "\t", escape_double = FALSE, 
+    locale = locale(encoding = "ISO-8859-1"),
+    trim_ws = TRUE)
+View(msn2_4_mutants_EtOH)
+
 ```
 
 That's nice, but how can you load in data from a different source, or on your computer?
@@ -105,12 +137,12 @@ This dataset includes the log fold changes of gene expression in an experiment t
 
 5.  Which isoform of phosphoglucomutase is upregulated in response to heat shock?
 
-
 Be sure to knit this file into a pdf or html file once you're finished.
 
 <br>
 
 System information for reproducibility:
+
 ```{r}
 pander::pander(sessionInfo())
 ```

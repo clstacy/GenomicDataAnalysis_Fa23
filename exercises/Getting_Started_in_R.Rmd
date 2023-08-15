@@ -9,7 +9,6 @@ last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# here::i_am("exercises/Getting_Started_in_R.Rmd")
 ```
 
 # Getting things setup
@@ -41,7 +40,7 @@ This activity is intended to familiarize you with using RStudio and the R ecosys
 
 # Learning outcomes
 
-At the end of this excercise, you should be able to:
+At the end of this exercise, you should be able to:
 
 -   open, modify, and knit an Rmd file to a pdf/html output
 -   relate Rmarkdown to a traditional lab notebook
@@ -117,19 +116,19 @@ This can be difficult to look at. For looking at data similar to an Excel file, 
 
 ## Exploring the data
 
-This dataset includes the log fold changes of gene expression in an experiment testing the ethanol stress response for the YPS606 strain of *S. cerevisiae* and an msn2/4ΔΔ mutant. There are also additional columns of metadata about each gene. In later classes, we will cover the details included, but we can already start answering questions.
+This dataset includes the log fold changes of gene expression in an experiment testing the ethanol stress response for the YPS606 strain of *S. cerevisiae* and an *msn2/4ΔΔ* mutant. There are also additional columns of metadata about each gene. In later classes, we will cover the details included, but we can already start answering questions.
 
 **Using RStudio, answer the following questions:**
 
 1.  How many genes are included in this study?
 
-2.  Which gene has the highest log fold change in the msn2/4ΔΔ mutant EtOH response?
+2.  Which gene has the highest log fold change in the *msn2/4ΔΔ* mutant EtOH response?
 
 3.  How many HSP genes are differentially expressed (FDR \< 0.01) in unstressed conditions for the mutant?
 
 4.  Do the genes with the largest magnitude fold changes have the smallest p-values?
 
-5.  Which isoform of phosphoglucomutase is upregulated in response to ethanol stress? Do you think msn2/4 is responsible for this difference?
+5.  Which isoform of phosphoglucomutase is upregulated in response to ethanol stress? Do you think *msn2/4* is responsible for this difference?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

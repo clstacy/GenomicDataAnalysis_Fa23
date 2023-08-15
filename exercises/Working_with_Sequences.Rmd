@@ -16,31 +16,16 @@ set.seed("832")
 
 As usual, make sure we have the right packages for this exercise
 
-```{r ready-packages, results="hide",message=FALSE}
+```{r ready-packages}
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
-p_load("tidyverse", "here", 
-       "knitr", "readr",
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
        "pander", "BiocManager", 
        "dplyr", "stringr")
 
-# list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
-# 
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-# if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
-# lapply(list.of.packages, require, character.only = TRUE)
-
-```
-
-We also need the bioconductor packages "ShortRead" and "rfastp" for today's activity.
-
-```{r install-FastqPackages, results="hide", message=FALSE, warning=FALSE}
-# make sure we have the CRAN package installed for getting bioconductor packages
-if (!requireNamespace("Rfastp", quietly = TRUE))
-    BiocManager::install("Rfastp")
-
-if (!requireNamespace("ShortRead", quietly = TRUE))
-    BiocManager::install("ShortRead")
+# We also need the bioconductor packages "ShortRead" and "rfastp" for today's activity.
+p_load("Rfastp", "Shortread")
 ```
 
 # Description
@@ -51,22 +36,19 @@ This activity is intended to familiarize you with raw bioinformatic sequence fil
 
 At the end of this exercise, you should be able to:
 
--   Load and read into R a raw zipped fastq file
--   Inspect sequence quality and evaluate results
--   Perform quality control on raw data and save processed output
+-   Load and read into R a raw gzipped fastq file.
+-   Inspect sequence quality and evaluate results.
+-   Perform quality control on raw data and save processed output.
 
-```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
-library(ShortRead)
-library(Rfastp)
-```
-
-Note that instead of {r}, this chunk uses {bash}, meaning this isn't r code but bash code (the language used in the terminal). The -nc flag ensures the files are only downloaded if they don't already exist where you are downloading them.
+Note that instead of {r}, the below chunk uses {bash}, meaning this isn't r code but bash code (the language used in the terminal). The -nc flag ensures the files are only downloaded if they don't already exist where you are downloading them.
 
 This may take awhile. The below script is a bash command that downloads these files to your computer
 
 ```{bash download-fq, message=FALSE}
 # Be sure to change this file path to the path you want your data to go
-DATA_DIR="/Users/$USER/Desktop"
+DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Raw_Data/"
+
+mkdir -p $DATA_DIR
 # WARNING: curl doesn't work with relative paths
 curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep1.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep1.fastq.gz?raw=TRUE
 curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep2.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep2.fastq.gz?raw=TRUE
@@ -78,7 +60,7 @@ curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep2.fastq.gz https://github.
 curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep3.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_unstressed_rep3.fastq.gz?raw=TRUE
 curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_unstressed_rep4.fastq.gz?raw=TRUE
 
-# where these files came from: https://www.ebi.ac.uk/ena/browser/view/PRJNA558910
+# where these files came from: A current project in our lab.
 
 # Let's see what one of these files contains:
 gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8

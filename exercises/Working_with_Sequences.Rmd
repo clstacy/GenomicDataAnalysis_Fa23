@@ -43,46 +43,6 @@ if (!requireNamespace("ShortRead", quietly = TRUE))
     BiocManager::install("ShortRead")
 ```
 
-Finally, let's get conda running on your computer. NOTE: Anaconda is already installed on computers in the computer lab. If you are using your own computer, you'll need to have conda installed ([link to learn more](https://docs.conda.io/en/main/miniconda.html))
-
-First, open a terminal window. We will copy code from below into the terminal window.
-
-```{bash initialize-conda, eval=FALSE}
-. /opt/anaconda3/bin/activate && conda init
-#. /opt/anaconda3/bin/activate && conda activate /opt/anaconda3;
-
-# run this command in terminal to make sure conda is activated
-which conda
-
-# copy these 4 lines into terminal and run them
-conda config --add channels defaults
-conda config --append channels bioconda
-conda config --append channels conda-forge
-conda config --set channel_priority strict
-
-# check channel order
-conda config --show channels
-```
-
-```{bash create-condaEnvironment, engine.opts='-l'}
-# create an enviornment for our QC packages
-if conda info --envs | grep -q QC; then echo "enviornment 'QC' already exists"; else conda create -y -n QC fastqc multiqc; fi
-
-# see available conda environments
-conda env list
-
-# activate our QC environment
-conda activate QC
-
-# make sure desired packages are working
-which fastqc
-fastqc -h
-
-which multiqc
-multiqc -h
-
-```
-
 # Description
 
 This activity is intended to familiarize you with raw bioinformatic sequence files. Specifically, we'll be working with short read sequencing data generated from an Illumina platform.
@@ -286,21 +246,11 @@ That's nice, but we rarely just have a single fastq file, and we'd like to look 
 First, we need to get the locations of all of the files we downloaded earlier
 
 ```{r}
-# path_fastq_phenol_unstressed_rep1 <- "/Users/clstacy/Desktop/subset_phenol_unstressed_rep1.fastq.gz"
-# path_fastq_phenol_unstressed_rep2 <- "/Users/clstacy/Desktop/subset_phenol_unstressed_rep2.fastq.gz"
-# path_fastq_phenol_unstressed_rep3 <- "/Users/clstacy/Desktop/subset_phenol_unstressed_rep3.fastq.gz"
-# path_fastq_phenol_unstressed_rep4 <- "/Users/clstacy/Desktop/subset_phenol_unstressed_rep4.fastq.gz"
-# 
-# path_fastq_phenol_heat_rep1 <- "/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz"
-# path_fastq_phenol_heat_rep2 <- "/Users/clstacy/Desktop/subset_phenol_heat_rep2.fastq.gz"
-# path_fastq_phenol_heat_rep3 <- "/Users/clstacy/Desktop/subset_phenol_heat_rep3.fastq.gz"
-# path_fastq_phenol_heat_rep4 <- "/Users/clstacy/Desktop/subset_phenol_heat_rep4.fastq.gz"
-
 # adjust to the path where you assigned in DATA_DIR above (replace /Users/$USER by default is same as ~)
-fq_file_dir <- "~/Desktop"
+fq_file_dir <- "~/Desktop/Genomic_Data_Analysis"
 # crate a list of all of the files
 fastq.files <- list.files(path = fq_file_dir, # where to look
-                          pattern = "[0-9].fastq.gz$", # the pattern of file name to find
+                          pattern = "rep[0-9].fastq.gz$", # the pattern of file name to find
                                   # Note, if you have other fastq files in the folder, they will also be included.
                           full.names = TRUE) # save the full path to the file
 
@@ -313,8 +263,8 @@ We can loop through all of the files to perform filtering and trimming. Note the
 
 ```{r}
 # create a directory for the output to go into if not already present
-output_dir <- paste0(fq_file_dir, "/filtered")
-if (!dir.exists(output_dir)) {dir.create(output_dir)}
+output_dir <- paste0(fq_file_dir, "/filtered") 
+if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)}
 
 # run rfastp on all fastq files
 for (i in 1:length(fastq.files)) {
@@ -356,23 +306,65 @@ for (i in 1:length(fastq.files)) {
 
 Another common tool for quality control is called FastQC, useable via command line or GUI, available at <https://www.bioinformatics.babraham.ac.uk/projects/fastqc/> or via pip or conda install in the command line.
 
-```{bash fastqc}
+To use this tool, let's get conda running on your computer. NOTE: Anaconda is already installed on computers in the computer lab. If you are using your own computer, you'll need to have conda installed ([link to learn more](https://docs.conda.io/en/main/miniconda.html))
+
+First, we need to open a terminal window. We will copy code from the below code chunk into the terminal window.
+
+```{bash initialize-conda, eval=FALSE}
+. /opt/anaconda3/bin/activate && conda init
+#. /opt/anaconda3/bin/activate && conda activate /opt/anaconda3;
+
+# run this command in terminal to make sure conda is activated
+which conda
+
+# copy these 4 lines into terminal and run them
+conda config --add channels defaults
+conda config --append channels bioconda
+conda config --append channels conda-forge
+conda config --set channel_priority strict
+
+# check channel order
+conda config --show channels
+```
+
+```{bash create-condaEnvironment, engine.opts='-l'}
+# create an enviornment for our QC packages
+if conda info --envs | grep -q QC; then echo "enviornment 'QC' already exists"; else conda create -y -n QC fastqc multiqc; fi
+
+# see available conda environments
+conda env list
+
+# activate our QC environment
+conda activate QC
+
+# make sure desired packages are working
+which fastqc
+
+which multiqc
+
+```
+
+# 
+
+```{bash fastqc, engine.opts='-l'}
 # Be sure to change this file path to the path you want your data to go
 DATA_DIR="/Users/$USER/Desktop"
 
-# run fastqc
-#fastqc $DATA_DIR/*.fastq.gz
-/opt/homebrew/bin/fastqc -v
+# Activate conda QC environment
+conda activate QC
+
+# show which version of fastqc is active
+fastqc -v
 
 # Function to check if a command is installed
 command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-if command_exists /opt/homebrew/bin/fastqc; then
+if command_exists fastqc; then
   # Run the command if fastqc is installed
-  /opt/homebrew/bin/fastqc $DATA_DIR/*.fastq.gz
-  /opt/homebrew/bin/fastqc $DATA_DIR/filtered/*.fastq.gz -o $DATA_DIR/filtered/fastqc
+  fastqc $DATA_DIR/*.fastq.gz -o $DATA_DIR/fastqc/raw
+  fastqc $DATA_DIR/filtered/*.fastq.gz -o $DATA_DIR/fastqc/filtered
   if [ $? -ne 0 ]; then
     echo "FastQC execution failed. It didn't work."
   fi
@@ -383,13 +375,32 @@ fi
 
 This link shows the fastqc output for subset_phenol_unstressed_rep4.fastq.gz
 
-```{r fastqc file, eval=FALSE}
+```{r include-fastQC, eval=FALSE}
+browseURL("~/Desktop/fastqc/filtered/filtered_subset_phenol_unstressed_rep4_rfastp_R1_fastqc.html")
+# htmltools::includeHTML("~/Desktop/filtered/fastqc/filtered_subset_phenol_unstressed_rep4_rfastp_R1_fastqc.html")
+```
+
+```{r fastqc-file, eval=FALSE}
 browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/subset_phenol_unstressed_rep4_fastqc.html")
 ```
 
 One of our favorite ways to analyze multiple samples simultaneously is [MultiQC](https://multiqc.info/) a software that combines fastQC reports
 
-```{r multiqc file, eval=FALSE}
+Here is the code to run it:
+
+```{bash fastqc, engine.opts='-l'}
+# Be sure to change this file path to the path you want to run multiqc
+DATA_DIR="/Users/$USER/Desktop"
+
+# activate QC environment
+conda activate QC
+
+# run multiqc on all of the fastqc outputs
+multiqc $DATA_DIR/fastqc -o $DATA_DIR/multiqc -m fastqc -f
+```
+
+```{r multiqc-file, eval=FALSE}
+browseURL("~/Desktop/mul")
 browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/multiqc_report.html")
 ```
 

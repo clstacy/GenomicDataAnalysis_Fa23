@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 # here::i_am("exercises/Getting_Started_in_R.Rmd")
 ```
 
-#TODO: make new data file on github with only the phenol samples, will use the current one in gene_ontolgy lecture, but ismpler for this one.
 
 # Getting things setup
 
@@ -21,16 +20,8 @@ The following code installs a set of R packages used in this document -- if not 
 ```{r ready-packages, results="hide",message=FALSE}
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
-p_load("tidyverse", "here", 
-       "knitr", "readr",
+p_load("tidyverse", "here", "knitr", "readr",
        "pander", "BiocManager", "dplyr")
-
-# list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
-# 
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-# if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
-# lapply(list.of.packages, require, character.only = TRUE)
-
 ```
 
 # Description
@@ -57,12 +48,12 @@ print("R code in a .Rmd chunk works just like a script")
 2+2
 ```
 
-Let's pull some data files from a recent publication: <https://doi.org/10.1186/s12864-020-6673-2>. We will use a file that has been modified for us to practice using RStudio.
+Let's pull some data files from a current project in our lab. We will use a file that has been modified for us to practice using RStudio.
 
 ```{r access-data}
 
 # assign url to a variable
-DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv"
+DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt"
 
 # download the data from the web
 DE_results_heatshock_annotated <-

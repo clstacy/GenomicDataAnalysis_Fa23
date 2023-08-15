@@ -5,3 +5,10 @@ exercises/sacCer3.00.b.tab
 exercises/sacCer3.files
 exercises/sacCer3.log
 exercises/sacCer3.reads
+exercises/multiqc_data/multiqc_data.json
+exercises/multiqc_data/multiqc_general_stats.txt
+exercises/multiqc_data/multiqc_fastqc.txt
+exercises/multiqc_data/multiqc_fastp.txt
+exercises/multiqc_data/multiqc_citations.txt
+exercises/multiqc_data/multiqc.log
+exercises/multiqc_data/multiqc_sources.txt

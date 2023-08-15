@@ -9,59 +9,25 @@ last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# here::i_am("exercises/Gene_Ontology.Rmd")
 ```
 
 # Getting Things Setup
 
+The following code installs all of the packages used in this document -- if not already installed -- and then loads the packages into R. We need to install packages specific to our gene ontology bioinformatic analysis. Many of these packages aren't available on the R CRAN package repository, instead they are hosted on BioConductor repository that is focused on packages used in biological research. Today, we need to install the package clusterProfiler with the code below. The `p_load()` function will check the bioconductor repository if the package isn't on CRAN
 
-##TODO: number of large categories vs number in genome
-  so like for genes with carbohydrate metabolic process see how many are in DE vs total genome. Also just do some random GO term.
-
-The following code installs a set of R CRAN packages used in this document -- if not already installed -- and then loads the packages into R. Note that we utilize the US CRAN repository, but other repositories may be more convenient according to geographic location.
-
-```{r ready-packages, results="hide",message=FALSE}
+```{r install-packages}
 
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
-p_load("tidyverse", "here", 
-       "knitr", "readr",
-       "pander", "BiocManager", 
-       "igraph", "tidytree",
-       "dplyr", "ggVennDiagram")
-
-# list.of.packages <- c("tidyverse", "here", "knitr", "BiocManager", "ggVennDiagram")
-# 
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-# if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
-# lapply(list.of.packages, require, character.only = TRUE)
-
-```
-
-
-Next, we need to install packages specific to our gene ontology bioinformatic analysis. Many of these packages aren't available on the R CRAN package repository, instead they are hosted on BioConductor repository that is focused on packages used in biological research. Today, we need to install the package topGO with the code below.
-
-```{r install-GOpackage, results="hide", message=FALSE, warning=FALSE}
-# make sure we have the CRAN package installed for getting bioconductor packages
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
-# install topGO for BiocManager::install() if it isn't already installed.
-# if (!requireNamespace("topGO", quietly = TRUE))
-#     BiocManager::install("topGO")
-
-if (!requireNamespace("igraph", quietly = TRUE))
-    install.packages("igraph")
-
-# try clusterProfiler too
-if (!requireNamespace("clusterProfiler", quietly = TRUE))
-    BiocManager::install("clusterProfiler")
-# need for organism package to work.
-if (!requireNamespace("AnnotationDbi", quietly = TRUE))
-    BiocManager::install("AnnotationDbi")
-# need this one at least for clusterProfiler
-if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
-    BiocManager::install("org.Sc.sgd.db")
+p_load("tidyverse", "here", "knitr", "dplyr", # already downloaded last activity
+       "readr","pander", "BiocManager", # also from last activity
+       "janitor", # for cleaning column names
+       "igraph", "tidytree", # dependencies that require explicit download on latest Mac OS
+       "ggVennDiagram", # visualization venn diagram
+       "clusterProfiler", # for GO enrichment
+       "AnnotationDbi", # database of common genome annotations
+       "org.Sc.sgd.db" # annotation database for S. cerevesiae
+       )
 ```
 
 # Description
@@ -73,11 +39,11 @@ This activity is intended to familiarize you with Gene Ontology analysis and som
 At the end of this exercise, you should be able to:
 
 -   Understand gene ontology and its significance in functional annotation
--   learn to perform a GO enrichment & appropriate statistical methods (hypergeometric & Fisher’s exact test) for the enrichment analysis
+-   learn to perform a GO enrichment & appropriate statistical methods (hypergeometric & Fisher's exact test) for the enrichment analysis
 -   interpret & critically evaluate the results of GO enrichment & limitations/challenges
 
-
-```{r load-libraries, results="hide", message=FALSE, warning=FALSE}
+```{r load-libraries, results="hide", message=FALSE}
+# we don't have to run this, but if you install without pacman, we have to do load libraries
 library(clusterProfiler)
 library(org.Sc.sgd.db)
 ```
@@ -85,57 +51,72 @@ library(org.Sc.sgd.db)
 Let's use the same file from last class, this time performing GO term enrichment
 
 ```{r access-data}
-
 # assign url to a variable
-DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/DE_results_heatshock_annotated.tsv"
+DE_data_url <- "https://raw.githubusercontent.com/clstacy/GenomicDataAnalysis_Fa23/main/data/ethanol_stress/msn2-4_mutants_EtOH.txt"
 
 # download the data from the web
-DE_results_heatshock_annotated <-
-  read_delim(DE_data_url, 
-    delim = "\t", escape_double = FALSE, 
-    trim_ws = TRUE)
+DE_results_msn24_EtOH <-
+  read_tsv(file=DE_data_url)
+```
+
+```{r fix-colNames}
+msn24_EtOH <- # assign a new object name
+  DE_results_msn24_EtOH %>% # our object with messy names
+  clean_names() # function from janitor package to make names consistent
 ```
 
 ## Get DE gene list
 
-We need a list of differentially expressed genes to test for over or under enrichment of terms. Here we choose genes significantly upregulated with a log2 fold change greater than 1.
+We need a list of differentially expressed genes to test for over or under enrichment of terms. Here we choose genes significantly (FDR\<0.05) upregulated with a log2 fold change greater than 1 in the comparison of WT vs *msn2/4ΔΔ*: EtOH response comparison.
 
-```{r get-UPgeneList_phenol}
+```{r get-UPgeneList_msn24_etoh}
 # subset to just genes with significant fdr & log2FC>1
-DE_results_heatshock_annotated %>%
-  filter(Phenol.HS.logFC > 1 & Phenol.HS.FDR < 0.05) 
+msn24_EtOH %>%
+  filter(log_fc_wt_v_msn2_4dd_et_oh_response > 1 & fdr_wt_v_msn2_4dd_et_oh_response < 0.05) 
 
-DE_genes_upregulated_phenol <- DE_results_heatshock_annotated %>%
-  filter(Phenol.HS.logFC > 1 & Phenol.HS.FDR < 0.05) %>%
-  pull(ID) # get just the gene names
+# the above command gave us what we want, here it is again but saved to a new variable:
+DE_genes_upregulated_msn24_EtOH <- 
+  msn24_EtOH %>%
+  filter(log_fc_wt_v_msn2_4dd_et_oh_response > 1 & fdr_wt_v_msn2_4dd_et_oh_response < 0.05) %>%
+  pull(gene_id) # get just the gene names
 ```
 
-```{r get-phenolUPresults}
-GO_phenol_up_results <- enrichGO(
-  gene = DE_genes_upregulated_phenol,
+Now we have a list of genes (saved as DE_genes_upregulated_msn24_EtOH) that we want to perform GO term enrichment on. Let's do that now, using the clusterProfiler package's `enrichGO` function
+
+```{r get-msn24etoh_UP_results}
+GO_msn24_EtOH_up_results <- enrichGO(
+  gene = DE_genes_upregulated_msn24_EtOH,
   OrgDb = "org.Sc.sgd.db",
-  universe = DE_results_heatshock_annotated$ID,
+  universe = msn24_EtOH$gene_id,
   keyType = "ORF",
   ont= "BP"
 ) %>%
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
   mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
 ```
 
-```{r view-phenolUPdata, eval=FALSE}
+Now, we can look at the results in table form.
+
+```{r view-msn24etoh_UPdata, eval=FALSE}
 # open up the results in a data frame to examine
-GO_phenol_up_results %>%
+GO_msn24_EtOH_up_results %>%
   as_tibble() %>%
   View()
+
+# Here is how we could write this result into a text file:
+GO_msn24_EtOH_up_results %>%
+  as_tibble() %>%
+  write_tsv(file = "~/Desktop/GO_msn24_EtOH_up_results.tsv")
 ```
 
 Now we can visualize the enrichment results, which shows us gene ontology categories that are enriched in upregulated genes in the phenol samples of the heat shock experiment.
 
 ```{r visualize-GOterms_upregulated_phenol}
 # a simple visualization
-plot(barplot(GO_phenol_up_results, showCategory = 10))
+plot(barplot(GO_msn24_EtOH_up_results, showCategory = 10))
 
 # a more complicated visualization, with more information density
-ggplot(GO_phenol_up_results,
+ggplot(GO_msn24_EtOH_up_results,
        showCategory = 15,
        aes(richFactor, fct_reorder(Description, richFactor))) +
   geom_segment(aes(xend = 0, yend = Description)) +
@@ -156,81 +137,82 @@ You can try adjusting the size of the output figures by clicking the gear icon i
 
 # The Hypergeometric Distribution in practice
 
-Notice that trehalose metabolic process does not have very many genes in the category, but they appear to be highly present in the the upregulated gene list. Specifically, `r GO_phenol_up_results %>% as_tibble %>% filter(ID == "GO:0005991") %>% pull(GeneRatio) %>% cat()` DE genes have this GO term, where in the entire genome, there are only `r GO_phenol_up_results %>% as_tibble %>% filter(ID == "GO:0005991") %>% mutate(tmp = as.numeric(sub("/\\d+", "", BgRatio))) %>% pull(tmp) %>% cat()` genes. What are the odds that we see this by random chance? let's do the math:
+Notice that the DNA integration process does not have very many genes in the category, but they appear to be highly present in the the upregulated gene list. Specifically, `r GO_msn24_EtOH_up_results %>% as_tibble %>% filter(ID == "GO:0015074") %>% pull(GeneRatio) %>% cat()` DE genes have this GO term, where in the entire genome, there are only `r GO_msn24_EtOH_up_results %>% as_tibble %>% filter(ID == "GO:0015074") %>% mutate(tmp = as.numeric(sub("/\\d+", "", BgRatio))) %>% pull(tmp) %>% cat()` genes. What are the odds that we see this by random chance? let's do the math:
 
 ```{r prepare-phyper}
-# number of genes that have GO:0005991 (trehalose metabolic process)
-trehalose_genes = 12
-# number of genes that are DE (here phenol group heat shock, logFC>1)
-DE_genes = 710
+# number of genes that have GO:0015074 (DNA integration)
+integration_genes = 23
+# number of genes that are DE (msn2/4 EtOH response, logFC>1)
+DE_genes = 91
 # number of genes that are both DE and trehalose genes
-Overlap = 10
+Overlap = 6
 # total number of genes in experiment
-total = 5650 # number of genes in genome
+total = 5538 # number of genes in genome
 ```
 
-__Without doing the math, do you expect these to be underrepresented, overrepresented, or neither?__
-
+**Without doing the math, do you expect these to be underrepresented, overrepresented, or neither?**
 
 ```{r test-phyper}
 # test for underrepresentation (depletion)
-phyper(q = Overlap, # number of trehalose genes that were DE
+phyper(q = Overlap, # number of integration genes that were DE
        m = DE_genes, # number of DE genes
        n = total-DE_genes, # number of non DE genes
-       k = trehalose_genes, # number of observed DE trehalose genes
+       k = integration_genes, # number of observed DE DNA integration genes
        lower.tail = TRUE) # the probability that X <= x
 
 # test for overrepresentation (enrichmen t)
-phyper(q = Overlap-1, # number of trehalose genes that were DE
+phyper(q = Overlap-1, # number of integration genes that were DE
                       # we subtract 1 b/c of lower.tail=FALSE means greater than
                       # without equality, so have to do one less
        m = DE_genes, # number of DE genes
        n = total-DE_genes, # number of non DE genes
-       k = trehalose_genes, # number of observed DE trehalose genes
+       k = integration_genes, # number of observed DE integration genes
        lower.tail = FALSE) # the probability that X > x
 ```
 
-As we see, there is strong evidence that the number of genes with this GO term is unlikely to be seen due to chance. In laymen's terms, this GO term is enriched in upregulated genes in response to heat shock. The test for underrepresenation shows there is no support for a hypothesis that this gene is underrepresented in the DE gene list.
+As we see, there is strong evidence that the number of genes with this GO term is unlikely to be seen due to chance. In laymen's terms, this GO term is enriched in upregulated genes in this contrast. The test for underrepresenation shows there is no support for a hypothesis that this gene is underrepresented in the DE gene list.
 
 Interestingly, the hypergeometric distribution is the same thing as the Fisher's Exact test, so we can rerun the same tests above with a different command:
+
 ```{r test-exactFisher}
 #fisher test for underrepresentation
-fisher.test(matrix(c(Overlap, DE_genes-Overlap, trehalose_genes-Overlap, total-DE_genes-trehalose_genes + Overlap), 2, 2), alternative='less')$p.value
+fisher.test(matrix(c(Overlap, DE_genes-Overlap, integration_genes-Overlap, total-DE_genes-integration_genes + Overlap), 2, 2), alternative='less')$p.value
 
 #fisher test for overrepresentation
-fisher.test(matrix(c(Overlap, DE_genes-Overlap, trehalose_genes-Overlap, total-DE_genes-trehalose_genes + Overlap), 2, 2), alternative='greater')$p.value
+fisher.test(matrix(c(Overlap, DE_genes-Overlap, integration_genes-Overlap, total-DE_genes-integration_genes + Overlap), 2, 2), alternative='greater')$p.value
 ```
 
 How does the p-value that we get from this test compare to the results table? They should match.
 
 <br><br><br><br>
 
-# Now it is your turn 
+# Now it is your turn
 
-Try doing the same, except now create a different gene list. Some options could be:
+Try running your own GO enrichment with a different gene list. Some options could be:
 
-- Downregulated in phenol+Heatshock instead of upregulated
-- genes that are upregulated in either RNeasy or direct.zol heatshock columns.
-- look at a different GO category (we only looked at BP, not MF or CC)
+-   Downregulated instead of upregulated genes
+-   genes that are upregulated in a different comparison in the data file.
+-   look at a different GO category (we only looked at BP, not MF or CC)
 
-The code below is a template for you to modify to complete this activity.
-The example code below looks at the RNeasy heatshock upregulated genes (choose something else for your gene list)
+The code below is a template for you to modify to complete this activity. The example code below looks at the downregulated genes in response to stress in the WT (choose something else for your gene list)
 
-***
+------------------------------------------------------------------------
 
 ```{r get-[direction]geneList_[treatment]}
 # subset to just genes meeting your requirements
-DE_genes_GIVE_NAME <- DE_results_heatshock_annotated %>%
-  filter(RNeasy.HS.logFC > 1 & RNeasy.HS.FDR<0.05) %>% # change for the filters that you want (see example above)
-  pull(ID) # grabbing just the gene names
+DE_genes_GIVE_NAME <- msn24_EtOH %>%
+  # change the below line for the filters that you want
+  filter(log_fc_yps606_wt_et_oh_response < 1 & pvalue_yps606_wt_et_oh_response<0.05) %>% 
+  pull(gene_id) # grabbing just the gene names
 ```
 
 ### Run Enrichment
+
 ```{r get-[treatment][direction]results}
 GO_GIVE_NAME_results <- enrichGO(
   gene = DE_genes_GIVE_NAME,
   OrgDb = "org.Sc.sgd.db",
-  universe = DE_results_heatshock_annotated$ID,
+  universe = msn24_EtOH$gene_id,
   keyType = "ORF",
   ont= "BP"
 ) %>%
@@ -238,14 +220,21 @@ GO_GIVE_NAME_results <- enrichGO(
 ```
 
 ### see the data
+
 ```{r view-[treatment][direction]data, eval=FALSE}
 # open up the results in a data frame to examine
 GO_GIVE_NAME_results %>%
   as_tibble() %>%
   View()
+
+# write out your results to a text file
+GO_GIVE_NAME_results %>%
+  as_tibble() %>%
+  write_tsv(file = "~/Desktop/GO_GIVE_NAME_DIRECTION_results.tsv")
 ```
 
 ### create plots
+
 ```{r visualize-GOterms_[direction]_[treatment]}
 # a simple visualization
 plot(barplot(GO_GIVE_NAME_results, showCategory = 10))
@@ -265,17 +254,16 @@ ggplot(GO_GIVE_NAME_results,
     guide = guide_colorbar(reverse = TRUE, order = 1)
   ) +
   scale_size_continuous(range = c(2, 10)) +
+  scale_y_discrete(label = function(x) stringr::str_trunc(x, 50)) + # cut off long names
   xlab("Rich Factor") +
   ylab(NULL) +
   ggtitle("Biological Processes") +
   theme_bw()
 ```
 
-
-
 Answer the following questions:
 
-1.  Which GO term had the smallest adjusted p-value in the Phenol.HS upregulated example that we did together?
+1.  Which GO term had the smallest adjusted p-value in the upregulated comparison example that we did together?
 
 2.  What percent of the genes would we expect to have that GO term in the DE list under the null hypothesis? What percent of the DE genes actually had that GO term?
 
@@ -285,34 +273,29 @@ Answer the following questions:
 
 5.  In simple terms, how would you describe what the "Rich Factor" tells about a given GO term in the gene list.
 
-6. Challenge: Create a venn diagram of the GO terms in the GO analysis you ran with the GO_phenol_up_results output
+6.  Challenge: Create a venn diagram of the GO terms in the GO analysis you ran with the GO_phenol_up_results output
 
-7. What GO terms are enriched for genes with pval < 0.01 but fdr > 0.01 and what is their average/median log fold change?
+7.  What GO terms are enriched for genes with pval \< 0.01 but fdr \> 0.01 and what is their average/median log fold change?
 
 ```{r create-vennDiagram}
-# if (!requireNamespace("ggVennDiagram", quietly = TRUE))
-#   install.packages("ggVennDiagram")
-library(ggVennDiagram)
-
-GO_results_list <- list(data.frame(GO_phenol_up_results)$ID,
+# create a list of the data we want to compare
+GO_results_list <- list(data.frame(GO_msn24_EtOH_up_results)$ID,
                         data.frame(GO_GIVE_NAME_results)$ID)
 
+# visualize the GO results list as a venn diagram
 ggVennDiagram(GO_results_list,
-              category.names = c("Phenol_upregulated", "[GIVE_NAME]")) +
+              category.names = c("msn24_EtOH_upregulated", "[GIVE_NAME]")) +
   scale_x_continuous(expand = expansion(mult = .2)) +
   scale_fill_distiller(palette = "RdBu"
   )
 ```
 
-
-
 Be sure to knit this file into a pdf or html file once you're finished.
 
 <br>
 
-
 System information for reproducibility:
+
 ```{r}
 pander::pander(sessionInfo())
 ```
-

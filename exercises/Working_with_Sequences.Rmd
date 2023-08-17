@@ -25,7 +25,7 @@ p_load("tidyverse", "knitr", "readr",
        "dplyr", "stringr")
 
 # We also need the bioconductor packages "ShortRead" and "rfastp" for today's activity.
-p_load("Rfastp", "Shortread")
+p_load("Rfastp", "ShortRead")
 ```
 
 # Description
@@ -38,32 +38,49 @@ At the end of this exercise, you should be able to:
 
 -   Load and read into R a raw gzipped fastq file.
 -   Inspect sequence quality and evaluate results.
--   Perform quality control on raw data and save processed output.
+-   Perform quality control on raw data and save the processed output.
 
-Note that instead of {r}, the below chunk uses {bash}, meaning this isn't r code but bash code (the language used in the terminal). The -nc flag ensures the files are only downloaded if they don't already exist where you are downloading them.
+Note that instead of `{r}`, the below chunk uses `{bash}`, meaning this isn't r code but bash code (the language used in the terminal). The `-nc` flag ensures the files are only downloaded if they don't already exist where you are downloading them.
 
-This may take awhile. The below script is a bash command that downloads these files to your computer
+This may take awhile the first time you run it. The below script is a bash command that downloads these files to your computer
 
 ```{bash download-fq, message=FALSE}
 # Be sure to change this file path to the path you want your data to go
-DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Raw_Data/"
+RAW_DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw"
 
-mkdir -p $DATA_DIR
+# create the destination directory if it doesn't already exist
+mkdir -p $RAW_DATA_DIR
+
+# change to that directory (for this code chunk only)
+cd $RAW_DATA_DIR
+
+# Download the files.
 # WARNING: curl doesn't work with relative paths
-curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep1.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep1.fastq.gz?raw=TRUE
-curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep2.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep2.fastq.gz?raw=TRUE
-curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep3.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep3.fastq.gz?raw=TRUE
-curl -L -C - -o $DATA_DIR/subset_phenol_heat_rep4.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_heat_rep4.fastq.gz?raw=TRUE
+# WT unstressed (mock)
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_MOCK_REP1.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_MOCK_REP2.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_MOCK_REP3.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_MOCK_REP4.fastq.gz?raw=TRUE
+# WT EtOH
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_ETOH_REP1.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_ETOH_REP2.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_ETOH_REP3.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_WT_ETOH_REP4.fastq.gz?raw=TRUE
+# msn2/4dd unstressed (mock)
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_MOCK_REP1.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_MOCK_REP2.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_MOCK_REP3.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_MOCK_REP4.fastq.gz?raw=TRUE
+# msn2/4dd EtOH
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_ETOH_REP1.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_ETOH_REP2.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_ETOH_REP3.fastq.gz?raw=TRUE
+curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_ETOH_REP4.fastq.gz?raw=TRUE
 
-curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep1.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_unstressed_rep1.fastq.gz?raw=TRUE
-curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep2.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_unstressed_rep2.fastq.gz?raw=TRUE
-curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep3.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_unstressed_rep3.fastq.gz?raw=TRUE
-curl -L -C - -o $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/subset_phenol_unstressed_rep4.fastq.gz?raw=TRUE
-
-# where these files came from: A current project in our lab.
+# These raw data files are from a current project in our lab.
 
 # Let's see what one of these files contains:
-gzcat $DATA_DIR/subset_phenol_unstressed_rep4.fastq.gz | head -n8
+gzcat $RAW_DATA_DIR/YPS606_WT_MOCK_REP1.fastq.gz | head -n8
 ```
 
 We have the data downloaded onto our system now, so let's first take a look at some of these files ourselves
@@ -74,42 +91,45 @@ The R package ShortRead allows us to look at and process raw fastq files. It has
 
 ```{r}
 # change this directory here to where you have the file saved
-fastq_phenol_heat_rep4 <- readFastq("~/Desktop/subset_phenol_heat_rep4.fastq.gz")
-# fastq_phenol_heat_rep4 <- readFastq(path_fastq_phenol_heat_rep4)
+path_fastq_WT_MOCK_REP1 <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Raw/YPS606_WT_MOCK_REP1.fastq.gz")
+  
+
+fastq_WT_MOCK_REP1 <- readFastq(path_fastq_WT_MOCK_REP1)
 
 # file too big? swap readFastq() for:
-fastq_phenol_unstressed_rep1 <- yield(FastqSampler("~/Desktop/subset_phenol_heat_rep4.fastq.gz", n=10000))
-
+subsampled_fastq_WT_MOCK_REP1 <- yield(FastqSampler(path_fastq_WT_MOCK_REP1, n=10000)) # where n is the number of reads you want to sample
+# the fastq files we downloaded are smaller than a normal fastq file, 
+# because they have been subsampled down from their full size for demonstration.
 ```
 
 A few quick ways to examine the fastq data object
 
 ```{r}
 # Typing the name of the object gives us a simple summary
-fastq_phenol_heat_rep4
+fastq_WT_MOCK_REP1
 
 # the length() function gives us the total number of reads
-length(fastq_phenol_heat_rep4)
+length(fastq_WT_MOCK_REP1)
 
 # We can use the width() function to find the size of each read/sequence in fastq
-width(fastq_phenol_heat_rep4) %>% head() # add head() pipe to only print first 10
+width(fastq_WT_MOCK_REP1) %>% head() # add head() pipe to only print first 10
 
 
 #sread() - Retrieve sequence of reads.
-sread(fastq_phenol_heat_rep4)
+sread(fastq_WT_MOCK_REP1)
 
 #quality() - Retrieve quality of reads as ASCII scores.
-quality(fastq_phenol_heat_rep4)
+quality(fastq_WT_MOCK_REP1)
 
 #id() - Retrieve IDs of reads
-id(fastq_phenol_heat_rep4)
+id(fastq_WT_MOCK_REP1)
 ```
 
-The output of sread() is a DNAStringSet object, so we can use all of the commands from the biostrings library on the output
+The output of `sread()` is a DNAStringSet object, so we can use all of the commands from the Biostrings library on the output object.
 
 ```{r}
 # first, let's save the output of sread as an object
-sequence_of_reads <- sread(fastq_phenol_heat_rep4)
+sequence_of_reads <- sread(fastq_WT_MOCK_REP1)
 
 # Now, let's use the biostrings function alphabetFrequency to see
 # the occurrence of nucleotide bases in reads.
@@ -130,14 +150,14 @@ A comprehensive description of phred quality can be found on the wiki page for F
 To see the fastq encodings, we can run:
 
 ```{r}
-encoding(quality(fastq_phenol_heat_rep4))
+encoding(quality(fastq_WT_MOCK_REP1))
 ```
 
 The ShortRead package has many functions available to allow us to collect useful metrics from our ShortRead object.
 
-One very useful function is the alphabetByCycle() function which provides a quick method to summarise base occurrence of cycles.
+One very useful function is the `alphabetByCycle()` function which provides a quick method to summarise base occurrence of cycles.
 
-Here we apply alphabetByCycle() function to the sequence information and show the occurrence of main 4 bases over first 15 cycles.
+Here we apply `alphabetByCycle()` function to the sequence information and show the occurrence of main 4 bases over first 15 cycles.
 
 ```{r}
 alph_by_cycle <- alphabetByCycle(sequence_of_reads)
@@ -153,12 +173,12 @@ readOccurence <- table(sequence_of_reads)
 sort(readOccurence,decreasing = TRUE)[1:3]
 ```
 
-We can identify duplicated reads (potentially arising from PCR over amplification) by using the srduplicated() function and the ShortReadQ object.
+We can identify duplicated reads (potentially arising from PCR over amplification) by using the `srduplicated()` function and the ShortReadQ object.
 
 This returns a logical vector identifying which reads' sequences are duplicates (occur more than once in file). Note that the first time a sequence appears in file is not a duplicate but the second, third, fourth times etc are.
 
 ```{r}
-duplicates <- srduplicated(fastq_phenol_heat_rep4)
+duplicates <- srduplicated(fastq_WT_MOCK_REP1)
 duplicates[1:3]
 
 # we can use table() to get a quick summary of the seq duplication rate
@@ -167,42 +187,42 @@ table(duplicates)
 
 The ShortRead package also contains a function to generate a simple quality control report.
 
-The qa() function accepts a FastQ file and returns a FastqQA object.
+The `qa()` function accepts a FastQ file and returns a FastqQA object.
 
 ```{r}
-qa_phenol_heat_rep4 <- qa("~/Desktop/subset_phenol_heat_rep4.fastq.gz")
-qa_phenol_heat_rep4
+qa_WT_MOCK_REP1 <- qa(path_fastq_WT_MOCK_REP1)
+qa_WT_MOCK_REP1
 ```
 
 We can then use the report() function to generate a simple report.
 
 ```{r}
-myReport_phenol_heat_rep4 <- report(qa_phenol_heat_rep4)
-myReport_phenol_heat_rep4
+myReport_WT_MOCK_REP1 <- report(qa_WT_MOCK_REP1)
+myReport_WT_MOCK_REP1
 ```
 
 Finally we can review the report in a browser or use the browseURL function to open it in a browser from R.
 
 ```{r viewReport, eval=F}
-browseURL(myReport_phenol_heat_rep4)
+browseURL(myReport_WT_MOCK_REP1)
 ```
 
 # Trimming
 
-When we observe low quality at the end of reads we may wish to remove the low quality bases for later alignment to the genome. The trimTails() function trims reads from the 3', removing bases which fall below a desired quality. The trimTails() function accepts arguments specifying the ShortReadQ object, the minimum number of successive bases required to be below quality cut-off for trimming and the actual cut-off score.
+When we observe low quality at the end of reads we may wish to remove the low quality bases for later alignment to the genome. The `trimTails()` function trims reads from the 3', removing bases which fall below a desired quality. The `trimTails()` function accepts arguments specifying the ShortReadQ object, the minimum number of successive bases required to be below quality cut-off for trimming and the actual cut-off score.
 
 ```{r}
-trimmed_fastq_phenol_heat_rep4 <- trimTails(fastq_phenol_heat_rep4, # ShortReadQ object to trim
+trimmed_fastq_WT_MOCK_REP1 <- trimTails(fastq_WT_MOCK_REP1, # ShortReadQ object to trim
                           k=10, # integer number of failing letters to trigger trim
                           a="5") # character giving letter at or below to "fail"
-trimmed_fastq_phenol_heat_rep4
+trimmed_fastq_WT_MOCK_REP1
 ```
 
 Now we have trimmed our FastQ reads, we can export these reads for further analysis using the writeFastq() function
 
 ```{r eval=FALSE}
-writeFastq(trimmed_fastq_phenol_heat_rep4,
-           "~/Desktop/phenol_heat_rep4_trimmed.fastq.gz") #path to save file
+writeFastq(trimmed_fastq_WT_MOCK_REP1,
+           "~/Desktop/Genomic_Data_Analysis/WT_MOCK_REP1_shortread_trimmed.fastq.gz") #path to save file
 ```
 
 ## Is there any way we can automate some of this?
@@ -211,14 +231,18 @@ There are several utility programs that will provide you with QC and trim your d
 
 By default, fastp will make a html report to summarize your result. But the Rfastp wrapper allows you to look at some of them in R.
 
-```{r}
+```{r paged.print=TRUE}
+# create a directory for the output to go into if not already present
+output_dir <- paste0(dirname(dirname(path_fastq_WT_MOCK_REP1)), "/Trimmed_rfastp") 
+if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)}
+
 # if we wanted to just run a single file, we would do so like this:
+rfastp_report <- rfastp(read1 = path_fastq_WT_MOCK_REP1,
+                        outputFastq = paste0(output_dir, "/YPS606_WT_MOCK_REP1"))
 
-rfastp_report <- rfastp(read1 = "/Users/clstacy/Desktop/subset_phenol_heat_rep1.fastq.gz",
-                        outputFastq ="/Users/clstacy/Desktop/rfastp_trimmed_phenol_heat_rep1.fastq.gz")
-
+# print out the qc summary for this sample
 df_summary <- qcSummary(rfastp_report)
-df_summary
+df_summary %>% print.data.frame()
 ```
 
 # Batch file processing
@@ -228,11 +252,11 @@ That's nice, but we rarely just have a single fastq file, and we'd like to look 
 First, we need to get the locations of all of the files we downloaded earlier
 
 ```{r}
-# adjust to the path where you assigned in DATA_DIR above (replace /Users/$USER by default is same as ~)
-fq_file_dir <- "~/Desktop/Genomic_Data_Analysis"
+# adjust to the path where you assigned in RAW_DATA_DIR if using different than default
+fq_file_dir <- dirname(path_fastq_WT_MOCK_REP1) # this just gets the path file is in.
 # crate a list of all of the files
 fastq.files <- list.files(path = fq_file_dir, # where to look
-                          pattern = "rep[0-9].fastq.gz$", # the pattern of file name to find
+                          pattern = "REP[0-9].fastq.gz$", # the pattern of file name to find
                                   # Note, if you have other fastq files in the folder, they will also be included.
                           full.names = TRUE) # save the full path to the file
 
@@ -244,23 +268,18 @@ Now we have all of the file paths
 We can loop through all of the files to perform filtering and trimming. Note there are many arguments that can be modified. Use ?rfastp to learn more.
 
 ```{r}
-# create a directory for the output to go into if not already present
-output_dir <- paste0(fq_file_dir, "/filtered") 
-if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)}
-
 # run rfastp on all fastq files
 for (i in 1:length(fastq.files)) {
   # file path to single end read
   read1 <- fastq.files[i]
-  # assign output file (putting it inside of filtered folder)
-  output_name <- paste0(dirname(fastq.files[i]),
-                        "/filtered/",
-                        "filtered_",
+  # assign output file (putting it inside of Data/Trimmed folder)
+  output_name <- paste0(output_dir,
+                        "/",
                         basename(fastq.files[i]))
   json_report <- rfastp(
     read1 = read1,
-    outputFastq = paste0(str_split(output_name, fixed("."))[[1]][1],"_rfastp"),
-    disableTrimPolyG = TRUE,
+    outputFastq = str_split(output_name, fixed("."))[[1]][1],
+    disableTrimPolyG = FALSE,
     # cutLowQualFront = TRUE,
     # cutFrontWindowSize = 3,
     # cutFrontMeanQual = 10,
@@ -284,6 +303,14 @@ for (i in 1:length(fastq.files)) {
 
 ```
 
+### Running RfastP creates several files:
+
+1.  XXX_R1.fastq.gz - FASTQ with poor quality reads filtered out
+
+2.  XXX.html - HTML file contains a QC report
+
+3.  XXX.json - JSON file with all the summary statistics
+
 ## QC and adapters
 
 Another common tool for quality control is called FastQC, useable via command line or GUI, available at <https://www.bioinformatics.babraham.ac.uk/projects/fastqc/> or via pip or conda install in the command line.
@@ -292,7 +319,7 @@ To use this tool, let's get conda running on your computer. NOTE: Anaconda is al
 
 First, we need to open a terminal window. We will copy code from the below code chunk into the terminal window.
 
-```{bash initialize-conda, eval=FALSE}
+```{bash initialize-conda, eval=FALSE, engine.opts='-l'}
 . /opt/anaconda3/bin/activate && conda init
 #. /opt/anaconda3/bin/activate && conda activate /opt/anaconda3;
 
@@ -309,9 +336,11 @@ conda config --set channel_priority strict
 conda config --show channels
 ```
 
+Now, we need to create a conda environment with our packages. You can do so with the code below. This may take a couple of minutes the first time we run it.
+
 ```{bash create-condaEnvironment, engine.opts='-l'}
 # create an enviornment for our QC packages
-if conda info --envs | grep -q QC; then echo "enviornment 'QC' already exists"; else conda create -y -n QC fastqc multiqc; fi
+if conda info --envs | grep -q QC; then echo "environment 'QC' already exists"; else conda create -y -n QC fastqc multiqc; fi
 
 # see available conda environments
 conda env list
@@ -321,69 +350,83 @@ conda activate QC
 
 # make sure desired packages are working
 which fastqc
-
 which multiqc
 
+# get the versions of each software
+fastqc -v
+multiqc --version
+
+# it's always good coding practice to deactivate a conda environment at the end of a chunk
+conda deactivate
 ```
 
-# 
+## Running fastqc
 
-```{bash fastqc, engine.opts='-l'}
-# Be sure to change this file path to the path you want your data to go
-DATA_DIR="/Users/$USER/Desktop"
-
+```{bash fastqc, engine.opts='-l', message=FALSE}
+#WARNING: variables in bash you've saved in previous chunks won't be retained in later chunks
+# We need to set a variable for the folder above raw and trimmed files.
+DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data"
+QC_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/QC"
 # Activate conda QC environment
 conda activate QC
 
 # show which version of fastqc is active
 fastqc -v
 
-# Function to check if a command is installed
+# Function to check if a command is installed, we use this next.
 command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
 if command_exists fastqc; then
-  # Run the command if fastqc is installed
-  fastqc $DATA_DIR/*.fastq.gz -o $DATA_DIR/fastqc/raw
-  fastqc $DATA_DIR/filtered/*.fastq.gz -o $DATA_DIR/fastqc/filtered
+  # Continue if fastqc is installed
+  # first, make sure we have the folders to store the fastqc outputs
+  mkdir -p $QC_DIR/fastqc/Raw
+  mkdir -p $QC_DIR/fastqc/Trimmed
+  # run fastqc on the raw data files
+  fastqc $DATA_DIR/Raw/*.fastq.gz -o $QC_DIR/fastqc/Raw
+  # run fastqc on the trimmed data files
+  fastqc $DATA_DIR/Trimmed_rfastp/*.fastq.gz -o $QC_DIR/fastqc/Trimmed
   if [ $? -ne 0 ]; then
     echo "FastQC execution failed. It didn't work."
   fi
 else
   echo "FastQC is not installed."
 fi
+
+# deactivate QC conda environment
+conda deactivate
 ```
 
-This link shows the fastqc output for subset_phenol_unstressed_rep4.fastq.gz
+This link shows the fastqc output for the trimmed WT_MOCK_REP1.fastq.gz
 
 ```{r include-fastQC, eval=FALSE}
-browseURL("~/Desktop/fastqc/filtered/filtered_subset_phenol_unstressed_rep4_rfastp_R1_fastqc.html")
-# htmltools::includeHTML("~/Desktop/filtered/fastqc/filtered_subset_phenol_unstressed_rep4_rfastp_R1_fastqc.html")
+browseURL("~/Desktop/Genomic_Data_Analysis/QC/fastqc/Trimmed/YPS606_WT_MOCK_REP1_R1_fastqc.html")
+
 ```
 
-```{r fastqc-file, eval=FALSE}
-browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/subset_phenol_unstressed_rep4_fastqc.html")
-```
+We could do this for each of the html fastq files to see how they all look but with a large sample size that takes a long time and can lead to missing important information.
 
-One of our favorite ways to analyze multiple samples simultaneously is [MultiQC](https://multiqc.info/) a software that combines fastQC reports
+## Multiqc for QC on mutliple samples
+
+One of our favorite ways to analyze multiple samples simultaneously is [MultiQC](https://multiqc.info/) a software that combines fastQC (and other) reports
 
 Here is the code to run it:
 
-```{bash fastqc, engine.opts='-l'}
+```{bash multiqc, engine.opts='-l'}
 # Be sure to change this file path to the path you want to run multiqc
-DATA_DIR="/Users/$USER/Desktop"
+QC_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/QC"
 
 # activate QC environment
 conda activate QC
 
 # run multiqc on all of the fastqc outputs
-multiqc $DATA_DIR/fastqc -o $DATA_DIR/multiqc -m fastqc -f
+multiqc $QC_DIR/fastqc -o $QC_DIR -m fastqc -f
 ```
 
 ```{r multiqc-file, eval=FALSE}
-browseURL("~/Desktop/mul")
-browseURL("https://htmlpreview.github.io/?https://github.com/clstacy/GenomicDataAnalysis_Fa23/blob/main/outputs/fastqc/multiqc_report.html")
+path_multiqc <- "~/Desktop/Genomic_Data_Analysis/QC/multiqc_report.html"
+browseURL(path_multiqc)
 ```
 
 Be sure to knit this file into a pdf or html file once you're finished.

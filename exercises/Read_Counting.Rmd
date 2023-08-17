@@ -15,27 +15,18 @@ set.seed("1492")
 
 
 
-
-
 As usual, make sure we have the right packages for this exercise
 
-```{r ready-packages, results="hide",message=FALSE}
+```{r ready-packages}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
 
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr")
 
-list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager")
-
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
-lapply(list.of.packages, require, character.only = TRUE)
-
-```
-
-We also need the bioconductor package "Rsubread" for today's activity again.
-
-```{r install-BiocPackages, results="hide", message=FALSE, warning=FALSE}
-# make sure we have the CRAN package installed for getting bioconductor packages
-if (!requireNamespace("Rsubread", quietly = TRUE))
-    BiocManager::install("Rsubread")
+# We also need the Bioconductor packages "Rsubread" for today's activity.
+p_load("Rsubread")
 ```
 
 Previously, we aligned our fastq files to the reference genome, generating BAM files. They should be in your ~/Desktop/filtered folder, unless you chose a different place to store them.
@@ -187,6 +178,26 @@ We are randomly sampling 50 reads from the file and seeing the quality scores. A
 boxplot(qs)
 ```
 
+
+# Salmon pseudomapping & counting
+
+```{bash}
+ANALYSIS_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Analysis"
+DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp"
+
+
+for fn in data/DRR0161{25..40};
+do
+samp=`basename ${fn}`
+echo "Processing sample ${samp}"
+salmon quant -i athal_index -l A \
+         -1 ${fn}/${samp}_1.fastq.gz \
+         -2 ${fn}/${samp}_2.fastq.gz \
+         -p 8 --validateMappings -o quants/${samp}_quant
+done 
+```
+
+
 # Activity
    
 1. Identify which gene has the highest counts across all samples.
@@ -197,7 +208,6 @@ boxplot(qs)
 Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 “best” locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting “.fastq.gz” with “.multi.bam” so we don’t overwrite our unique alignment bam files.
 
 Question 2: Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
-
 
 
 

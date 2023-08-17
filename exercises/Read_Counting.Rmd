@@ -26,7 +26,7 @@ p_load("tidyverse", "knitr", "readr",
 p_load("Rsubread")
 ```
 
-Previously, we aligned our fastq files to the reference genome, generating BAM files. They should be in your \~/Desktop/filtered folder, unless you chose a different place to store them.
+Previously, we aligned our fastq files to the reference genome, generating BAM files. They should be in your "\~/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp" folder, unless you chose a different place to store them.
 
 ```{r}
 # Where the bam files are located (default same as trimmed fastq file location)
@@ -157,6 +157,8 @@ We will need to use this object in our next class. We can use the R function `sa
 # create a directory for the count output to go into if not already present
 dir_output_counts <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread")
 if (!dir.exists(dir_output_counts)) {dir.create(dir_output_counts, recursive = TRUE)}
+
+# save the R data object
 saveRDS(object = fc, file = "~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
 
 # often, we want to share this file as a tsv file. Here is how we can do that:
@@ -234,7 +236,7 @@ sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_tpm.merg
 conda deactivate
 ```
 
-This script loops through each sample and invokes salmon using default mostly options. The `-i` argument tells salmon where to find the index `-l A` tells salmon that it should automatically determine the library type of the sequencing reads (e.g. stranded vs. unstranded etc.). The -r arguments tell salmon where to find the SE reads for this sample (notice, salmon will accept gzipped FASTQ files directly). Finally, the `-p 4` argument tells salmon to make use of 4 threads and the `-o` argument specifies the directory where salmon's quantification results should be written. The `–useVBOpt` flag sets to use variational Bayesian EM algorithm rather than the \'standard EM\' to optimize abundance estimates (more accurate). Salmon exposes many different options to the user that enable extra features or modify default behavior. However, the purpose and behavior of all of those options is beyond the scope of this introductory tutorial. You can read about salmon's many options in the documentation.
+This script loops through each sample and invokes salmon using default mostly options. The `-i` argument tells salmon where to find the index `-l A` tells salmon that it should automatically determine the library type of the sequencing reads (e.g. stranded vs. unstranded etc.). The -r arguments tell salmon where to find the SE reads for this sample (notice, salmon will accept gzipped FASTQ files directly). Finally, the `-p 4` argument tells salmon to make use of 4 threads and the `-o` argument specifies the directory where salmon's quantification results should be written. The `–useVBOpt` flag sets to use variational Bayesian EM algorithm rather than the 'standard EM' to optimize abundance estimates (more accurate). Salmon exposes many different options to the user that enable extra features or modify default behavior. However, the purpose and behavior of all of those options is beyond the scope of this introductory tutorial. You can read about salmon's many options in the documentation.
 
 # Activity
 

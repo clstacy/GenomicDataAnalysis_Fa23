@@ -1,0 +1,114 @@
+---
+title: "Differential Expression Analysis with EdgeR"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed("1492")
+```
+
+# Getting Things Setup
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "purrr", # for working with lists (beautify column names)
+       "reactable") # for pretty tables.
+
+# We also need these Bioconductor packages today.
+p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview")
+```
+
+
+# Description
+
+This will be our first differential expression analysis workflow, converting gene counts across samples into meaningful information about genes that appear to be significantly differentially expressed between samples
+
+# Learning outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Generate a table of sample metadata.
+-   Filter low counts and normalize count data.
+-   Utilize the edgeR package to identify differentially expressed genes.
+
+
+```{r load-libraries}
+library(edgeR)
+library(org.Sc.sgd.db)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+# Loading in the edgeR DE gene file output.
+
+
+```{r save-res}
+# Choose topTags destination
+dir_output_edgeR <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR")
+
+# for subsequent analysis, let's save the res object as an R data object.
+res <- readRDS(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
+```
+
+
+
+# KEGG
+```{r}
+# alias2Symbol()
+
+# go <- goana(res, species.KEGG="sce")
+# topGO(go, n=10)
+
+kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
+      plot=T)
+
+topKEGG(kegg, sort="up")
+
+
+gene_data_logFC <- res$table %>% dplyr::select(logFC)
+
+
+if (!requireNamespace("pathview", quietly = TRUE))
+    BiocManager::install("pathview")
+
+library("pathview")
+test <- pathview(gene.data  = gene_data_logFC,
+                     # pathway.id = "sce01100", #metabolic pathways
+                     pathway.id = "sce00010", #glycolysis/gluconeogenesis
+                     # pathway.id = "sce03050", # proteasome cycle
+                     # pathway.id = "sce00020", # TCA cycle
+                     # pathway.id = "sce00500", # starch & sucrose metabolism (trehalose)
+                     # pathway.id = "sce00030", #PPP
+                     species    = "sce",
+                     gene.idtype="orf",
+                     expand.node = TRUE,
+                     map.symbol = T,
+                     kegg.native = F, 
+                     match.data = T, 
+                     multi.state = T, 
+                     bins=20,
+                     same.layer = F,
+                     pdf.size=c(7,7),
+                     limit = list(gene=5, cpd=1))
+```
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+```{r}
+pander::pander(sessionInfo())
+```

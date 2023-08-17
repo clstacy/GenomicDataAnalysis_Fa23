@@ -17,25 +17,18 @@ set.seed("1492")
 As usual, make sure we have the right packages for this exercise
 
 ```{r ready-packages, results="hide",message=FALSE}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
 
-list.of.packages <- c("tidyverse", "here", "knitr", "pander", "BiocManager", "reactable")
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "purrr", # for working with lists (beautify column names)
+       "reactable") # for pretty tables.
 
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages,repos = "http://cran.us.r-project.org")
-lapply(list.of.packages, require, character.only = TRUE)
+# We also need these Bioconductor packages today.
+p_load("DESeq2", "AnnotationDbi", "org.Sc.sgd.db")
 
-```
-
-We also need the bioconductor package "edgeR" for today's activity.
-
-```{r install-FastqPackages, results="hide", message=FALSE, warning=FALSE}
-# make sure we have the CRAN package installed for getting bioconductor packages
-if (!requireNamespace("DESeq2", quietly = TRUE))
-    BiocManager::install("DESeq2")
-
-# this loads the saccharomyces cerevesiae database from sgd
-if (!requireNamespace("org.Sc.sgd.db", quietly = TRUE))
-    BiocManager::install("org.Sc.sgd.db")
 ```
 
 # Description
@@ -61,7 +54,9 @@ options(digits=3)
 We saved this file at the end the exercise (Read_Counting.Rmd). Now we can load that object back in and assign it to the variable fc. Be sure to change the file path if you have saved it in a different location. This is the same way we started the edgeR analysis.
 
 ```{r load-fc, error=TRUE}
-fc <- readRDS(file = "~/Desktop/yeast_fc_output.Rds")
+path_fc_object <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
+
+fc <- readRDS(file = path_fc_object)
 ```
 
 
@@ -69,7 +64,7 @@ If you don't have that file for any reason, the below code chunk will load a cop
 ```{r altLoad-fc}
 if( !exists("fc") )
 {
-  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/yeast_fc_output.Rds')
+  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/yeast_fc_output.Rds')
 }
 ```
 
@@ -77,31 +72,38 @@ We will create the data frame again that has all of the metadata information.
 
 ```{r generate-metadata}
 sample_metadata <- tribble(
-  ~FileName,                                                    ~GEOAccession, ~Condition,
-  "filtered_subset_phenol_heat_rep1_rfastp_R1.fastq.gz",         "GSM4008800", "heat",
-  "filtered_subset_phenol_heat_rep2_rfastp_R1.fastq.gz",         "GSM4008801", "heat",
-  "filtered_subset_phenol_heat_rep3_rfastp_R1.fastq.gz",         "GSM4008802", "heat",
-  "filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz",         "GSM4008803", "heat",
-  "filtered_subset_phenol_unstressed_rep1_rfastp_R1.fastq.gz",   "GSM4008796", "unstressed",
-  "filtered_subset_phenol_unstressed_rep2_rfastp_R1.fastq.gz",   "GSM4008797", "unstressed",
-  "filtered_subset_phenol_unstressed_rep3_rfastp_R1.fastq.gz",   "GSM4008798", "unstressed",
-  "filtered_subset_phenol_unstressed_rep4_rfastp_R1.fastq.gz",   "GSM4008799", "unstressed") %>%
-  # make Condition a factor (with baseline as first level) for edgeR
-  mutate(Condition = factor(Condition, 
-                            levels = c("unstressed", "heat")
-                            ))
-         
-
-```
-
-Now, let's create a design matrix with this information
-
-```{r}
-# group <- sample_metadata$Condition
-# design <- model.matrix(~ 0 + group)
-# design
-# colnames(design) <- levels(group)
-# design
+  ~Sample,                      ~Genotype,    ~Condition,
+  "YPS606_MSN24_ETOH_REP1_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_ETOH_REP2_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_ETOH_REP3_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_ETOH_REP4_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_MOCK_REP1_R1",   "msn24dd",   "unstressed",
+  "YPS606_MSN24_MOCK_REP2_R1",   "msn24dd",   "unstressed",
+  "YPS606_MSN24_MOCK_REP3_R1",   "msn24dd",   "unstressed",
+  "YPS606_MSN24_MOCK_REP4_R1",   "msn24dd",   "unstressed",
+  "YPS606_WT_ETOH_REP1_R1",      "WT",        "EtOH",
+  "YPS606_WT_ETOH_REP2_R1",      "WT",        "EtOH",
+  "YPS606_WT_ETOH_REP3_R1",      "WT",        "EtOH",
+  "YPS606_WT_ETOH_REP4_R1",      "WT",        "EtOH",
+  "YPS606_WT_MOCK_REP1_R1",      "WT",        "unstressed",
+  "YPS606_WT_MOCK_REP2_R1",      "WT",        "unstressed",
+  "YPS606_WT_MOCK_REP3_R1",      "WT",        "unstressed",
+  "YPS606_WT_MOCK_REP4_R1",      "WT",        "unstressed") %>%
+  # Create a new column that combines the Genotype and Condition value
+  mutate(Group = factor(
+    paste(Genotype, Condition, sep = "."),
+    levels = c(
+      "WT.unstressed","WT.EtOH",
+      "msn24dd.unstressed", "msn24dd.EtOH"
+    )
+  )) %>%
+  # make Condition and Genotype a factor (with baseline as first level) for edgeR
+  mutate(
+    Genotype = factor(Genotype,
+                      levels = c("WT", "msn24dd")),
+    Condition = factor(Condition,
+                       levels = c("unstressed", "EtOH"))
+  )
 ```
 
 
@@ -116,7 +118,7 @@ With the count matrix, cts, and the sample information, coldata, we can construc
 ```{r load-counts}
 dds <- DESeqDataSetFromMatrix(countData = fc$counts,
                               colData = sample_metadata,
-                              design = ~ 0 + Condition)
+                              design = ~ 0 + Group)
 dds
 
 # compare this to the edgeR process below:
@@ -125,30 +127,22 @@ dds
 # y
 ```
 
-Human-readable gene symbols can also be added to complement the gene ID for each gene, using the annotation in the org.Sc.sgd.db package.
-
-```{r}
-# dds$genes <- AnnotationDbi::select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
-# 
-# head(y$genes)
-```
-
-
 # Filtering to remove low counts
 
 
 While it is not necessary to pre-filter low count genes before running the DESeq2 functions, there are two reasons which make pre-filtering useful: by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of count modeling within DESeq2. It can also improve visualizations, as features with no information for differential expression are not plotted in dispersion plots or MA-plots.
 
-Here we perform pre-filtering to keep only rows that have a count of at least 10 for a minimal number of samples. The count of 10 is a reasonable choice for bulk RNA-seq. A recommendation for the minimal number of samples is to specify the smallest group size, e.g. here there are 3 treated samples. If there are not discrete groups, one can use the minimal number of samples where non-zero counts would be considered interesting. One can also omit this step entirely and just rely on the independent filtering procedures available in results(), either IHW or genefilter. See independent filtering section.
+Here we perform pre-filtering to keep only rows that have a count of at least 10 for a minimal number of samples. The count of 10 is a reasonable choice for bulk RNA-seq. A recommendation for the minimal number of samples is to specify the smallest group size, e.g. here there are 4 treated samples. If there are not discrete groups, one can use the minimal number of samples where non-zero counts would be considered interesting. One can also omit this step entirely and just rely on the independent filtering procedures available in results(), either IHW or genefilter. See independent filtering section.
 
 ```{r filter-lowCounts}
 smallestGroupSize <- 4
 keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
 dds <- dds[keep,]
 
-keep <- rowSums(cpm(y) > 50) >= 4
-y <- y[keep,]
-summary(keep)
+# Equivalent version in edgeR:
+# keep <- rowSums(cpm(y) > 60) >= 4
+# y <- y[keep,]
+# summary(keep)
 ```
 
 
@@ -162,7 +156,7 @@ Results tables are generated using the function `results`, which extracts a resu
 
 Details about the comparison are printed to the console, directly above the results table. The text, condition treated vs untreated, tells you that the estimates are of the logarithmic fold change log2(treated/untreated).
 
-```{r}
+```{r run-DESeq}
 dds <- DESeq(dds)
 res <- results(dds)
 res
@@ -171,12 +165,34 @@ res
 Note that we could have specified the coefficient or contrast we want to build a results table for, using either of the following equivalent commands:
 
 ```{r}
-res <- results(dds, name="condition_heat_vs_unstressed")
-res <- results(dds, contrast=c("Condition","heat","unstressed"))
+
+contrasts <- list(
+  EtOHvsMOCK.WT = c(-1, 1, 0, 0),         # EtOH.WT - MOCK.WT
+  EtOHvsMOCK.MSN24dd = c(0, 0, -1, 1),    # EtOH.MSN24dd - MOCK.MSN24dd
+  EtOH.MSN24ddvsWT = c(0, -1, 0, 1),     # EtOH.MSN24dd - WT
+  MOCK.MSN24ddvsWT = c(-1, 0, 1, 0),     # MOCK.MSN24dd - WT
+  EtOHvsWT.MSN24ddvsWT = c(-1, 1, -1, 1)  # (MSN2dd.EtOH - MSN2dd.WT) - (MOCK.EtOH - MOCK.WT)
+)
+
+# Perform differential expression analysis for each contrast
+results_list <- list()
+for (contrast_name in names(contrasts)) {
+  contrast_vector <- contrasts[[contrast_name]]
+  res_list[[contrast_name]] <- results(dds, contrast = contrast_vector)
+}
 ```
 
 
 ```{r}
+for (contrast in 1:length(contrasts)) {
+  results_list[[contrast]] %>%
+    topTags(n=Inf) %>% data.frame() %>% 
+  arrange(desc(logFC)) %>%
+  mutate(logFC=round(logFC,2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
+}
+
 topTags(res, n=Inf) %>% data.frame() %>% 
   arrange(desc(logFC)) %>%
   mutate(logFC=round(logFC,2)) %>%

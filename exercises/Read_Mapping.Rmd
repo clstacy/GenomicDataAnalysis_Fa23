@@ -82,9 +82,9 @@ The first step in performing the alignment is to build an index. In order to bui
 library(Rsubread)
 
 # Set path of the reference fasta file
-reference_genome = "/Users/clstacy/Desktop/Reference/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+reference_genome = path.expand("~/Desktop/Genomic_Data_Analysis/Reference/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz")
 
-index_reference_genome = "/Users/clstacy/Desktop/Reference/sacCer3"
+index_reference_genome = path.expand("~/Desktop/Genomic_Data_Analysis/Reference/index_rsubread_Saccharomyces_cerevisiae.R64-1-1")
 
 # build the index
 buildindex(basename=index_reference_genome, reference=reference_genome)
@@ -108,7 +108,8 @@ align(index=index_reference_genome,
       input_format = "gzFASTQ",
       output_format = "BAM",
       unique = FALSE,
-      nBestLocations = 1
+      nBestLocations = 1,
+      nthreads=4
       )
 ```
 
@@ -118,13 +119,13 @@ We can get a summary of the proportion of reads that mapped to the reference gen
 
 ```{r output-summary}
 # create an object in R listing
-bam.files <- list.files(path = "~/Desktop/filtered", pattern = ".BAM$", full.names = TRUE)
+bam.files <- list.files(path = dir_trimmed.fq_files, pattern = ".BAM$", full.names = TRUE)
 bam.files
 
 # find the proportion of reads that mapped for each sample
 props <- propmapped(files=bam.files)
 
-props
+props %>% print()
 ```
 
 # Pseudomapping with Salmon
@@ -149,11 +150,6 @@ conda env list
 
 # activate our QC environment
 conda activate salmon
-
-#conda install --offline salmon-1.10.1.tar.gz
-
-# make salmon work on M1/2 mac OS
-# conda env config vars set CONDA_SUBDIR=osx-64
 
 # make sure desired packages are working
 which salmon

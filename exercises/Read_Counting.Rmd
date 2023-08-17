@@ -12,9 +12,6 @@ knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
 set.seed("1492")
 ```
 
-
-
-
 As usual, make sure we have the right packages for this exercise
 
 ```{r ready-packages}
@@ -29,38 +26,38 @@ p_load("tidyverse", "knitr", "readr",
 p_load("Rsubread")
 ```
 
-Previously, we aligned our fastq files to the reference genome, generating BAM files. They should be in your ~/Desktop/filtered folder, unless you chose a different place to store them.
+Previously, we aligned our fastq files to the reference genome, generating BAM files. They should be in your \~/Desktop/filtered folder, unless you chose a different place to store them.
+
 ```{r}
+# Where the bam files are located (default same as trimmed fastq file location)
+bam_file_dir <- "~/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp/"
 
-bam_file_dir <- "~/Desktop/filtered"
-
+# save list of all of those files with their full path
 bam.files <- list.files(path = bam_file_dir, 
                                   pattern = ".BAM$", 
                                   full.names = TRUE)
+# make sure we see what we expect.
 bam.files
 ```
 
-You should see the full paths to all 8 trimmed fastq files that we will be mapping to the reference genome today.
+You should see the full paths to all 16 trimmed fastq bam files that we will be mapping to the reference genome today.
 
 # Read Counting
 
-Read sequences are stored in compressed (gzipped) FASTQ files. Before the differential expression analysis can proceed, these reads must be aligned to the yeast genome and counted into annotated genes. This can be achieved with functions in the Rsubread package.
+We currently have our raw reads mapped to the genome in the form of bam files. Before the differential expression analysis can proceed, these reads must be assigned and counted towards annotated genes. This can be achieved with functions in the Rsubread package, we all also see how to do this with Salmon.
 
 ## Retrieve the genome annotation
 
 We will use a bash code chunk to download the latest genome annotation
+
 ```{bash fetchGenome}
 # Define the destination file path
-# Be sure to change this file path to the path you want your data to go
-REF_DIR="/Users/$USER/Desktop/reference_genome"
+REF_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Reference"
+# If this directory doesn't exist, you need to first complete the Read_Mapping.Rmd exercise. 
 
-# make that directory if it doesn't already
-mkdir $REF_DIR
-
-# Define the URL of reference genome
+# Define the URL of reference genome annotation (gtf)
 # (latest from ensembl)
 url="ftp://ftp.ensembl.org/pub/release-110/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
-
 
 # Check if the file already exists at the destination location
 if [ ! -f "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz" ]; then
@@ -72,19 +69,20 @@ else
     echo "File already exists at $REF_DIR Skipping download."
 fi
 ```
+
 Let's take a look at the first few lines of the gtf file
 
 ```{r seeGTF}
-# see the header columns with metadata starting with #!
-read_csv("~/Desktop/reference_genome/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz", 
-    col_names = FALSE) %>% head()
+# see the header columns with metadata starting with #! and delimited with \t
+read_csv("~/Desktop/Genomic_Data_Analysis/Reference/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz", 
+    col_names = FALSE) %>% head(10)
 
 # We can also take a look at the first few entries to see the columns
-read_delim("~/Desktop/reference_genome/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz", 
-    delim = "\t", escape_double = FALSE, 
+read_tsv("~/Desktop/Genomic_Data_Analysis/Reference/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz", 
     col_names = FALSE,  comment = "#", trim_ws = TRUE) %>% head(20)
 ```
-There are 9 columns in a standard gtf file, information about each is available here: https://useast.ensembl.org/info/website/upload/gff.html
+
+There are 9 columns in a standard gtf file, information about each is available here: <https://useast.ensembl.org/info/website/upload/gff.html>
 
 Note that version 2 of gff is identical to the gtf format.
 
@@ -94,23 +92,20 @@ Note that version 2 of gff is identical to the gtf format.
 library(Rsubread)
 
 # Set path of the reference annotation gzipped gtf file
-reference_annotation = "~/Desktop/reference_genome/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
+reference_annotation = "~/Desktop/Genomic_Data_Analysis/Reference/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
 ```
 
 We can see the arguments available with the align function from the Rsubread package
+
 ```{r argsCount}
 args(featureCounts)
 ```
-The Phred offset determines the encoding for the base-calling quality string in the
-FASTQ file. For the Illumina 1.8 format onwards, this encoding is set at +33.
-However, older formats may use a +64 encoding. Users should ensure that the
-correct encoding is specified during alignment. If unsure, one can examine the first
-several quality strings in the FASTQ file. A good rule of thumb is to check whether
-lower-case letters are present (+64 encoding) or absent (+33).
+
+The Phred offset determines the encoding for the base-calling quality string in the FASTQ file. For the Illumina 1.8 format onwards, this encoding is set at +33. However, older formats may use a +64 encoding. Users should ensure that the correct encoding is specified during alignment. If unsure, one can examine the first several quality strings in the FASTQ file. A good rule of thumb is to check whether lower-case letters are present (+64 encoding) or absent (+33).
 
 ```{r alignReads}
-
-# This command counts the number of each feature per fastq file, generating an output we can use later.
+# This command counts the number of each feature per fastq file, 
+#.  generating an output we can use later.
 fc <- featureCounts(bam.files,
                     annot.ext = reference_annotation,
                     isGTFAnnotationFile = TRUE,
@@ -119,6 +114,7 @@ fc <- featureCounts(bam.files,
 ```
 
 We can see what all is stored in the featureCounts output object
+
 ```{r identifyComponents}
 names(fc)
 ```
@@ -130,19 +126,22 @@ fc$stat
 ```
 
 ## Counts
-The counts for the samples are stored in fc$counts.
+
+The counts for the samples are stored in fc\$counts.
 
 We can look at the dimensions of the counts to see how many genes and samples are present. The first number is the number of genes and the second number is the number of samples.
+
 ```{r}
 dim(fc$counts)
 ```
 
-let's take a look at the first few lines of fc$counts
+let's take a look at the first few lines of fc\$counts
+
 ```{r}
 head(fc$counts)
 ```
 
-The row names of the fc$counts matrix represent the Systematic Name for each gene (can be Entrez gene identifiers for other organisms) and the column names are the output filenames from calling the align function. 
+The row names of the fc\$counts matrix represent the Systematic Name for each gene (can be Entrez gene identifiers for other organisms) and the column names are the output filenames from calling the align function.
 
 The annotation slot shows the annotation information that featureCounts used to summarise reads over genes.
 
@@ -150,71 +149,104 @@ The annotation slot shows the annotation information that featureCounts used to 
 head(fc$annotation)
 ```
 
-
 # Saving `fc` object for future use
 
 We will need to use this object in our next class. We can use the R function `saveRDS()` to save the R object to your computer, so it can be accessed at a later date.
 
 ```{r save-fc}
-saveRDS(object = fc, file = "~/Desktop/yeast_fc_output.Rds")
-```
+# create a directory for the count output to go into if not already present
+dir_output_counts <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread")
+if (!dir.exists(dir_output_counts)) {dir.create(dir_output_counts, recursive = TRUE)}
+saveRDS(object = fc, file = "~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
 
+# often, we want to share this file as a tsv file. Here is how we can do that:
+write_tsv(data.frame(
+            fc$annotation[,"GeneID"],
+            fc$counts,
+            stringsAsFactors=FALSE),
+    file=paste0(dir_output_counts,"/rsubread.gene_counts.merged.yeast.tsv"))
+```
 
 ## RSubread also allows for some basic QC checking:
 
 We can have a look at the quality scores associated with each base that has been called by the sequencing machine using the qualityScores function in Rsubread.
 
-Let’s extract quality scores for 50 reads for the fastq file .
+Let's extract quality scores for 50 reads for the fastq file .
 
 ```{r check-qualityScores}
 # Extract quality scores
-qs <- qualityScores(filename="~/Desktop/filtered/filtered_subset_phenol_heat_rep4_rfastp_R1.fastq.gz",
+qs <- qualityScores(
+  filename="~/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp/YPS606_MSN24_ETOH_REP1_R1.fastq.gz",
                     nreads=50)
 
 head(qs)
 ```
+
 We are randomly sampling 50 reads from the file and seeing the quality scores. A quality score of 30 corresponds to a 1 in 1000 chance of an incorrect base call. (A quality score of 10 is a 1 in 10 chance of an incorrect base call.) To look at the overall distribution of quality scores across the sampled reads, we can look at a boxplot
+
 ```{r visualizeq-qs}
 boxplot(qs)
 ```
 
+# Salmon
 
-# Salmon pseudomapping & counting
+Let's go through using salmon to count reads directly from the trimmed fastq.gz files
 
-```{bash}
-ANALYSIS_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Analysis"
+## Pseudomapping & counting
+
+```{bash pseudoCount-salmon, engine.opts='-l'}
 DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp"
+SALMON_OUT_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Counts/Salmon"
+SALMON_INDEX_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Reference/index_salmon_Saccharomyces_cerevisiae.R64-1-1"
 
+# make the analysis directory if it doesn't already exist
+mkdir -p $SALMON_OUT_DIR
 
-for fn in data/DRR0161{25..40};
+# activate the salmon environment
+conda activate salmon
+
+# loop through all of the fastq files
+for fn in $DATA_DIR/*.fastq.gz;
 do
 samp=`basename ${fn}`
 echo "Processing sample ${samp}"
-salmon quant -i athal_index -l A \
-         -1 ${fn}/${samp}_1.fastq.gz \
-         -2 ${fn}/${samp}_2.fastq.gz \
-         -p 8 --validateMappings -o quants/${samp}_quant
-done 
+
+# run salmon
+salmon quant -i $SALMON_INDEX_DIR -l A \
+         -r ${fn} \
+         --useVBOpt \
+         -p 4 --validateMappings -o $SALMON_OUT_DIR/${samp}_quant
+done
+
+# combine all of the output files into a merged count matrix
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column numreads -o $SALMON_OUT_DIR/salmon.gene_counts.merged.yeast.tsv 
+
+# remove the _mRNA from gene name
+sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_counts.merged.yeast.tsv
+
+# we can also create a table of tpm values per gene by changing the --column flag
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column tpm \
+          -o $SALMON_OUT_DIR/salmon.gene_tpm.merged.yeast.tsv
+
+# remove the _mRNA from gene name
+sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_tpm.merged.yeast.tsv
+
+conda deactivate
 ```
 
+This script loops through each sample and invokes salmon using default mostly options. The `-i` argument tells salmon where to find the index `-l A` tells salmon that it should automatically determine the library type of the sequencing reads (e.g. stranded vs. unstranded etc.). The -r arguments tell salmon where to find the SE reads for this sample (notice, salmon will accept gzipped FASTQ files directly). Finally, the `-p 4` argument tells salmon to make use of 4 threads and the `-o` argument specifies the directory where salmon's quantification results should be written. The `–useVBOpt` flag sets to use variational Bayesian EM algorithm rather than the \'standard EM\' to optimize abundance estimates (more accurate). Salmon exposes many different options to the user that enable extra features or modify default behavior. However, the purpose and behavior of all of those options is beyond the scope of this introductory tutorial. You can read about salmon's many options in the documentation.
 
 # Activity
-   
-1. Identify which gene has the highest counts across all samples.
 
-2. Redo the counting over the exons, rather than the genes (specify useMetaFeatures = FALSE). Use the bam files generated doing alignment reporting only unique reads, and call the featureCounts object fc.exon. Check the dimension of the counts slot to see how much larger it is.
+1.  Identify which gene has the highest counts across all samples for both salmon and Rsubread outputs.
 
+2.  Redo the counting over the exons, rather than the genes (specify useMetaFeatures = FALSE) with RSubread. Use the bam files generated doing alignment reporting only unique reads, and call the featureCounts object fc.exon. Check the dimension of the counts slot to see how much larger it is.
 
-Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 “best” locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting “.fastq.gz” with “.multi.bam” so we don’t overwrite our unique alignment bam files.
+3.  Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 "best" locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting ".fastq.gz" with ".multi.bam" so we don't overwrite our unique alignment bam files.
 
-Question 2: Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
+4.  Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
 
-
-
-
-
-
-
+5.  What differences do you notice in the count values from Salmon vs Rsubread?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 
@@ -223,4 +255,3 @@ System information for reproducibility:
 ```{r}
 pander::pander(sessionInfo())
 ```
-

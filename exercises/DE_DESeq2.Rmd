@@ -175,7 +175,7 @@ contrasts <- list(
 )
 
 # Perform differential expression analysis for each contrast
-results_list <- list()
+res_list <- list()
 for (contrast_name in names(contrasts)) {
   contrast_vector <- contrasts[[contrast_name]]
   res_list[[contrast_name]] <- results(dds, contrast = contrast_vector)
@@ -184,70 +184,30 @@ for (contrast_name in names(contrasts)) {
 
 
 ```{r}
-for (contrast in 1:length(contrasts)) {
-  results_list[[contrast]] %>%
-    topTags(n=Inf) %>% data.frame() %>% 
-  arrange(desc(logFC)) %>%
-  mutate(logFC=round(logFC,2)) %>%
+for (contrast in names(contrasts)) {
+  res_list@listData %>% 
+  data.frame() %>%
+  arrange(desc(log2FoldChange)) %>%
+  mutate(logFC=round(log2FoldChange,2)) %>%
   mutate(across(where(is.numeric), signif, 3)) %>%
-  reactable()
+  print(shiny::tagList(reactable()))
 }
 
-topTags(res, n=Inf) %>% data.frame() %>% 
-  arrange(desc(logFC)) %>%
-  mutate(logFC=round(logFC,2)) %>%
+
+res_list$EtOHvsWT.MSN24ddvsWT %>%
+  data.frame() %>% 
   mutate(across(where(is.numeric), signif, 3)) %>%
+  arrange(padj) %>% rownames_to_column("gene_id") %>% View()
   reactable()
 ```
 
 ```{r}
-is.de <- decideTestsDGE(res, p.value=0.05)
+is.de <- subset(res_list$EtOHvsWT.MSN24ddvsWT, padj<0.01, abs(log2FoldChange) > 1)
 summary(is.de)
 ```
 Let's take a quick look at the differential expression
 ```{r}
-plotSmear(res, de.tags=rownames(res)[is.de!=0])
-```
-
-
-# Gene Ontology
-```{r}
-# alias2Symbol()
-
-# go <- goana(res, species.KEGG="sce")
-# topGO(go, n=10)
-
-kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
-      plot=T)
-
-topKEGG(kegg, sort="up")
-
-
-gene_data_logFC <- res$table %>% dplyr::select(logFC)
-
-
-if (!requireNamespace("pathview", quietly = TRUE))
-    BiocManager::install("pathview")
-
-library("pathview")
-test <- pathview(gene.data  = gene_data_logFC,
-                     # pathway.id = "sce01100", #metabolic pathways
-                     pathway.id = "sce00010", #glycolysis/gluconeogenesis
-                     # pathway.id = "sce03050", # proteasome cycle
-                     # pathway.id = "sce00020", # TCA cycle
-                     # pathway.id = "sce00500", # starch & sucrose metabolism (trehalose)
-                     # pathway.id = "sce00030", #PPP
-                     species    = "sce",
-                     gene.idtype="orf",
-                     expand.node = TRUE,
-                     map.symbol = T,
-                     kegg.native = F, 
-                     match.data = T, 
-                     multi.state = T, 
-                     bins=20,
-                     same.layer = F,
-                     pdf.size=c(7,7),
-                     limit = list(gene=5, cpd=1))
+plotMA(res_list$EtOHvsWT.MSN24ddvsWT)
 ```
 
 

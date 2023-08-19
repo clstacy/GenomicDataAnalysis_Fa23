@@ -33,7 +33,7 @@ p_load("DESeq2", "AnnotationDbi", "org.Sc.sgd.db")
 
 # Description
 
-This will be our second differential expression analysis workflow, converting gene counts across samples into meaningful information about genes that appear to be significantly differentially expressed between samples
+This will be our second differential expression analysis workflow, converting gene counts across samples into meaningful information about genes that appear to be significantly differentially expressed between samples. This is inspired heavily by: http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html. 
 
 # Learning outcomes
 

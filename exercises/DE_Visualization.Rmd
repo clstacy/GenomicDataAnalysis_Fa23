@@ -1,0 +1,49 @@
+---
+title: "Visualizing Differential Expression Results"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed("1492")
+```
+
+# Getting Things Setup
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages, results="hide",message=FALSE}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "purrr", # for working with lists (beautify column names)
+       "reactable") # for pretty tables.
+
+# We also need these Bioconductor packages today.
+p_load("DESeq2", "edgeR", "AnnotationDbi", "org.Sc.sgd.db", "Glimma")
+```
+
+# Description
+
+
+
+# Learning outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Visualize Differential Expression Results
+
+
+```{r load-libraries}
+library(DESeq2)
+library(org.Sc.sgd.db)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```

@@ -250,7 +250,7 @@ if (!dir.exists(dir_output_DESeq2)) {
   dir.create(dir_output_DESeq2, recursive = TRUE)
 }
 
-# for shairng with others, a tsv for the res output is convenient.
+# for sharing with others, a tsv for the res output is convenient.
 # Depending on what people need, we can save res object as is or beautify it.
 res %>% 
   data.frame() %>%

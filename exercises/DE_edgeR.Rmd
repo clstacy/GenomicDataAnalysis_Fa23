@@ -23,6 +23,7 @@ if (!require("pacman")) install.packages("pacman"); library(pacman)
 p_load("tidyverse", "knitr", "readr",
        "pander", "BiocManager", 
        "dplyr", "stringr", 
+       "statmod", # required dependency, need to load manually on some macOS versions.
        "purrr", # for working with lists (beautify column names)
        "reactable") # for pretty tables.
 
@@ -177,7 +178,7 @@ y$samples
 The normalization factors multiply to unity across all libraries. A normalization factor below unity indicates that the library size will be scaled down, as there is more suppression (i.e., composition bias) in that library relative to the other libraries. This is also equivalent to scaling the counts upwards in that sample. Conversely, a factor above unity scales up the library size and is equivalent to downscaling the counts.
 The performance of the TMM normalization procedure can be examined using mean- difference (MD) plots. This visualizes the library size-adjusted log-fold change between two libraries (the difference) against the average log-expression across those libraries (the mean). The below command plots an MD plot, comparing sample 1 against an artificial library constructed from the average of all other samples.
 
-```{r plotMDS}
+```{r plotMDS, fig.show="hold", out.width="25%"}
 for (sample in 1:nrow(y$samples)) {
   plotMD(cpm(y, log=TRUE), column=sample)
   abline(h=0, col="red", lty=2, lwd=2)
@@ -279,7 +280,7 @@ We need to make sure and save our output file(s).
 ```{r save-res}
 # Choose topTags destination
 dir_output_edgeR <-
-  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR")
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
 if (!dir.exists(dir_output_edgeR)) {
   dir.create(dir_output_edgeR, recursive = TRUE)
 }

@@ -28,7 +28,6 @@ p_load("tidyverse", "knitr", "readr",
 
 # We also need these Bioconductor packages today.
 p_load("DESeq2", "AnnotationDbi", "org.Sc.sgd.db")
-
 ```
 
 # Description
@@ -55,7 +54,6 @@ We saved this file at the end the exercise (Read_Counting.Rmd). Now we can load 
 
 ```{r load-fc, error=TRUE}
 path_fc_object <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
-
 fc <- readRDS(file = path_fc_object)
 ```
 
@@ -89,21 +87,15 @@ sample_metadata <- tribble(
   "YPS606_WT_MOCK_REP2_R1",      "WT",        "unstressed",
   "YPS606_WT_MOCK_REP3_R1",      "WT",        "unstressed",
   "YPS606_WT_MOCK_REP4_R1",      "WT",        "unstressed") %>%
-  # Create a new column that combines the Genotype and Condition value
-  mutate(Group = factor(
-    paste(Genotype, Condition, sep = "."),
-    levels = c(
-      "WT.unstressed","WT.EtOH",
-      "msn24dd.unstressed", "msn24dd.EtOH"
-    )
-  )) %>%
-  # make Condition and Genotype a factor (with baseline as first level) for edgeR
+  # make Condition and Genotype a factor (with baseline as first level) for DESeq2
   mutate(
     Genotype = factor(Genotype,
                       levels = c("WT", "msn24dd")),
     Condition = factor(Condition,
                        levels = c("unstressed", "EtOH"))
-  )
+  ) #%>%
+  # arrange(desc(Condition)) %>%
+  # arrange(desc(Genotype))
 ```
 
 
@@ -116,9 +108,15 @@ Because we used the featureCounts function (Liao, Smyth, and Shi 2013) in the Rs
 With the count matrix, cts, and the sample information, coldata, we can construct a DESeqDataSet:
 
 ```{r load-counts}
+# notice the different design specification
 dds <- DESeqDataSetFromMatrix(countData = fc$counts,
                               colData = sample_metadata,
-                              design = ~ 0 + Group)
+                              design = ~ 1 + Genotype + Condition + Genotype:Condition)
+
+# simplify the column names to make them pretty
+colnames(dds) <- str_split_fixed(colnames(dds), "\\.", n = 2)[, 1]
+
+# take a look at the dds object
 dds
 
 # compare this to the edgeR process below:
@@ -157,59 +155,116 @@ Results tables are generated using the function `results`, which extracts a resu
 Details about the comparison are printed to the console, directly above the results table. The text, condition treated vs untreated, tells you that the estimates are of the logarithmic fold change log2(treated/untreated).
 
 ```{r run-DESeq}
+# Now that we have a DESeq2 object, we can can perform differential expression.
 dds <- DESeq(dds)
+resultsNames(dds)
+```
+
+```{r design-contrasts}
+# create a model matrix
+mod_mat <- model.matrix(design(dds), colData(dds)) 
+
+# define coefficient vectors for each group
+WT_MOCK <- colMeans(mod_mat[dds$Genotype == "WT" & dds$Condition == "unstressed", ])
+WT_EtOH <- colMeans(mod_mat[dds$Genotype == "WT" & dds$Condition == "EtOH", ])
+MSN24_MOCK <- colMeans(mod_mat[dds$Genotype == "msn24dd" & dds$Condition == "unstressed", ])
+MSN24dd_EtOH <- colMeans(mod_mat[dds$Genotype == "msn24dd" & dds$Condition == "EtOH", ])
+```
+
+The nice thing about this approach is that we do not need to worry about any of this, the weights come from our `colMeans()` call automatically. And now, any contrasts that we make will take these weights into account:
+
+```{r get-results}
 res <- results(dds)
 res
 ```
 
-Note that we could have specified the coefficient or contrast we want to build a results table for, using either of the following equivalent commands:
+We could have equivalently produced this results table with the following more specific command. Because Genotypemsn24dd:ConditionEtOH is the last variable in the design, we could optionally leave off the contrast argument to extract the comparison of the two levels of Genotypemsn24dd:ConditionEtOH.
 
 ```{r}
-
-contrasts <- list(
-  EtOHvsMOCK.WT = c(-1, 1, 0, 0),         # EtOH.WT - MOCK.WT
-  EtOHvsMOCK.MSN24dd = c(0, 0, -1, 1),    # EtOH.MSN24dd - MOCK.MSN24dd
-  EtOH.MSN24ddvsWT = c(0, -1, 0, 1),     # EtOH.MSN24dd - WT
-  MOCK.MSN24ddvsWT = c(-1, 0, 1, 0),     # MOCK.MSN24dd - WT
-  EtOHvsWT.MSN24ddvsWT = c(-1, 1, -1, 1)  # (MSN2dd.EtOH - MSN2dd.WT) - (MOCK.EtOH - MOCK.WT)
-)
-
-# Perform differential expression analysis for each contrast
-res_list <- list()
-for (contrast_name in names(contrasts)) {
-  contrast_vector <- contrasts[[contrast_name]]
-  res_list[[contrast_name]] <- results(dds, contrast = contrast_vector)
-}
+res <- results(dds, 
+               contrast = (MSN24dd_EtOH - MSN24_MOCK) - (WT_EtOH - WT_MOCK)
+               )
 ```
 
 
-```{r}
-for (contrast in names(contrasts)) {
-  res_list@listData %>% 
+```{r create-resultsTable}
+res %>% 
   data.frame() %>%
-  arrange(desc(log2FoldChange)) %>%
-  mutate(logFC=round(log2FoldChange,2)) %>%
+  rownames_to_column("ORF") %>%
+  # add the gene names
+  left_join(AnnotationDbi::select(org.Sc.sgd.db,keys=.$ORF,columns="GENENAME"),by="ORF") %>%
+  relocate(GENENAME, .after = ORF) %>%
+  arrange(padj) %>%
+  mutate(log2FoldChange = round(log2FoldChange, 2)) %>%
   mutate(across(where(is.numeric), signif, 3)) %>%
-  print(shiny::tagList(reactable()))
-}
-
-
-res_list$EtOHvsWT.MSN24ddvsWT %>%
-  data.frame() %>% 
-  mutate(across(where(is.numeric), signif, 3)) %>%
-  arrange(padj) %>% rownames_to_column("gene_id") %>% View()
   reactable()
+
+# filter based on padj and a lfc cutoff
+res_sig <- subset(res, padj<.01)
+res_lfc <- subset(res_sig, abs(log2FoldChange) > 1)
 ```
 
 ```{r}
-is.de <- subset(res_list$EtOHvsWT.MSN24ddvsWT, padj<0.01, abs(log2FoldChange) > 1)
-summary(is.de)
+# let's compare the summaries before and after setting a lfc cutoff:
+summary(res, alpha=0.01)
+summary(res_lfc, alpha=0.01)
+
+head(res_lfc)
 ```
 Let's take a quick look at the differential expression
 ```{r}
-plotMA(res_list$EtOHvsWT.MSN24ddvsWT)
+plotMA(res, alpha=0.01)
+```
+Plot an individual gene:
+```{r}
+gene <- "YKL035W"
+
+# Here is the default visualization. Depending on screen size, the xlab 
+# might not show all of the groups.
+plotCounts(dds, gene="YEL039C", intgroup=c("Genotype","Condition"),
+           xlab="Genotype:Condition")
+
+# Make the plot prettier with ggplot(). Note the returnData=TRUE let's us do this.
+plotCounts(dds, gene=gene, intgroup=c("Genotype","Condition"),
+           xlab="Genotype:Condition", returnData = TRUE) %>%
+  rownames_to_column("Sample") %>%
+  ggplot(aes(x=Genotype, y=count, color=Condition, shape=Condition)) +
+  geom_dotplot(binaxis = "y", stackdir = "center", dotsize=0.75,
+               position=position_dodge(0.4), # this seperates by Condition a bit
+               fill=NA) +
+  labs(x="Genotype",
+       y="normalized count",
+       title=paste0("Visualizing the expression of ORF: ", gene)
+       ) +
+  # scale_y_log10() +
+  theme_classic()
 ```
 
+
+We need to make sure and save our output file(s).
+```{r save-res}
+# Choose topTags destination
+dir_output_DESeq2 <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/DESeq2/")
+if (!dir.exists(dir_output_DESeq2)) {
+  dir.create(dir_output_DESeq2, recursive = TRUE)
+}
+
+# for shairng with others, a tsv for the res output is convenient.
+# Depending on what people need, we can save res object as is or beautify it.
+res %>% 
+  data.frame() %>%
+  # rownames_to_column("ORF") %>%
+  # left_join(AnnotationDbi::select(org.Sc.sgd.db,keys=.$ORF,columns="GENENAME"),by="ORF") %>%
+  # relocate(GENENAME, .after = ORF) %>%
+  # arrange(padj) %>%
+  # mutate(log2FoldChange = round(log2FoldChange, 2)) %>%
+  # mutate(across(where(is.numeric), signif, 3)) %>%
+  write_tsv(., file = paste0(dir_output_DESeq2, "yeast_res_DESeq2.tsv"))
+
+# for subsequent analysis, let's save the res object as an R data object.
+saveRDS(object = res, file = paste0(dir_output_DESeq2, "yeast_res_DESeq2.Rds"))
+```
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

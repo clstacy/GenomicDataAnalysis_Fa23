@@ -135,6 +135,35 @@ ggplot(GO_msn24_EtOH_up_results,
 
 You can try adjusting the size of the output figures by clicking the gear icon in the top right of the code chunk and click "use custom figure size". Note this updates the chunk header so the change is saved.
 
+## Saving ggplot output to a file
+
+We usually want to save our visualizations for later. When plotting with the ggplot package, there is an easy way to do this. See below:
+
+```{r save-ggplot}
+# First, let's create a folder to save our visualizations
+dir_visualization <- path.expand("~/Desktop/Genomic_Data_Analysis/Visualization/")
+if (!dir.exists(dir_visualization)) {dir.create(dir_visualization, recursive = TRUE)}
+
+# type ?ggsave in the console for more information via the help page.
+ggsave(
+  "GO_BP_msn24_EtOH_up_results_lollipopPlot.pdf", 
+  # if we don't need the image to go to a certain spot, we only need the file name above.
+  plot = last_plot(), # either the last plot, or name of a ggplot object you've saved.
+  device = "pdf", #Can be "png", "eps", "ps", "tex" (pictex), "pdf", "jpeg", "tiff", "png", "bmp", "svg" or "wmf" (windows only).
+  # note that pdf, eps, svg are vector/line art, so zooming doesn't pixelate.
+  path = dir_visualization, # Path of the directory to save plot to. defaults to work dir.
+  scale = 2, # multiplicative scaling factor 
+  width = 12,
+  height = 8,
+  units = "cm", # must be one of: "in", "cm", "mm", "px"
+  dpi = 300,  # adjusting this larger gives higher quality plot, making a larger file.
+  limitsize = TRUE, # prevents accidentally making it massive, defaults to TRUE
+  bg = NULL # Background colour. If NULL, uses the plot.background fill value from the plot theme.
+)
+```
+
+Recall that when we knit this Rmarkdown notebook, we keep a copy of the plots/images there as well, in the same place as the code and analysis used to generate it. However, we may want a higher resolution file of just the image, or the image in a different format. In this case, saving the plot is a useful option for us. The journal Science has the following [recommendations](https://www.science.org/do/10.5555/page.2385607/full/author_figure_prep_guide_2022-1689707679870.pdf): "We prefer prefer ai, eps, pdf, layered psd, tif, and jpeg files. ...minimum file resolution of 300 dpi."
+
 # The Hypergeometric Distribution in practice
 
 Notice that the DNA integration process does not have very many genes in the category, but they appear to be highly present in the the upregulated gene list. Specifically, `r GO_msn24_EtOH_up_results %>% as_tibble %>% filter(ID == "GO:0015074") %>% pull(GeneRatio) %>% cat()` DE genes have this GO term, where in the entire genome, there are only `r GO_msn24_EtOH_up_results %>% as_tibble %>% filter(ID == "GO:0015074") %>% mutate(tmp = as.numeric(sub("/\\d+", "", BgRatio))) %>% pull(tmp) %>% cat()` genes. What are the odds that we see this by random chance? let's do the math:

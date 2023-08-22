@@ -1,0 +1,303 @@
+---
+title: "Differential Expression Analysis with limma"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output: html_document
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed("1492")
+```
+
+# Getting Things Setup
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "statmod", # required dependency, need to load manually on some macOS versions.
+       "purrr", # for working with lists (beautify column names)
+       "reactable") # for pretty tables.
+
+# We also need these Bioconductor packages today.
+p_load("limma", "AnnotationDbi", "org.Sc.sgd.db")
+```
+
+
+# Description
+
+This will be our last differential expression analysis workflow, converting gene counts across samples into meaningful information about genes that appear to be significantly differentially expressed between samples
+
+# Learning outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Generate a table of sample metadata.
+-   Filter low counts and normalize count data.
+-   Utilize the limma package to identify differentially expressed genes.
+
+
+```{r load-libraries}
+library(limma)
+library(org.Sc.sgd.db)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+# Loading in the featureCounts object 
+
+We saved this file in the last exercise (Read_Counting.Rmd) from the RSubread package. Now we can load that object back in and assign it to the variable `fc`. Be sure to change the file path if you have saved it in a different location.
+```{r load-fc, error=TRUE}
+path_fc_object <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
+fc <- readRDS(file = path_fc_object)
+```
+
+
+If you don't have that file for any reason, the below code chunk will load a copy of it from Github.
+```{r altLoad-fc}
+if( !exists("fc") )
+{
+  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/yeast_fc_output.Rds')
+}
+```
+
+To find the order of files we need, we can get just the part of the column name before the first "." symbol with this command:
+```{r identify-sampleOrder}
+str_split_fixed(fc$counts %>% colnames(), "\\.", n = 2)[, 1]
+```
+
+
+```{r generate-metadata}
+sample_metadata <- tribble(
+  ~Sample,                      ~Genotype,    ~Condition,
+  "YPS606_MSN24_ETOH_REP1_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_ETOH_REP2_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_ETOH_REP3_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_ETOH_REP4_R1",   "msn24dd",   "EtOH",
+  "YPS606_MSN24_MOCK_REP1_R1",   "msn24dd",   "unstressed",
+  "YPS606_MSN24_MOCK_REP2_R1",   "msn24dd",   "unstressed",
+  "YPS606_MSN24_MOCK_REP3_R1",   "msn24dd",   "unstressed",
+  "YPS606_MSN24_MOCK_REP4_R1",   "msn24dd",   "unstressed",
+  "YPS606_WT_ETOH_REP1_R1",      "WT",        "EtOH",
+  "YPS606_WT_ETOH_REP2_R1",      "WT",        "EtOH",
+  "YPS606_WT_ETOH_REP3_R1",      "WT",        "EtOH",
+  "YPS606_WT_ETOH_REP4_R1",      "WT",        "EtOH",
+  "YPS606_WT_MOCK_REP1_R1",      "WT",        "unstressed",
+  "YPS606_WT_MOCK_REP2_R1",      "WT",        "unstressed",
+  "YPS606_WT_MOCK_REP3_R1",      "WT",        "unstressed",
+  "YPS606_WT_MOCK_REP4_R1",      "WT",        "unstressed") %>%
+  # Create a new column that combines the Genotype and Condition value
+  mutate(Group = factor(
+    paste(Genotype, Condition, sep = "."),
+    levels = c(
+      "WT.unstressed","WT.EtOH",
+      "msn24dd.unstressed", "msn24dd.EtOH"
+    )
+  )) %>%
+  # make Condition and Genotype a factor (with baseline as first level) for edgeR
+  mutate(
+    Genotype = factor(Genotype,
+                      levels = c("WT", "msn24dd")),
+    Condition = factor(Condition,
+                       levels = c("unstressed", "EtOH"))
+  )
+  
+
+```
+
+Now, let's create a design matrix with this information
+
+```{r}
+group <- sample_metadata$Group
+design <- model.matrix(~ 0 + group)
+design
+colnames(design) <- levels(group)
+design
+```
+
+
+# Count loading and Annotation
+
+The count matrix is used to construct a DGEList class object. This is the main data class in the edgeR package. The DGEList object is used to store all the information required to fit a generalized linear model to the data, including library sizes and dispersion estimates as well as counts for each gene.
+
+```{r load-counts}
+y <- DGEList(fc$counts, group=group)
+colnames(y) <- sample_metadata$Sample
+y$samples
+```
+
+Human-readable gene symbols can also be added to complement the gene ID for each gene, using the annotation in the org.Sc.sgd.db package.
+
+```{r}
+y$genes <- AnnotationDbi::select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
+
+head(y$genes)
+```
+
+
+# Filtering to remove low counts
+
+
+Genes with very low counts across all libraries provide little evidence for differential ex- pression. In addition, the pronounced discreteness of these counts interferes with some of the statistical approximations that are used later in the pipeline. These genes should be filtered out prior to further analysis. Here, we will retain a gene only if it is expressed at a count-per-million (CPM) above 60 in at least four samples.
+
+```{r filter-lowCounts}
+keep <- rowSums(cpm(y) > 60) >= 4
+y <- y[keep,]
+summary(keep)
+```
+
+Where did those cutoff numbers come from?
+
+As a general rule, we don't want to exclude a gene that is expressed in only one group, so a cutoff number equal to the number of replicates can be a good starting point. For counts, a good threshold can be chosen by identifying the CPM that corresponds to a count of 10, which in this case would be about 60 (due to our fastq files being subsets of the full reads):
+```{r estimate-cpmCutoff}
+cpm(10, mean(y$samples$lib.size))
+```
+
+Smaller CPM thresholds are usually appropriate for larger libraries.
+
+
+# Normalization for composition bias
+
+TMM normalization is performed to eliminate composition biases between libraries. This generates a set of normalization factors, where the product of these factors and the library sizes defines the effective library size. The calcNormFactors function returns the DGEList argument with only the norm.factors changed.
+
+```{r calc-normFactors}
+y <- calcNormFactors(y)
+y$samples
+```
+
+The normalization factors multiply to unity across all libraries. A normalization factor below unity indicates that the library size will be scaled down, as there is more suppression (i.e., composition bias) in that library relative to the other libraries. This is also equivalent to scaling the counts upwards in that sample. Conversely, a factor above unity scales up the library size and is equivalent to downscaling the counts.
+The performance of the TMM normalization procedure can be examined using mean- difference (MD) plots. This visualizes the library size-adjusted log-fold change between two libraries (the difference) against the average log-expression across those libraries (the mean). The below command plots an MD plot, comparing sample 1 against an artificial library constructed from the average of all other samples.
+
+```{r plotMDS, fig.show="hold", out.width="25%"}
+for (sample in 1:nrow(y$samples)) {
+  plotMD(cpm(y, log=TRUE), column=sample)
+  abline(h=0, col="red", lty=2, lwd=2)
+}
+```
+
+# Exploring differences between libraries
+
+The data can be explored by generating multi-dimensional scaling (MDS) plots. This visualizes the differences between the expression profiles of different samples in two dimensions. The next plot shows the MDS plot for the yeast heatshock data.
+
+```{r plot-MDS}
+points <- c(1,1,2,2)
+colors <- rep(c("black", "red"),8)
+plotMDS(y, col=colors[group], pch=points[group])
+legend("topright", legend=levels(group),
+     pch=points, col=colors, ncol=2)
+```
+
+
+
+# Estimate Dispersion
+
+The trended NB dispersion is estimated using the estimateDisp function. This returns
+the DGEList object with additional entries for the estimated NB dispersions for all genes.
+These estimates can be visualized with plotBCV, which shows the root-estimate, i.e., the
+biological coefficient of variation for each gene
+
+```{r estimate-dispersion}
+y <- estimateDisp(y, design, robust=TRUE)
+plotBCV(y)
+```
+
+In general, the trend in the NB dispersions should decrease smoothly with increasing
+abundance. This is because the expression of high-abundance genes is expected to be more
+stable than that of low-abundance genes. Any substantial increase at high abundances may
+be indicative of batch effects or trended biases. The value of the trended NB dispersions
+should range between 0.005 to 0.05 for laboratory-controlled biological systems like mice
+or cell lines, though larger values will be observed for patient-derived data (> 0.1)
+
+
+For the QL dispersions, estimation can be performed using the glmQLFit function. This
+returns a DGEGLM object containing the estimated values of the GLM coefficients for each
+gene
+```{r generate-fit}
+fit <- glmQLFit(y, design, robust=TRUE)
+head(fit$coefficients)
+plotQLDisp(fit)
+```
+
+EB squeezing of the raw dispersion estimators towards the trend reduces the uncertainty of the final estimators. The extent of this moderation is determined by the value of the prior df, as estimated from the data. Large estimates for the prior df indicate that the QL dispersions are less variable between genes, meaning that stronger EB moderation can be performed. Small values for the prior df indicate that the dispersions are highly
+variable, meaning that strong moderation would be inappropriate
+
+Setting robust=TRUE in glmQLFit is strongly recommended. This causes glmQLFit to estimate a vector of df.prior values, with lower values for outlier genes and larger values for the main body of genes.
+
+
+# Testing for differential expression
+
+The final step is to actually test for significant differential expression in each gene, using
+the QL F-test. The contrast of interest can be specified using the makeContrasts function.
+Here, genes are detected that are DE between the stressed and unstressed.
+This is done by defining the null hypothesis as heat stressed - unstressed = 0.
+
+```{r fit-contrast}
+# generate contrasts we are interested in learning about
+my.contrasts <- makeContrasts(EtOHvsMOCK.WT = WT.EtOH - WT.unstressed, 
+                     EtOHvsMOCK.MSN24dd = msn24dd.EtOH - msn24dd.unstressed,
+                     EtOH.MSN24ddvsWT = msn24dd.EtOH - WT.EtOH,
+                     MOCK.MSN24ddvsWT = msn24dd.unstressed - WT.unstressed,
+                     EtOHvsWT.MSN24ddvsWT = (msn24dd.EtOH-msn24dd.unstressed)-(WT.EtOH-WT.unstressed),
+                     levels=design)
+
+# This contrast looks at the difference in the stress responses between mutant and WT
+res <- glmQLFTest(fit, contrast = my.contrasts[,"EtOHvsWT.MSN24ddvsWT"])
+```
+
+```{r create-Table}
+# let's take a quick look at the results
+topTags(res, n=10) 
+
+# generate a beautiful table for the pdf/html file.
+topTags(res, n=Inf) %>% data.frame() %>% 
+  arrange(FDR) %>%
+  mutate(logFC=round(logFC,2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
+```
+
+```{r summarize-DEgenes}
+is.de <- decideTestsDGE(res, p.value=0.05)
+summary(is.de)
+```
+
+Let's take a quick look at the differential expression
+```{r visualize-DEgenes}
+plotSmear(res, de.tags=rownames(res)[is.de!=0])
+```
+
+We need to make sure and save our output file(s).
+```{r save-res}
+# Choose topTags destination
+dir_output_edgeR <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
+if (!dir.exists(dir_output_edgeR)) {
+  dir.create(dir_output_edgeR, recursive = TRUE)
+}
+
+# for shairng with others, the topTags output is convenient.
+topTags(res, n = Inf) %>% data.frame() %>%
+  arrange(desc(logFC)) %>%
+  mutate(logFC = round(logFC, 2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  write_tsv(., file = paste0(dir_output_edgeR, "yeast_topTags_edgeR.tsv"))
+
+# for subsequent analysis, let's save the res object as an R data object.
+saveRDS(object = res, file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
+```
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+```{r}
+pander::pander(sessionInfo())
+```

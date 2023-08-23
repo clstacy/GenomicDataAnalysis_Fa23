@@ -217,7 +217,7 @@ plotMA(res, alpha=0.01)
 ```
 Plot an individual gene:
 ```{r}
-gene <- "YKL035W"
+gene <- "YEL039C"
 
 # Here is the default visualization. Depending on screen size, the xlab 
 # might not show all of the groups.
@@ -236,7 +236,7 @@ plotCounts(dds, gene=gene, intgroup=c("Genotype","Condition"),
        y="normalized count",
        title=paste0("Visualizing the expression of ORF: ", gene)
        ) +
-  # scale_y_log10() +
+  scale_y_log10() +
   theme_classic()
 ```
 

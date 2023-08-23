@@ -254,9 +254,9 @@ if (!dir.exists(dir_output_DESeq2)) {
 # Depending on what people need, we can save res object as is or beautify it.
 res %>% 
   data.frame() %>%
-  # rownames_to_column("ORF") %>%
-  # left_join(AnnotationDbi::select(org.Sc.sgd.db,keys=.$ORF,columns="GENENAME"),by="ORF") %>%
-  # relocate(GENENAME, .after = ORF) %>%
+  rownames_to_column("ORF") %>%
+  left_join(AnnotationDbi::select(org.Sc.sgd.db,keys=.$ORF,columns="GENENAME"),by="ORF") %>%
+  relocate(GENENAME, .after = ORF) %>%
   # arrange(padj) %>%
   # mutate(log2FoldChange = round(log2FoldChange, 2)) %>%
   # mutate(across(where(is.numeric), signif, 3)) %>%

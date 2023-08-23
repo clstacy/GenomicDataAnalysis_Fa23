@@ -1,0 +1,86 @@
+---
+title: 'Genomic Data Analysis: Pre-Course Survey'
+author: "Jeffrey Lewis & Carson Stacy"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all')
+```
+
+```{r load-data}
+library(tidyverse)
+library(reactable)
+
+# load in the data
+MC <- c("caaba", "dbccc", "baada", "cbbda",
+        "ebcdc", "dacca", "dccdb", "dbbdc", 
+        "eccee", "eccdb", "ddeeb", "ecddc",
+        "dbbbb", "ebccc", "aaaaa", "ebbca",
+        "dcedd", "dccdb", "eccda", "ecddd",
+        "eccdc", "dcddd", "ccbdb", "ebeed") %>%
+  # data.frame() %>%
+  str_split(., "") %>% data.frame() %>% t()
+
+rownames(MC)<-NULL
+colnames(MC) <- c("I have a strong general biology background.",
+                  "I have a strong computer science or programming background.",
+                  "I am comfortable working with the command line.",
+                  "I am comfortable with the main concepts in genomics.",
+                  "I can design a genomic experiment and analyze the data.")
+
+# Rename function.
+replace_letter_with_comfort <- function(df) {
+  df[df == "a"] <- "strongly disagree"
+  df[df == "b"] <- "disagree"
+  df[df == "c"] <- "neither agree or disagree"
+  df[df == "d"] <- "agree"
+  df[df == "e"] <- "strongly agree"
+  return(df)
+}
+
+MC_summary <- replace_letter_with_comfort(MC) %>% 
+  data.frame() %>%
+  rownames_to_column("ID") %>%
+  pivot_longer(-ID,names_to = "Question", values_to = "Response") %>% 
+  group_by(Question, Response) %>%
+  summarise(n = n())
+```
+
+```{r visualize}
+# List of variables you want to facet by
+facet_vars <- unique(MC_summary$Question)
+
+# Create a list to store the plots
+plot_list <- list()
+
+# Loop through facet variables and create plots
+for (var in 1:length(facet_vars)) {
+
+  plot <- MC_summary %>%
+    filter(Question == facet_vars[var]) %>%
+    mutate(Response = factor(Response, levels=c(
+        "strongly disagree",
+        "disagree",
+        "neither agree or disagree",
+        "agree",
+        "strongly agree"))) %>%
+    ggplot(., aes(x = Response, y = n)) +
+    geom_col() +
+    geom_text(aes(label = n), vjust = 1.5, colour = "white") +
+    ggtitle(paste("Statement:", colnames(MC)[var])) +
+    ylab("# of Responses") +
+    xlab("") +
+    theme_classic() +
+    scale_x_discrete(drop=FALSE) +
+    theme(axis.text.x = element_text(angle = 20, hjust = 1, size=12))
+
+  
+  plot_list[[var]] <- plot
+}
+
+# Print the list of plots
+print(plot_list)
+```
+

@@ -27,7 +27,8 @@ p_load("tidyverse", "knitr", "readr",
        "reactable") # for pretty tables.
 
 # We also need these Bioconductor packages today.
-p_load("DESeq2", "edgeR", "AnnotationDbi", "org.Sc.sgd.db", "Glimma")
+p_load("DESeq2", "edgeR", "AnnotationDbi", "org.Sc.sgd.db", "Glimma",
+       "ggVennDiagram")
 ```
 
 # Description
@@ -42,8 +43,75 @@ At the end of this exercise, you should be able to:
 
 
 ```{r load-libraries}
-library(DESeq2)
 library(org.Sc.sgd.db)
-# for ease of use, set max number of digits after decimal
-options(digits=3)
 ```
+
+```{r compare-DEworkflows}
+# load in all of the DE results for the difference of difference contrast
+path_output_edgeR <- "~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_topTags_edgeR.tsv"
+path_output_DESeq2 <- "~/Desktop/Genomic_Data_Analysis/Analysis/DESeq2/yeast_res_DESeq2.tsv"
+path_output_limma <- "~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_topTags_limma.tsv"
+
+topTags_edgeR <- read_tsv(path_output_edgeR)
+topTags_DESeq2 <- read_tsv(path_output_DESeq2)
+topTags_limma <- read_tsv(path_output_limma)
+```
+
+```{r}
+sig_cutoff <- 0.05
+FC_cutoff <- 1
+
+## edgeR
+# get genes that are upregualted
+up_edgeR_DEG <- topTags_edgeR %>%
+  dplyr::filter(FDR < sig_cutoff & logFC > FC_cutoff) %>%
+  pull(ORF)
+
+down_edgeR_DEG <- topTags_edgeR %>%
+  dplyr::filter(FDR < sig_cutoff & logFC < -FC_cutoff) %>%
+  pull(ORF)
+
+## DESeq2
+up_DESeq2_DEG <- topTags_DESeq2 %>%
+  dplyr::filter(padj < sig_cutoff & log2FoldChange > FC_cutoff) %>%
+  pull(ORF)
+
+down_DESeq2_DEG <- topTags_DESeq2 %>%
+  dplyr::filter(padj < sig_cutoff & log2FoldChange < -FC_cutoff) %>%
+  pull(ORF)
+
+## limma
+up_limma_DEG <- topTags_limma %>%
+  dplyr::filter(adj.P.Val < sig_cutoff & logFC > FC_cutoff) %>%
+  pull(ORF)
+
+down_limma_DEG <- topTags_limma %>%
+  dplyr::filter(adj.P.Val < sig_cutoff & logFC < -FC_cutoff) %>%
+  pull(ORF)
+
+up_DEG_results_list <- list(up_edgeR_DEG,
+                        up_DESeq2_DEG,
+                        up_limma_DEG)
+
+# visualize the GO results list as a venn diagram
+ggVennDiagram(up_DEG_results_list,
+              category.names = c("edgeR", "DESeq2", "limma")) +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_fill_distiller(palette = "RdBu"
+  ) +
+  ggtitle("Upregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
+
+
+# Now let's do the same for downregulated genes:
+down_DEG_results_list <- list(down_edgeR_DEG,
+                        down_DESeq2_DEG,
+                        down_limma_DEG)
+
+ggVennDiagram(down_DEG_results_list,
+              category.names = c("edgeR", "DESeq2", "limma")) +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_fill_distiller(palette = "RdBu"
+  ) +
+  ggtitle("Downregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
+```
+

@@ -1077,7 +1077,7 @@ featureCounts used to summarise reads over genes.</p>
 function <code>saveRDS()</code> to save the R object to your computer,
 so it can be accessed at a later date.</p>
 <pre class="r"><code># create a directory for the count output to go into if not already present
-dir_output_counts &lt;- path.expand(&quot;~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread&quot;)
+dir_output_counts &lt;- path.expand(&quot;~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread/&quot;)
 if (!dir.exists(dir_output_counts)) {dir.create(dir_output_counts, recursive = TRUE)}
 
 # save the R data object
@@ -1088,7 +1088,7 @@ write_tsv(data.frame(
             fc$annotation[,&quot;GeneID&quot;],
             fc$counts,
             stringsAsFactors=FALSE),
-    file=paste0(dir_output_counts,&quot;/rsubread.gene_counts.merged.yeast.tsv&quot;))</code></pre>
+    file=paste0(dir_output_counts,&quot;rsubread.gene_counts.merged.yeast.tsv&quot;))</code></pre>
 <div id="rsubread-also-allows-for-some-basic-qc-checking" class="section level2">
 <h2>RSubread also allows for some basic QC checking:</h2>
 <p>We can have a look at the quality scores associated with each base

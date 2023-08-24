@@ -155,7 +155,7 @@ We will need to use this object in our next class. We can use the R function `sa
 
 ```{r save-fc}
 # create a directory for the count output to go into if not already present
-dir_output_counts <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread")
+dir_output_counts <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread/")
 if (!dir.exists(dir_output_counts)) {dir.create(dir_output_counts, recursive = TRUE)}
 
 # save the R data object
@@ -166,7 +166,7 @@ write_tsv(data.frame(
             fc$annotation[,"GeneID"],
             fc$counts,
             stringsAsFactors=FALSE),
-    file=paste0(dir_output_counts,"/rsubread.gene_counts.merged.yeast.tsv"))
+    file=paste0(dir_output_counts,"rsubread.gene_counts.merged.yeast.tsv"))
 ```
 
 ## RSubread also allows for some basic QC checking:
@@ -245,6 +245,8 @@ This script loops through each sample and invokes salmon using default mostly op
 2.  Redo the counting over the exons, rather than the genes (specify useMetaFeatures = FALSE) with RSubread. Use the bam files generated doing alignment reporting only unique reads, and call the featureCounts object fc.exon. Check the dimension of the counts slot to see how much larger it is.
 
 3.  What differences do you notice in the count values from Salmon vs Rsubread?
+
+4.  CHALLENGE: Download the full size fastq files from OneDrive & use Salmon to get the read counts on the non-subsampled files.
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

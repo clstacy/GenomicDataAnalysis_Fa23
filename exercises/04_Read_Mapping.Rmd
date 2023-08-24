@@ -226,7 +226,6 @@ With Rsubread:
 Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), allowing for up to 6 "best" locations to be reported (nBestLocations = 6), and allow reads to be fractionally counted (fraction = TRUE). Specify the output file names (bam_files_multi) by substituting ".fastq.gz" with ".multi.bam" so we don't overwrite our unique alignment bam files.
 
 ```{r multimap-align, eval=FALSE}
-
 # Define the pattern and replacement
 pattern <- "\\.fastq\\.gz$"
 replacement <- "subread.multi.bam"

@@ -8,8 +8,7 @@ output: html_document
 last updated: `r Sys.Date()`
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE#, root.dir = "~/Desktop"
-                      )
+knitr::opts_chunk$set(echo = TRUE)
 set.seed("1492")
 ```
 
@@ -32,12 +31,12 @@ Previously, we filtered and trimmed our raw fastq files. They should be in the f
 
 ```{r get-files}
 
-dir_trimmed.fq_files <- "~/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp/"
+dir_trimmed.fq_files <- "~/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp"
 
-trimmed.fastq.files <- list.files(path = dir_trimmed.fq_files, 
+trimmed_fastq_files <- list.files(path = dir_trimmed.fq_files, 
                                   pattern = ".fastq.gz$", 
                                   full.names = TRUE)
-trimmed.fastq.files
+trimmed_fastq_files
 ```
 
 You should see the full paths to all 16 trimmed fastq files that we will be mapping to the reference genome today.
@@ -96,18 +95,16 @@ We can see the arguments available with the align function from the Rsubread pac
 args(align)
 ```
 
-```{r align-reads}
-# set where we would like the file to be output
-##NOTE: I don't think we need this. but if it doesn't put them in the same folder where the trimmed fastq files, then maybe setwd in this chunk.
-# setwd("~/Desktop")
 
-# run the alignment on all of the trimmed.fastq.files
+This process takes some time to finish.
+```{r align-reads}
+# run the alignment on all of the trimmed_fastq_files
 align(index=index_reference_genome, 
-      readfile1=trimmed.fastq.files,
+      readfile1=trimmed_fastq_files,
       type = "rna",
       input_format = "gzFASTQ",
       output_format = "BAM",
-      unique = FALSE,
+      unique = TRUE,
       nBestLocations = 1,
       nthreads=4
       )
@@ -119,11 +116,11 @@ We can get a summary of the proportion of reads that mapped to the reference gen
 
 ```{r output-summary}
 # create an object in R listing
-bam.files <- list.files(path = dir_trimmed.fq_files, pattern = ".BAM$", full.names = TRUE)
-bam.files
+bam_files <- list.files(path = dir_trimmed.fq_files, pattern = ".BAM$", full.names = TRUE)
+bam_files
 
 # find the proportion of reads that mapped for each sample
-props <- propmapped(files=bam.files)
+props <- propmapped(files=bam_files)
 
 props %>% print()
 ```
@@ -219,14 +216,38 @@ conda deactivate
 
 Notice that we combined the fasta file of the transcriptome with the fasta file of the entire genome (in that order) into the gentrome.fasta.gz file which was then indexed.
 
-\
+
 Salmon is a pseudomapper, so it doesn't create sam/bam files and is instead able to count directly from the fastq files. We will do the pseudomapping and counting all in one step in the next activity.
 
 ## Questions
 
 With Rsubread:
 
-Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 "best" locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting ".fastq.gz" with ".multi.bam" so we don't overwrite our unique alignment bam files.
+Question 1: Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), allowing for up to 6 "best" locations to be reported (nBestLocations = 6), and allow reads to be fractionally counted (fraction = TRUE). Specify the output file names (bam_files_multi) by substituting ".fastq.gz" with ".multi.bam" so we don't overwrite our unique alignment bam files.
+
+```{r multimap-align, eval=FALSE}
+
+# Define the pattern and replacement
+pattern <- "\\.fastq\\.gz$"
+replacement <- "subread.multi.bam"
+
+# Create the new file names
+bam_files_multi <- gsub(pattern, replacement, trimmed_fastq_files)
+
+# update this code to run with Rsubread multimapping, as described above.
+align(index=index_reference_genome, 
+      readfile1=trimmed_fastq_files,
+      output_file = ___________,
+      type = "rna",
+      input_format = "gzFASTQ",
+      output_format = "BAM",
+      unique = ____,
+      fraction = ____,
+      nBestLocations = ____,
+      nthreads=6
+      )
+```
+
 
 Question 2: Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
 

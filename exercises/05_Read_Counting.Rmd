@@ -34,7 +34,7 @@ bam_file_dir <- "~/Desktop/Genomic_Data_Analysis/Data/Trimmed_rfastp/"
 
 # save list of all of those files with their full path
 bam.files <- list.files(path = bam_file_dir, 
-                                  pattern = ".BAM$", 
+                                  pattern = ".subread.BAM$", 
                                   full.names = TRUE)
 # make sure we see what we expect.
 bam.files
@@ -159,7 +159,7 @@ dir_output_counts <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Counts/Rs
 if (!dir.exists(dir_output_counts)) {dir.create(dir_output_counts, recursive = TRUE)}
 
 # save the R data object
-saveRDS(object = fc, file = "~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
+saveRDS(object = fc, file = paste0(dir_output_counts,"rsubread.yeast_fc_output.Rds"))
 
 # often, we want to share this file as a tsv file. Here is how we can do that:
 write_tsv(data.frame(
@@ -244,11 +244,7 @@ This script loops through each sample and invokes salmon using default mostly op
 
 2.  Redo the counting over the exons, rather than the genes (specify useMetaFeatures = FALSE) with RSubread. Use the bam files generated doing alignment reporting only unique reads, and call the featureCounts object fc.exon. Check the dimension of the counts slot to see how much larger it is.
 
-3.  Try aligning the fastq files allowing multi-mapping reads (set unique = FALSE), and allowing for up to 6 "best" locations to be reported (nBestLocations = 6). Specify the output file names (bam.files.multi) by substituting ".fastq.gz" with ".multi.bam" so we don't overwrite our unique alignment bam files.
-
-4.  Look at the proportion of reads mapped and see if we get any more reads mapping by specifying a less stringent criteria.
-
-5.  What differences do you notice in the count values from Salmon vs Rsubread?
+3.  What differences do you notice in the count values from Salmon vs Rsubread?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

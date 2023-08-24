@@ -55,25 +55,23 @@ options(digits=3)
 # Loading in the featureCounts object 
 
 We saved this file in the last exercise (Read_Counting.Rmd) from the RSubread package. Now we can load that object back in and assign it to the variable `fc`. Be sure to change the file path if you have saved it in a different location.
-```{r load-fc, error=TRUE}
+```{r load-counts, error=TRUE}
 path_fc_object <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Counts/Rsubread/rsubread.yeast_fc_output.Rds")
-fc <- readRDS(file = path_fc_object)
+
+counts_subset <- readRDS(file = path_fc_object)$counts
 ```
 
 
-If you don't have that file for any reason, the below code chunk will load a copy of it from Github.
+We generated those counts on a subset of the fastq files, but we can load the complete count file with the command below. 
 ```{r altLoad-fc}
-if( !exists("fc") )
-{
-  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/yeast_fc_output.Rds')
-}
+counts <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/counts/rsem.gene_counts.merged.yeast.Rds')
 ```
 
 So far, we've been able to process all of the fastq files without much information about what each sample is in the experimental design. Now, we need the metadata for the samples. Note that the order matters for these files
 
 To find the order of files we need, we can get just the part of the column name before the first "." symbol with this command:
 ```{r identify-sampleOrder}
-str_split_fixed(fc$counts %>% colnames(), "\\.", n = 2)[, 1]
+str_split_fixed(counts %>% colnames(), "\\.", n = 2)[, 1] %>% cat()
 ```
 
 
@@ -131,7 +129,7 @@ design
 The count matrix is used to construct a DGEList class object. This is the main data class in the edgeR package. The DGEList object is used to store all the information required to fit a generalized linear model to the data, including library sizes and dispersion estimates as well as counts for each gene.
 
 ```{r load-counts}
-y <- DGEList(fc$counts, group=group)
+y <- DGEList(counts, group=group)
 colnames(y) <- sample_metadata$Sample
 y$samples
 ```

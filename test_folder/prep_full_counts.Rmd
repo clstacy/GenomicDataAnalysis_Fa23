@@ -1,0 +1,68 @@
+---
+title: "Adjust RSEM output for Class"
+author: "Carson Stacy & JAL"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We aren't using the full dataset in this class, so I am loading in the complete output file and arranging it so it works the same as the subsample output we made in our class.
+
+```{r load-rawData}
+raw_rsem_out <- read_tsv("~/Desktop/YPS606_TF_Rep1_4_ExpectedCounts.txt")
+```
+First, let's only keep the columns we are using. We'll also want to swap the gene_id to rownames.
+```{r}
+rsem_count_out <- raw_rsem_out %>%
+  dplyr::select(
+    gene_id,
+    `msn2/4_EtOH_Rep1`,
+    `msn2/4_EtOH_Rep2`,
+    `msn2/4_EtOH_Rep3`,
+    `msn2/4_EtOH_Rep4`,
+    `msn2/4_Mock_Rep1`,
+    `msn2/4_Mock_Rep2`,
+    `msn2/4_Mock_Rep3`,
+    `msn2/4_Mock_Rep4`,
+    `YPS606_EtOH_Rep1`,
+    `YPS606_EtOH_Rep2`,
+    `YPS606_EtOH_Rep3`,
+    `YPS606_EtOH_Rep4`,
+    `YPS606_Mock_Rep1`,
+    `YPS606_Mock_Rep2`,
+    `YPS606_Mock_Rep3`,
+    `YPS606_Mock_Rep4`
+  ) %>%
+  dplyr::rename(YPS606_MSN24_ETOH_REP1_R1 = `msn2/4_EtOH_Rep1`,
+    YPS606_MSN24_ETOH_REP2_R1 = `msn2/4_EtOH_Rep2`,
+    YPS606_MSN24_ETOH_REP3_R1 = `msn2/4_EtOH_Rep3`,
+    YPS606_MSN24_ETOH_REP4_R1 = `msn2/4_EtOH_Rep4`,
+    YPS606_MSN24_MOCK_REP1_R1 = `msn2/4_Mock_Rep1`,
+    YPS606_MSN24_MOCK_REP2_R1 = `msn2/4_Mock_Rep2`,
+    YPS606_MSN24_MOCK_REP3_R1 = `msn2/4_Mock_Rep3`,
+    YPS606_MSN24_MOCK_REP4_R1 = `msn2/4_Mock_Rep4`,
+    YPS606_WT_ETOH_REP1_R1 = `YPS606_EtOH_Rep1`,
+    YPS606_WT_ETOH_REP2_R1 = `YPS606_EtOH_Rep2`,
+    YPS606_WT_ETOH_REP3_R1 = `YPS606_EtOH_Rep3`,
+    YPS606_WT_ETOH_REP4_R1 = `YPS606_EtOH_Rep4`,
+    YPS606_WT_MOCK_REP1_R1 = `YPS606_Mock_Rep1`,
+    YPS606_WT_MOCK_REP2_R1 = `YPS606_Mock_Rep2`,
+    YPS606_WT_MOCK_REP3_R1 = `YPS606_Mock_Rep3`,
+    YPS606_WT_MOCK_REP4_R1 = `YPS606_Mock_Rep4`) %>%
+  column_to_rownames("gene_id")
+```
+
+Let's save this to a file now.
+```{r}
+write_rds(rsem_count_out, "~/Documents/GitHub/GenomicDataAnalysis_Fa23/data/ethanol_stress/counts/rsem.gene_counts.merged.yeast.Rds")
+```
+
+Now the file is available in Github, and will work for us as we'd like.
+
+```{r}
+read_rds("~/Documents/GitHub/GenomicDataAnalysis_Fa23/data/ethanol_stress/counts/rsem.gene_counts.merged.yeast.Rds")
+```
+

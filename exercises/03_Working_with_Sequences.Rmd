@@ -44,16 +44,26 @@ Note that instead of `{r}`, the below chunk uses `{bash}`, meaning this isn't r 
 
 This may take awhile the first time you run it. The below script is a bash command that downloads these files to your computer
 
+
+
 ```{bash download-fq, message=FALSE}
 # Be sure to change this file path to the path you want your data to go
 RAW_DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw"
 
+#if you're using Windows 10,
+# in RStudio, go to Tools>Global Options... > Terminal > New Terminals open with...
+# and choose WSL bash or git bash
+# next, use: (be sure to put in the correct username)
+RAW_DATA_DIR="/mnt/c/Users/makov/Desktop/Genomic_Data_Analysis/Data/Raw"
+
 # create the destination directory if it doesn't already exist
 mkdir -p $RAW_DATA_DIR
 
+echo $RAW_DATA_DIR
+
 # change to that directory (for this code chunk only)
 cd $RAW_DATA_DIR
-
+pwd
 # Download the files.
 # WARNING: curl doesn't work with relative paths
 # WT unstressed (mock)
@@ -77,9 +87,20 @@ curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/dat
 curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_ETOH_REP3.fastq.gz?raw=TRUE
 curl -L -C - -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq/YPS606_MSN24_ETOH_REP4.fastq.gz?raw=TRUE
 
-# These raw data files are from a current project in our lab.
+# These are subsamples of raw fastq files from a current project in our lab.
+
+# Make sure names are as desired
+cd $RAW_DATA_DIR
+
+# This loops through and removes the suffix file for any OS that doesn't auto do so.
+for file in *; do
+    newname=$(echo "$file" | sed 's/\?raw=TRUE//')
+    mv "$file" "$newname"
+done
+
 
 # Let's see what one of these files contains:
+# if you're on windows or linux, delete the g from gzcat below
 gzcat $RAW_DATA_DIR/YPS606_WT_MOCK_REP1.fastq.gz | head -n8
 ```
 
@@ -90,9 +111,15 @@ The R package ShortRead allows us to look at and process raw fastq files. It has
 ## Let's take a look at a fastq file
 
 ```{r}
+# If you're using windows, put your username below and uncomment this code before continuing
+# if(.Platform$OS.type == "windows") {
+  Sys.setenv(R_USER = "C:/Users/makov")
+# }
+
 # change this directory here to where you have the file saved
 path_fastq_WT_MOCK_REP1 <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Raw/YPS606_WT_MOCK_REP1.fastq.gz")
-  
+
+
 
 fastq_WT_MOCK_REP1 <- readFastq(path_fastq_WT_MOCK_REP1)
 

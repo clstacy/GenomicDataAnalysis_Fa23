@@ -189,7 +189,7 @@ phyper(q = Overlap, # number of integration genes that were DE
        k = integration_genes, # number of observed DE DNA integration genes
        lower.tail = TRUE) # the probability that X <= x
 
-# test for overrepresentation (enrichmen t)
+# test for overrepresentation (enrichment)
 phyper(q = Overlap-1, # number of integration genes that were DE
                       # we subtract 1 b/c of lower.tail=FALSE means greater than
                       # without equality, so have to do one less

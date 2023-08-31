@@ -67,7 +67,7 @@ msn24_EtOH <- # assign a new object name
 
 ## Get DE gene list
 
-We need a list of differentially expressed genes to test for over or under enrichment of terms. Here we choose genes significantly (FDR\<0.05) upregulated with a log2 fold change greater than 1 in the comparison of WT vs *msn2/4ΔΔ*: EtOH response comparison.
+We need a list of deferentially expressed genes to test for over or under enrichment of terms. Here we choose genes with significantly (FDR\<0.05) higher expression (log~2~-fold change (logFC) greater than 1) in the *msn2/4ΔΔ* mutant's EtOH response compared to the wild-type strains EtOH response (positive values in the logFC column of WT vs *msn2/4ΔΔ*: EtOH response).
 
 ```{r get-UPgeneList_msn24_etoh}
 # subset to just genes with significant fdr & log2FC>1
@@ -109,7 +109,7 @@ GO_msn24_EtOH_up_results %>%
   write_tsv(file = "~/Desktop/GO_msn24_EtOH_up_results.tsv")
 ```
 
-Now we can visualize the enrichment results, which shows us gene ontology categories that are enriched in upregulated genes in the phenol samples of the heat shock experiment.
+Now we can visualize the enrichment results, which shows us gene ontology categories that are enriched in genes with higher expression (upregulated) in the WT vs *msn2/4ΔΔ*: EtOH response.
 
 ```{r visualize-GOterms_upregulated_phenol}
 # a simple visualization
@@ -173,7 +173,7 @@ Notice that the DNA integration process does not have very many genes in the cat
 integration_genes = 23
 # number of genes that are DE (msn2/4 EtOH response, logFC>1)
 DE_genes = 91
-# number of genes that are both DE and trehalose genes
+# number of genes that are both DE and DNA integration genes
 Overlap = 6
 # total number of genes in experiment
 total = 5538 # number of genes in genome
@@ -189,7 +189,7 @@ phyper(q = Overlap, # number of integration genes that were DE
        k = integration_genes, # number of observed DE DNA integration genes
        lower.tail = TRUE) # the probability that X <= x
 
-# test for overrepresentation (enrichment)
+# test for overrepresentation (enrichmen t)
 phyper(q = Overlap-1, # number of integration genes that were DE
                       # we subtract 1 b/c of lower.tail=FALSE means greater than
                       # without equality, so have to do one less
@@ -199,7 +199,7 @@ phyper(q = Overlap-1, # number of integration genes that were DE
        lower.tail = FALSE) # the probability that X > x
 ```
 
-As we see, there is strong evidence that the number of genes with this GO term is unlikely to be seen due to chance. In laymen's terms, this GO term is enriched in upregulated genes in this contrast. The test for underrepresenation shows there is no support for a hypothesis that this gene is underrepresented in the DE gene list.
+As we see, there is strong evidence that the number of genes with this GO term is unlikely to be seen due to chance. In layman's terms, this GO term is enriched in upregulated genes in this contrast. The test for underrepresenation shows there is no support for a hypothesis that this gene is underrepresented in the DE gene list.
 
 Interestingly, the hypergeometric distribution is the same thing as the Fisher's Exact test, so we can rerun the same tests above with a different command:
 
@@ -219,9 +219,12 @@ How does the p-value that we get from this test compare to the results table? Th
 
 Try running your own GO enrichment with a different gene list. Some options could be:
 
--   Downregulated instead of upregulated genes
--   genes that are upregulated in a different comparison in the data file.
--   look at a different GO category (we only looked at BP, not MF or CC)
+-   Start with the WT vs *msn2/4ΔΔ*: EtOH response again, and this time change to "downregulated" (i.e., genes with higher expression in the wild-type strain compared to the *msn2/4ΔΔ* mutant). These would potentially include genes with defective induction.
+-   See what happens when you change the FDR threshold from a liberal one (0.05) to a more conservative one (0.01).
+-   Try different logFC cutoffs.
+-   Look at different comparisons in the data file (there are 5 total)
+-   Look at a different GO category (we only looked at BP, not MF or CC)
+-   Advanced: include multiple filters (e.g., genes upregulated by EtOH stress in the WT strain that ALSO have defective induction during ethanol stress in the *msn2/4ΔΔ* mutant).
 
 The code below is a template for you to modify to complete this activity. The example code below looks at the downregulated genes in response to stress in the WT (choose something else for your gene list)
 
@@ -296,15 +299,15 @@ Answer the following questions:
 
 2.  What percent of the genes would we expect to have that GO term in the DE list under the null hypothesis? What percent of the DE genes actually had that GO term?
 
-3.  Briefly explain your rationale for the cutoffs you chose for your gene list.
+3.  For the upregulated comparision, what GO terms are enriched for genes with pval \< 0.01 but fdr \> 0.01 and what is their average/median log fold change?
 
-4.  Which GO term had the smallest adjusted p-value in the genelist that you chose yourself?
+4.  For one of your own novel comparisons, explain what comparison you were interested in, and your rationale for the cutoffs you chose for your gene list.
 
-5.  In simple terms, how would you describe what the "Rich Factor" tells about a given GO term in the gene list.
+5.  For that novel gene list you chose for yourself, which GO term had the smallest adjusted p-value?
 
-6.  Challenge: Create a venn diagram of the GO terms in the GO analysis you ran with the GO_phenol_up_results output
+6.  In simple terms, how would you describe what the "Rich Factor" tells about a given GO term in the gene list.
 
-7.  What GO terms are enriched for genes with pval \< 0.01 but fdr \> 0.01 and what is their average/median log fold change?
+7.  Challenge: create a venn diagram of the GO terms in the GO analysis you ran comparing to the upregulated comparison example.
 
 ```{r create-vennDiagram}
 # create a list of the data we want to compare

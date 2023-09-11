@@ -241,7 +241,6 @@ align(index=index_reference_genome,
       input_format = "gzFASTQ",
       output_format = "BAM",
       unique = ____,
-      fraction = ____,
       nBestLocations = ____,
       nthreads=6
       )

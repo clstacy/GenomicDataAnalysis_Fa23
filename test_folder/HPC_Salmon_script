@@ -1,0 +1,121 @@
+#!/bin/bash
+#SBATCH --job-name=salmon_run_template
+#SBATCH --partition=comp01  # Replace with the appropriate partition
+#SBATCH --nodes=1                 # Number of CPU machines to allocate
+#SBATCH --cpus-per-task=32         # Number of CPU cores to allocate
+#SBATCH --mem=192G                 # Memory to allocate (per node)
+#SBATCH --time=01:00:00           # Maximum runtime (hours:minutes:seconds)
+#SBATCH --output=out.salmon_%j    # Output file
+#SBATCH --error=err.salmon_%j     # Error file
+
+# Define variables
+FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"
+SALMON_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon"
+REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"
+TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"
+GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+INDEX="index_salmon_Saccharomyces_cerevisiae.R64-1-1" # replace with desired name of your salmon index
+EXPERIMENTNAME="yeast" # name you'd like the output file to include
+
+# NOTE: make sure you have put your trimmed fastq.gz files into $DATA_DIR
+
+# Load any necessary modules or activate your virtual environment if needed
+module load module load gcc-11.2.1/SKYLAKEX/salmon/1.9.0  # modify as necessary
+
+# Create the reference genome dir if it doesn't already exist
+mkdir -p $REFERENCE_DIR
+
+# Create the output directory if it doesn't exist
+mkdir -p $SALMON_OUT_DIR
+
+## Download the reference genome and transcriptome if not already in ref dir
+
+# Define the URL of reference transcriptome (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/$TRANSCRIPTOME"
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REFERENCE_DIR/$TRANSCRIPTOME" ]; then
+    echo "Reference transcriptome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REFERENCE_DIR/$TRANSCRIPTOME" "$url"
+    echo "Downloading finished"
+else
+    echo "Transcriptome file already exists at $REFERENCE_DIR. Skipping download."
+fi
+
+
+# Define the URL of reference genome (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/$GENOME"
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" ]; then
+    echo "Reference genome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" "$url"
+    echo "Downloading finished"
+else
+    echo "Genome file already exists at $REFERENCE_DIR. Skipping download."
+fi
+
+
+# These two commands generate a decoy.txt file from the genome we downloaded
+grep "^>" <(gunzip -c $REFERENCE_DIR/$GENOME) | cut -d " " -f 1 > $REFERENCE_DIR/decoys.txt
+sed -i.bak -e 's/>//g' $REFERENCE_DIR/decoys.txt
+
+# Combine the transcriptome and genome into a single file for indexing
+cat $REFERENCE_DIR/$TRANSCRIPTOME $REFERENCE_DIR/$GENOME > $REFERENCE_DIR/gentrome.fasta.gz
+
+# We can now create our salmon index
+salmon index \
+  -t $REFERENCE_DIR/gentrome.fasta.gz \
+  -d $REFERENCE_DIR/decoys.txt \        # decoy sequence list
+  -p 4 \                                # number of threads
+  -i $REFERENCE_DIR/INDEX # index
+
+# Navigate to the input directory
+cd $DATA_DIR
+
+# loop through all of the fastq files
+for fn in *.fastq.gz;
+do
+samp=`basename ${fn}`
+echo "Processing sample ${samp}"
+
+    # Determine if the input data is single-end or paired-end
+    if [[ $samp == *_R1.fastq.gz ]]; then
+        # Paired-end data
+        sampname="${samp%_R1.fastq.gz}"
+        salmon quant -i $REFERENCE/$INDEX \
+            -l A \# automatic library detection
+            -1 ${sampname}_R1.fastq.gz \
+            -2 ${sampname}_R2.fastq.gz \
+            --useVBOpt \
+            -p 4 \
+            --validateMappings \
+            -o $SALMON_OUT_DIR/${sampname}_quant
+    else
+        # Single-end data
+        salmon quant -i $SALMON_INDEX_DIR 
+            -l A \
+            -r $fn \
+            --useVBOpt \
+            -p 4 \
+            --validateMappings \
+            -o $SALMON_OUT_DIR/${samp}_quant
+    fi
+done
+
+# combine all of the output files into a merged count matrix
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column numreads -o $SALMON_OUT_DIR/salmon.gene_counts.merged.EXPERIMENTNAME.tsv 
+
+# remove the _mRNA from gene name
+sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_counts.merged.$EXPERIMENTNAME.tsv
+
+# we can also create a table of tpm values per gene by changing the --column flag
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column tpm \
+          -o $SALMON_OUT_DIR/salmon.gene_tpm.merged.$EXPERIMENTNAME.tsv
+
+# remove the _mRNA from gene name
+sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_tpm.merged.$EXPERIMENTNAME.tsv
+
+echo "Salmon job completed."

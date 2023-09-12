@@ -1,7 +1,10 @@
 ---
 title: "Running Salmon on the UARK AHPCC"
 author: "Carson Stacy & Jeffrey Lewis"
-format: html
+format:
+  html:
+    embed-resources: true
+    code-background: true
 date: "`r Sys.Date()`"
 editor: visual
 execute:

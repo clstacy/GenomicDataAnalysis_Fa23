@@ -9,6 +9,7 @@ date: "`r Sys.Date()`"
 editor: visual
 execute:
   eval: false
+  freeze: auto
 engine: knitr
 ---
 

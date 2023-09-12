@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Carson Stacy &amp; Jeffrey Lewis">
+<meta name="dcterms.date" content="2023-09-11">
+
+<title>Running Salmon on the UARK AHPCC</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="HPC_salmon_guide_files/libs/clipboard/clipboard.min.js"></script>
+<script src="HPC_salmon_guide_files/libs/quarto-html/quarto.js"></script>
+<script src="HPC_salmon_guide_files/libs/quarto-html/popper.min.js"></script>
+<script src="HPC_salmon_guide_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="HPC_salmon_guide_files/libs/quarto-html/anchor.min.js"></script>
+<link href="HPC_salmon_guide_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="HPC_salmon_guide_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="HPC_salmon_guide_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="HPC_salmon_guide_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="HPC_salmon_guide_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Running Salmon on the UARK AHPCC</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Carson Stacy &amp; Jeffrey Lewis </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">September 11, 2023</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<p>This is a tutorial for using the provided code to run salmon mapper on the UARK HPC. The code can be modified to analyze your own data. First, let’s start recall how to log on to the HPC.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> youruarkusername@hpc-portal2.hpc.uark.edu</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>To log on, we:</p>
+<ol type="1">
+<li><p>Open a terminal window</p>
+<ol type="a">
+<li><p>on Windows: use either Git Bash or WSL terminal. There’s also PuTTy, but that’s not used much anymore</p></li>
+<li><p>on MacOS/Linux: you can run salmon on your own PC, but can also use the HPC. Just use your usual terminal.</p></li>
+</ol></li>
+<li><p>Run the code above, being sure to change <code>youruarkusername</code> to your uark username. It will ask you to enter your uark password to log in.</p>
+<ol type="a">
+<li>If you’re not on campus wifi, you’ll either need to use the GlobalProtect VPN that the campus provides, or run the same code above with <code>-p2022</code> at the end. It’ll ask for your password, make sure your you, and then kick. you out. then run the usual log in code again and you’ll be able to log in. This resets about every 48 hours, last I checked.</li>
+</ol></li>
+<li><p>Now that you’re logged on to the HPC, you will be located in your home folder. This code assumes you haven’t done a lot of work on the HPC before, so it should work regardless of how you’ve set up your system. We can save our script and submit our job on the HPC from here.</p></li>
+<li><p>We need to create a script that submits the code to the HPC system to run when a computing node is available. A script for doing so is below. You’ll need to copy the below code, and save it into a new file (instructions for doing this are below the script.)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">#!/bin/bash</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --job-name=salmon_run_template</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --partition=comp01  # Replace with the appropriate partition</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --nodes=1                 # Number of CPU machines to allocate</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --cpus-per-task=32         # Number of CPU cores to allocate</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --time=01:00:00           # Maximum runtime (hours:minutes:seconds)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --output=out.salmon_%j    # Output file</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">#SBATCH --error=err.salmon_%j     # Error file</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Define variables</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="va">NCORES</span><span class="op">=</span>32</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="va">FQ_DATA_DIR</span><span class="op">=</span><span class="st">"/storage/</span><span class="va">$USER</span><span class="st">/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="va">SALMON_OUT_DIR</span><span class="op">=</span><span class="st">"/storage/</span><span class="va">$USER</span><span class="st">/home/Genomic_Data_Analysis/Data/Counts/Salmon"</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="va">REFERENCE_DIR</span><span class="op">=</span><span class="st">"/storage/</span><span class="va">$USER</span><span class="st">/home/Genomic_Data_Analysis/Reference"</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="va">TRANSCRIPTOME</span><span class="op">=</span><span class="st">"Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="va">GENOME</span><span class="op">=</span><span class="st">"Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="va">INDEX</span><span class="op">=</span>index_salmon_Saccharomyces_cerevisiae.R64-1-1 <span class="co"># replace with desired name of your salmon index</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="va">EXPERIMENTNAME</span><span class="op">=</span><span class="st">"yeast"</span> <span class="co"># name you'd like the output file to include</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="va">CLASS_EXERCISE</span><span class="op">=</span>true</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">NOTE</span><span class="co">: make sure you have put your trimmed fastq.gz files into $FQ_DATA_DIR if not using class files.</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Load any necessary modules or activate your virtual environment if needed</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="ex">module</span> purge</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co"># module load gcc-11.2.1/SKYLAKEX/salmon/1.9.0  # modify as necessary</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co"># below is a command to run an older version of salmon, that doesn't have bugs of 1.9.0</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co"># it has different bugs instead. so I don't want to use it.</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co"># module load salmon/1.4.0</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co"># load in a python + anaconda module</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="ex">module</span> load python/3.12-anaconda</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co"># activate conda</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="bu">.</span> /share/apps/python/anaconda-3.12/bin/activate</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> activate</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="co"># ensure conda channels are set up</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> config <span class="at">--add</span> channels defaults</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> config <span class="at">--append</span> channels bioconda</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> config <span class="at">--append</span> channels conda-forge</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> config <span class="at">--set</span> channel_priority strict</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co"># create a conda environment for salmon</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="ex">conda</span> info <span class="at">--envs</span> <span class="kw">|</span> <span class="fu">grep</span> <span class="at">-q</span> salmon<span class="kw">;</span> <span class="cf">then</span> <span class="bu">echo</span> <span class="st">"environment 'salmon' already exists"</span><span class="kw">;</span> <span class="cf">else</span> <span class="ex">conda</span> create <span class="at">-y</span> <span class="at">-n</span> salmon <span class="at">-c</span> conda-forge <span class="at">-c</span> bioconda salmon=1.10.2<span class="kw">;</span> <span class="cf">fi</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co"># activate conda environment with salmon</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> activate salmon</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the reference genome dir if it doesn't already exist</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="va">$REFERENCE_DIR</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the output directory if it doesn't exist</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="va">$SALMON_OUT_DIR</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="co"># Make the stated fastq file dir if doesn't already exist.</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="va">$FQ_DATA_DIR</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="co"># Navigate to the input directory</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> <span class="va">$FQ_DATA_DIR</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a><span class="co"># if using this for class, download data files into FQ_DIR</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">[</span> <span class="st">"</span><span class="va">$CLASS_EXERCISE</span><span class="st">"</span> <span class="ot">=</span> true <span class="bu">]</span> <span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP1_R1.fastq.gz</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP2_R1.fastq.gz</span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP3_R1.fastq.gz</span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP4_R1.fastq.gz</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>    <span class="co"># WT EtOH</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP1_R1.fastq.gz</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP2_R1.fastq.gz</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP3_R1.fastq.gz</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP4_R1.fastq.gz</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>    <span class="co"># msn2/4dd unstressed (mock)</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP1_R1.fastq.gz</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP2_R1.fastq.gz</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP3_R1.fastq.gz</span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP4_R1.fastq.gz</span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>    <span class="co"># msn2/4dd EtOH</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP1_R1.fastq.gz</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP2_R1.fastq.gz</span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP3_R1.fastq.gz</span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-L</span> <span class="at">-O</span> https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP4_R1.fastq.gz</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a><span class="co"># return to where we were</span></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> <span class="at">-</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a><span class="co">## Download the reference genome and transcriptome if not already in ref dir</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the URL of reference transcriptome (latest from ensembl)</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a><span class="va">url</span><span class="op">=</span><span class="st">"ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/</span><span class="va">$TRANSCRIPTOME</span><span class="st">"</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a><span class="co"># Check if the file already exists at the destination location</span></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">[</span> <span class="ot">!</span> <span class="ot">-f</span> <span class="st">"</span><span class="va">$REFERENCE_DIR</span><span class="st">/</span><span class="va">$TRANSCRIPTOME</span><span class="st">"</span> <span class="bu">]</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Reference transcriptome not found, downloading..."</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>    <span class="co"># If the file does not exist, download it using curl</span></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-o</span> <span class="st">"</span><span class="va">$REFERENCE_DIR</span><span class="st">/</span><span class="va">$TRANSCRIPTOME</span><span class="st">"</span> <span class="st">"</span><span class="va">$url</span><span class="st">"</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Downloading finished"</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Transcriptome file already exists at </span><span class="va">$REFERENCE_DIR</span><span class="st">. Skipping download."</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the URL of reference genome (latest from ensembl)</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a><span class="va">url</span><span class="op">=</span><span class="st">"ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/</span><span class="va">$GENOME</span><span class="st">"</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Check if the file already exists at the destination location</span></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">[</span> <span class="ot">!</span> <span class="ot">-f</span> <span class="st">"</span><span class="va">$REFERENCE_DIR</span><span class="st">/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"</span> <span class="bu">]</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Reference genome not found, downloading..."</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>    <span class="co"># If the file does not exist, download it using curl</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>    <span class="ex">curl</span> <span class="at">-o</span> <span class="st">"</span><span class="va">$REFERENCE_DIR</span><span class="st">/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"</span> <span class="st">"</span><span class="va">$url</span><span class="st">"</span></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Downloading finished"</span></span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Genome file already exists at </span><span class="va">$REFERENCE_DIR</span><span class="st">. Skipping download."</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a><span class="co"># These two commands generate a decoy.txt file from the genome we downloaded</span></span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="st">"^&gt;"</span> <span class="op">&lt;(</span><span class="fu">gunzip</span> <span class="at">-c</span> <span class="va">$REFERENCE_DIR</span>/<span class="va">$GENOME</span><span class="op">)</span> <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-d</span> <span class="st">" "</span> <span class="at">-f</span> 1 <span class="op">&gt;</span> <span class="va">$REFERENCE_DIR</span>/decoys.txt</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a><span class="fu">sed</span> <span class="at">-i.bak</span> <span class="at">-e</span> <span class="st">'s/&gt;//g'</span> <span class="va">$REFERENCE_DIR</span>/decoys.txt</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">"Decoy file generation complete"</span></span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine the transcriptome and genome into a single file for indexing</span></span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> <span class="st">"</span><span class="va">$REFERENCE_DIR</span><span class="st">/</span><span class="va">$TRANSCRIPTOME</span><span class="st">"</span> <span class="st">"</span><span class="va">$REFERENCE_DIR</span><span class="st">/</span><span class="va">$GENOME</span><span class="st">"</span> <span class="op">&gt;</span> <span class="va">$REFERENCE_DIR</span>/gentrome.fasta.gz</span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a><span class="co"># move to our reference folder</span></span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> <span class="va">$REFERENCE_DIR</span></span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a><span class="co"># We can now create our salmon index</span></span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a><span class="ex">salmon</span> index <span class="at">-t</span> <span class="va">$REFERENCE_DIR</span>/gentrome.fasta.gz <span class="at">-d</span> <span class="va">$REFERENCE_DIR</span>/decoys.txt <span class="at">-p</span> <span class="va">$NCORES</span> <span class="at">-i</span> <span class="st">"</span><span class="va">${REFERENCE_DIR}</span><span class="st">/</span><span class="va">${INDEX}</span><span class="st">"</span></span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">"index generation complete"</span></span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a><span class="co"># move to the folder with our trimmed fastq files</span></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> <span class="va">$FQ_DATA_DIR</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a><span class="co"># Detect if both "_R1" and "_R2" files exist for the same sample to identify paired-end data</span></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">"Initiating salmon counting..."</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> sampname_r1 <span class="kw">in</span> <span class="pp">*</span>_R1.fastq.gz<span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>    <span class="va">sampname</span><span class="op">=</span><span class="st">"</span><span class="va">${sampname_r1</span><span class="op">%%</span>_R1<span class="pp">*</span><span class="va">}</span><span class="st">"</span></span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>    <span class="va">r1</span><span class="op">=</span><span class="st">"</span><span class="va">$sampname_R1</span><span class="st">"</span></span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>    <span class="va">r2</span><span class="op">=</span><span class="st">"</span><span class="va">${sampname}</span><span class="st">_R2.fastq.gz"</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">[</span> <span class="ot">-f</span> <span class="st">"</span><span class="va">$r2</span><span class="st">"</span> <span class="bu">]</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Paired-end data</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>        <span class="bu">echo</span> <span class="st">"Processing paired-end sample </span><span class="va">$sampname</span><span class="st">"</span></span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>    <span class="ex">salmon</span> quant <span class="at">-i</span> <span class="st">"</span><span class="va">${REFERENCE_DIR}</span><span class="st">/</span><span class="va">${INDEX}</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>            <span class="at">-l</span> A <span class="dt">\</span></span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>        <span class="at">-1</span> <span class="va">${sampname}</span>_R1.fastq.gz <span class="dt">\</span></span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>            <span class="at">-2</span> <span class="va">${sampname}</span>_R2.fastq.gz <span class="dt">\</span></span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>            <span class="at">--useVBOpt</span> <span class="dt">\</span></span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>            <span class="at">-p</span> <span class="va">$NCORES</span> <span class="dt">\</span></span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>            <span class="at">--validateMappings</span> <span class="dt">\</span></span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>            <span class="at">-o</span> <span class="va">$SALMON_OUT_DIR</span>/<span class="va">${sampname}</span>_quant</span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Single-end data</span></span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>    <span class="bu">echo</span> <span class="st">"Processing single-end sample </span><span class="va">$sampname</span><span class="st">"</span></span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a>        <span class="ex">salmon</span> quant <span class="at">-i</span> <span class="st">"</span><span class="va">${REFERENCE_DIR}</span><span class="st">/</span><span class="va">${INDEX}</span><span class="st">"</span> <span class="dt">\</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>            <span class="at">-l</span> A <span class="dt">\</span></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>            <span class="at">-r</span> <span class="va">${sampname}</span>_R1.fastq.gz <span class="dt">\</span></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>            <span class="at">--useVBOpt</span> <span class="dt">\</span></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>            <span class="at">-p</span> <span class="va">$NCORES</span> <span class="dt">\</span></span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>            <span class="at">--validateMappings</span> <span class="dt">\</span></span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>            <span class="at">-o</span> <span class="va">${SALMON_OUT_DIR}</span>/<span class="va">${sampname}</span>_quant</span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>    <span class="cf">fi</span></span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a><span class="co"># combine all of the output files into a merged count matrix</span></span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a><span class="ex">salmon</span> quantmerge <span class="at">--quants</span> <span class="va">$SALMON_OUT_DIR</span>/<span class="pp">*</span>_quant <span class="at">--column</span> numreads <span class="at">-o</span> <span class="va">$SALMON_OUT_DIR</span>/salmon.gene_counts.merged.<span class="va">$EXPERIMENTNAME</span>.tsv</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a><span class="co"># remove the _mRNA from gene name</span></span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a><span class="fu">sed</span> <span class="at">-i</span>  <span class="at">-E</span> <span class="st">'s/^([^\t]+)_mRNA(\t|$)/\1\2/'</span> <span class="st">"</span><span class="va">$SALMON_OUT_DIR</span><span class="st">/salmon.gene_counts.merged.</span><span class="va">$EXPERIMENTNAME</span><span class="st">.tsv"</span></span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a><span class="co"># we can also create a table of tpm values per gene by changing the --column flag</span></span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a><span class="ex">salmon</span> quantmerge <span class="at">--quants</span> <span class="va">${SALMON_OUT_DIR}</span>/<span class="pp">*</span>_quant <span class="at">--column</span> tpm <span class="dt">\</span></span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>          <span class="at">-o</span> <span class="st">"</span><span class="va">${SALMON_OUT_DIR}</span><span class="st">/salmon.gene_tpm.merged.</span><span class="va">${EXPERIMENTNAME}</span><span class="st">.tsv"</span></span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a><span class="co"># remove the _mRNA from gene name for tpm file as well.</span></span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a><span class="fu">sed</span> <span class="at">-i</span>  <span class="at">-E</span> <span class="st">'s/^([^\t]+)_mRNA(\t|$)/\1\2/'</span> <span class="st">"</span><span class="va">${SALMON_OUT_DIR}</span><span class="st">/salmon.gene_tpm.merged.</span><span class="va">${EXPERIMENTNAME}</span><span class="st">.tsv"</span></span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="st">"Salmon job completed."</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div></li>
+<li><p>Once you’ve copied all of the code (there should be a button in the top right corner of the code),</p>
+<ol type="a">
+<li><p>go into your terminal window connected to the HPC and type <code>cd ~</code> and press enter. This makes sure you are in your home directory</p></li>
+<li><p>Type <code>nano launch_salmon.slurm</code> and press enter. This opens a text editor in command line, creating a new empty file with the given name.</p></li>
+<li><p>Right-click on the terminal, and click “paste”. This should paste all of your code into this new file.</p></li>
+<li><p>Simultaneously press <code>Ctrl+O</code> to save the file, and then type <code>Ctrl+X</code> to exit this text editor</p></li>
+<li><p>type <code>cat launch_salmon.slurm</code> , you should see a couple hundred lines of code appear in your terminal. This should be the same code we see above.</p></li>
+</ol></li>
+<li><p>Great, you have your script for running salmon on the HPC ready to go. To submit this script to the queue to be run, we type <code>sbatch launch_salmon.slurm</code> and press enter.</p></li>
+<li><p>Depending on how busy the HPC is, it might take some time to run your job. To see if your job has started yet, you can run <code>squeue -u $USER</code>, which let’s us know if R for running (and how long), or PD for pending (in the queue behind other jobs).</p></li>
+<li><p>What does this script create? You’ll see the job itself creates output files called out.salmon_###### and err.salmon_###### where the numbers are your submitted computing job’s number. You don’t need any information in these files for this script, but they are very useful for troubleshooting. You’ll also see a new folder has been created in your home directory called Genomic_Data_Analysis. Inside that folder, you’ll see reference and data folders. The reference folder has files the script has downloaded to map to. The Data folder has the raw subsampled fastq files we used in class for an input to map, and the final outputs are in the Data/Counts/Salmon folder, labeled as <code>salmon.gene_counts.merged.yeast.tsv</code> and <code>salmon.gene_tpm.merged.yeast.tsv</code> . These are the files we can use for subsequent differential expression analysis.</p></li>
+<li><p>When you’re done with your session on the HPC, you can log out typing <code>exit</code> in the terminal, and you’re all good.</p></li>
+<li><p>If you want to move those files to your computer, you can use the HPC gui by going in your browser to hpc-portal2.hpc.uark.edu and clicking Files, and finding the file in the given folder. You should then be able to download them to your computer. It’s also possible to move them with code using the <code>scp</code> command. If you know how to do that, it’s great! Otherwise, it might be easier to use the GUI.</p></li>
+</ol>
+<p>The script is commented with what all it does. If you have questions, reach out and I can add more useful information below.</p>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

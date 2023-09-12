@@ -106,7 +106,8 @@ align(index=index_reference_genome,
       output_format = "BAM",
       unique = TRUE,
       nBestLocations = 1,
-      nthreads=4
+      sortReadsByCoordinates = TRUE,
+      nthreads=6
       )
 ```
 

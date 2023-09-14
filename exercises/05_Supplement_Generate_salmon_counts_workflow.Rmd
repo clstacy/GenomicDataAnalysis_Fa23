@@ -1,0 +1,206 @@
+---
+title: "Workflow: Generate Salmon Counts"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Example rna-seq workflow
+
+This is the workflow we used to generate the Salmon counts for our DE analyses in class. Hopefully it could be a helpful template (with less fluff) for your own analyses.
+
+```{r ready-packages}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+p_load(tidyverse, Rfastp)
+```
+
+I am loading my files from the path to the Box drive where our lab has them stored. It may be different for your analysis.
+```{r load-files}
+# WT mock samples
+path_wt_mock_rep1 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 1/JL-AS-24S-TF-11_S11_L002_R1_001.fastq.gz")
+path_wt_mock_rep2 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 2/JL-AS-24S-TF-15_S15_L002_R1_001.fastq.gz")
+path_wt_mock_rep3 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep3/WT_M_3_JL-AS-72S-pl1-TF-31_S7_L001_R1_001.fastq.gz")
+path_wt_mock_rep4 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep4/WT_M_4_JL-AS-72S-pl1-TF-41_S17_L001_R1_001.fastq.gz")
+
+# WT etoh samples
+path_wt_etoh_rep1 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 1/JL-AS-24S-TF-08_S8_L002_R1_001.fastq.gz")
+path_wt_etoh_rep2 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 2/JL-AS-24S-TF-22_S22_L002_R1_001.fastq.gz")
+path_wt_etoh_rep3 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep3/WT_E_3_JL-AS-72S-pl1-TF-25_S1_L001_R1_001.fastq.gz")
+path_wt_etoh_rep4 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep4/WT_E_4_JL-AS-72S-pl1-TF-39_S15_L001_R1_001.fastq.gz")
+
+# msn24dd mock samples
+path_msn24_mock_rep1 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 1/JL-AS-24S-TF-03_S3_L002_R1_001.fastq.gz")
+path_msn24_mock_rep2 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 2/JL-AS-24S-TF-16_S16_L002_R1_001.fastq.gz")
+path_msn24_mock_rep3 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep3/msn24_M_3_JL-AS-72S-pl1-TF-29_S5_L001_R1_001.fastq.gz")
+path_msn24_mock_rep4 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep4/msn24_M_4_JL-AS-72S-pl1-TF-48_S24_L001_R1_001.fastq.gz")
+
+# msn24dd etoh Samples
+path_msn24_etoh_rep1 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 1/JL-AS-24S-TF-02_S2_L002_R1_001.fastq.gz")
+path_msn24_etoh_rep2 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep 2/JL-AS-24S-TF-24_S24_L002_R1_001.fastq.gz")
+path_msn24_etoh_rep3 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep3/msn24_E_3_JL-AS-72S-pl1-TF-32_S8_L001_R1_001.fastq.gz")
+path_msn24_etoh_rep4 <- path.expand("~/Library/CloudStorage/Box-Box/Wild Yeast EtOH and NaCl RNA-Seq/TF Mutants/YPS606 TF RNA-Seq v2/YPS606 TF RNA-Seq Rep4/msn24_E_4_JL-AS-72S-pl1-TF-47_S23_L001_R1_001.fastq.gz")
+
+```
+
+## Trim raw fastq files
+
+```{r trim-adapters}
+# make a character vector of all of our files
+fastq.files <- c(
+  path_wt_mock_rep1, path_wt_mock_rep2, path_wt_mock_rep3, path_wt_mock_rep4,
+  path_wt_etoh_rep1, path_wt_etoh_rep2, path_wt_etoh_rep3, path_wt_etoh_rep4,
+  path_msn24_mock_rep1, path_msn24_mock_rep2, path_msn24_mock_rep3, path_msn24_mock_rep4,
+  path_msn24_etoh_rep1, path_msn24_etoh_rep2, path_msn24_etoh_rep3, path_msn24_etoh_rep4
+)
+
+# add names, since file names weren't informative enough. Also to match class exercise
+names(fastq.files) <- c(
+  "YPS606_WT_MOCK_REP1", "YPS606_WT_MOCK_REP2", "YPS606_WT_MOCK_REP3", "YPS606_WT_MOCK_REP4",
+  "YPS606_WT_ETOH_REP1", "YPS606_WT_ETOH_REP2", "YPS606_WT_ETOH_REP3", "YPS606_WT_ETOH_REP4",
+  "YPS606_MSN24_MOCK_REP1", "YPS606_MSN24_MOCK_REP2", "YPS606_MSN24_MOCK_REP3", "YPS606_MSN24_MOCK_REP4",
+  "YPS606_MSN24_ETOH_REP1", "YPS606_MSN24_ETOH_REP2", "YPS606_MSN24_ETOH_REP3", "YPS606_MSN24_ETOH_REP4"
+)
+
+# assign output dir
+dir_trim_output <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/full/Trimmed_rfastp")
+
+# create if it doesn't exist.
+if (!dir.exists(dir_trim_output)) {dir.create(dir_trim_output, recursive = TRUE)}
+
+# loop through files
+for (i in 1:length(fastq.files)) {
+  # file path to single end read
+  read1 <- fastq.files[i]
+  # assign output file (putting it inside of Data/Trimmed folder)
+  output_name <- paste0(dir_trim_output,
+                        "/",
+                        names(fastq.files[i]))
+  # run fastp trimming
+  rfastp(
+    read1 = read1,
+    outputFastq = str_split(output_name, fixed("."))[[1]][1],
+    disableTrimPolyG = FALSE,
+    cutTailWindowSize = 3,
+    minReadLength = 25
+  )
+}
+```
+
+Now would be a good time to do some QC if you're doing your own dataset. I'll continue on since we've already done that.
+
+
+## Retrieve the reference transcriptome (& genome) for Salmon
+
+```{bash fetch-transcriptome}
+# Define the destination file path
+# Be sure to change this file path to the path you want your data to go
+REF_DIR="~/Desktop/Genomic_Data_Analysis/Reference"
+
+# make that directory if it doesn't already
+mkdir -p $REF_DIR
+
+# Define the URL of reference transcriptome
+# (latest from ensembl)
+url_transcriptome="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"
+url_genome="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz" ]; then
+    echo "Reference transcriptome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz" "$url_transcriptome"
+    echo "Downloading finished"
+else
+    echo "Transcriptome already exists at $REF_DIR Skipping download."
+fi
+
+#next for genome:
+if [ ! -f "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" ]; then
+    echo "Reference genome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" "$url_genome"
+    echo "Downloading finished"
+else
+    echo "Genome already exists at $REF_DIR Skipping download."
+fi
+```
+
+## Get counts from full-sized fq files with Salmon
+
+```{bash run-salmon, engine.opts='-l'}
+# create an environment for our pseudomapping with Salmon
+# this code is "extra" because it only creates env if not already existing.
+if conda info --envs | grep -q salmon; then echo "environment 'salmon' already exists"; else CONDA_SUBDIR=osx-64 conda create -y -n salmon -c conda-forge -c bioconda salmon=1.10.0; fi
+# the channel priority order above is needed to get a recent version via conda.
+
+# activate our QC environment
+conda activate salmon
+
+# show salmon version for reproducability
+salmon -v
+
+# move to our working directory
+WORK_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis"
+
+cd $WORK_DIR
+
+# We need to set variables for where the ref files are
+REF_DIR="$WORK_DIR/Reference"
+TRANSCRIPTOME="$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"
+GENOME="$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+
+# Run a script that generates a decoy.txt file from the genome we downloaded
+grep "^>" <(gunzip -c $GENOME) | cut -d " " -f 1 > $REF_DIR/decoys.txt
+sed -i.bak -e 's/>//g' $REF_DIR/decoys.txt
+
+# Combine the transcriptome and genome into a single file for indexing
+cat $TRANSCRIPTOME $GENOME > $REF_DIR/gentrome.fasta.gz
+
+# Generate salmon index
+salmon index -t $REF_DIR/gentrome.fasta.gz -d $REF_DIR/decoys.txt -p 4 -i $REF_DIR/index_salmon_Saccharomyces_cerevisiae.R64-1-1
+
+# set locations of input and output data
+DATA_DIR="$WORK_DIR/Data/full/Trimmed_rfastp"
+SALMON_OUT_DIR="$WORK_DIR/Data/Counts/full/Salmon"
+SALMON_INDEX_DIR="$REF_DIR/index_salmon_Saccharomyces_cerevisiae.R64-1-1"
+
+# make the analysis directory if it doesn't already exist
+mkdir -p $SALMON_OUT_DIR
+
+
+# loop through all of the fastq files
+for fn in $DATA_DIR/*.fastq.gz;
+do
+samp=`basename ${fn}`
+echo "Processing sample ${samp}"
+
+# run salmon
+salmon quant -i $SALMON_INDEX_DIR -l A \
+         -r ${fn} \
+         --useVBOpt \
+         -p 4 --validateMappings -o $SALMON_OUT_DIR/${samp}_quant
+done
+
+# combine all of the output files into a merged count matrix
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column numreads -o $SALMON_OUT_DIR/salmon.gene_counts.merged.nonsubsamp.tsv 
+
+# remove the _mRNA from gene name
+sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_counts.merged.nonsubsamp.tsv
+
+# we can also create a table of tpm values per gene by changing the --column flag
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column tpm \
+          -o $SALMON_OUT_DIR/salmon.gene_tpm.merged.nonsubsamp.tsv
+
+# remove the _mRNA from gene name
+sed -i '' -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' $SALMON_OUT_DIR/salmon.gene_tpm.merged.nonsubsamp.tsv
+
+
+# it's always good coding practice to deactivate 
+# a conda environment at the end of a chunk
+conda deactivate
+```

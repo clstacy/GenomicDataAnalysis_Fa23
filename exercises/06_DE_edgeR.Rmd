@@ -8,8 +8,6 @@ output:
 editor_options: 
   markdown: 
     wrap: 72
-bibliography: references.bib
-link-citations: TRUE
 ---
 
 last updated: `r Sys.Date()`
@@ -51,7 +49,7 @@ At the end of this exercise, you should be able to:
 
 -   Generate a table of sample metadata.
 -   Filter low counts and normalize count data.
--   Utilize the edgeR package (@edgeR) to identify differentially expressed
+-   Utilize the edgeR package to identify differentially expressed
     genes.
 
 ```{r load-libraries}
@@ -442,7 +440,3 @@ System information for reproducibility:
 ```{r}
 pander::pander(sessionInfo())
 ```
-
-# References
-
-<div id="refs"></div>

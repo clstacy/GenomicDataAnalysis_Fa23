@@ -16,7 +16,7 @@ engine: knitr
 code-fold: "show"
 ---
 
-This is a tutorial for using the provided code to run salmon mapper on the UARK HPC. The code can be modified to analyze your own data. First, let's start recall how to log on to the HPC.
+This is a tutorial for using the provided code to run the Salmon mapper by @salmon on the UARK HPC. The code can be modified to analyze your own data. First, let's start recall how to log on to the HPC.
 
 ```{bash login}
 #| eval: false
@@ -34,219 +34,288 @@ To log on, we:
 
 2.  Run the code above, being sure to change `youruarkusername` to your uark username. It will ask you to enter your uark password to log in.
 
-    a.  If you're not on campus wifi, you'll either need to use the GlobalProtect VPN that the campus provides, or run the same code above with `-p2022` at the end. It'll ask for your password, make sure your you, and then kick. you out. then run the usual log in code again and you'll be able to log in. This resets about every 48 hours, last I checked.
+::: {.callout-tip collapse="true"}
+## Logging in when off-campus
 
-3.  Now that you're logged on to the HPC, you will be located in your home folder. This code assumes you haven't done a lot of work on the HPC before, so it should work regardless of how you've set up your system. We can save our script and submit our job on the HPC from here.
+If you're not on campus wifi, you'll either need to use the GlobalProtect VPN that the campus provides, or run the same code above with -p2022 at the end. It'll ask for your password, make sure you're you, and then kick. you out. then run the usual log in code again and you'll be able to log in. This resets about every 48 hours, last I checked.
+:::
 
-4.  We need to create a script that submits the code to the HPC system to run when a computing node is available. A script for doing so is below. You'll need to copy the below code, and save it into a new file (instructions for doing this are below the script.)
+3.  Now that you're logged on to the HPC, you will be located in your home folder. This code assumes you haven't done a lot of work on the HPC before, so it should work regardless of how you've set up your system. We can save a script to a file and submit our job on the HPC from where you arrive when you log in.
 
-    ```{bash launch_salmon.slurm}
-    #| eval: false
-    #!/bin/bash
-    #SBATCH --job-name=salmon_run_template
-    #SBATCH --partition=comp01  # Replace with the appropriate partition
-    #SBATCH --nodes=1                 # Number of CPU machines to allocate
-    #SBATCH --cpus-per-task=32         # Number of CPU cores to allocate
-    #SBATCH --time=01:00:00           # Maximum runtime (hours:minutes:seconds)
-    #SBATCH --output=out.salmon_%j    # Output file
-    #SBATCH --error=err.salmon_%j     # Error file
+4.  We need to create a script that submits the code to the HPC system to run when a computing node is available. A script for doing so is below. We need to put this code into as a new file on the HPC. Instructions for doing this are below.
 
-    # Define variables
-    NCORES=32
-    FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"
-    SALMON_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon"
-    REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"
-    TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"
-    GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
-    INDEX=index_salmon_Saccharomyces_cerevisiae.R64-1-1 # replace with desired name of your salmon index
-    EXPERIMENTNAME="yeast" # name you'd like the output file to include
+::: callout-tip
+## Copying a code chunk
 
-    CLASS_EXERCISE=true
-    # NOTE: make sure you have put your trimmed fastq.gz files into $FQ_DATA_DIR if not using class files.
+You'll need to copy the code chunk below, which you can easily do by clicking the clipboard icon in the top-right corner of the code chunk.
 
-    # Load any necessary modules or activate your virtual environment if needed
-    module purge
-    # module load gcc-11.2.1/SKYLAKEX/salmon/1.9.0  # modify as necessary
-    # below is a command to run an older version of salmon, that doesn't have bugs of 1.9.0
-    # it has different bugs instead. so I don't want to use it.
-    # module load salmon/1.4.0
+Once you've copied the code, you can collapse this long code chunk by clicking the `▼ Code` below to keep reading.
+:::
 
-    # load in a python + anaconda module
-    module load python/3.12-anaconda
+```{bash launch_salmon.slurm}
+#| eval: false
+#!/bin/bash
+#SBATCH --job-name=salmon_run_template
+#SBATCH --partition=comp01  # Replace with the appropriate partition
+#SBATCH --nodes=1                 # Number of CPU machines to allocate
+#SBATCH --cpus-per-task=32         # Number of CPU cores to allocate
+#SBATCH --time=01:00:00           # Maximum runtime (hours:minutes:seconds)
+#SBATCH --output=out.salmon_%j    # Output file
+#SBATCH --error=err.salmon_%j     # Error file
 
-    # activate conda
-    . /share/apps/python/anaconda-3.12/bin/activate
-    conda activate
+# Define variables
+NCORES=32
+FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"
+SALMON_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon"
+REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"
+TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"
+GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+INDEX=index_salmon_Saccharomyces_cerevisiae.R64-1-1 # replace with desired name of your salmon index
+EXPERIMENTNAME="yeast" # name you'd like the output file to include
 
-    # ensure conda channels are set up
-    conda config --add channels defaults
-    conda config --append channels bioconda
-    conda config --append channels conda-forge
-    conda config --set channel_priority strict
+CLASS_EXERCISE=true
+# if CLASS_EXERCISE=true, this script downloads the subsampled fastq files from github.
+# NOTE: make sure you have put your trimmed fastq.gz files into $FQ_DATA_DIR if not using class files.
 
-    # create a conda environment for salmon
-    if conda info --envs | grep -q salmon; then echo "environment 'salmon' already exists"; else conda create -y -n salmon -c conda-forge -c bioconda salmon=1.10.2; fi
+# Load any necessary modules or activate your virtual environment if needed
+module purge
+# module load gcc-11.2.1/SKYLAKEX/salmon/1.9.0  # modify as necessary
+# below is a command to run an older version of salmon, that doesn't have bugs of 1.9.0
+# it has different bugs instead. so I don't want to use it.
+# module load salmon/1.4.0
 
-    # activate conda environment with salmon
-    conda activate salmon
+# load in a python + anaconda module
+module load python/3.12-anaconda
 
-    # Create the reference genome dir if it doesn't already exist
-    mkdir -p $REFERENCE_DIR
+# activate conda
+. /share/apps/python/anaconda-3.12/bin/activate
+conda activate
 
-    # Create the output directory if it doesn't exist
-    mkdir -p $SALMON_OUT_DIR
+# ensure conda channels are set up
+conda config --add channels defaults
+conda config --append channels bioconda
+conda config --append channels conda-forge
+conda config --set channel_priority strict
 
-    # Make the stated fastq file dir if doesn't already exist.
-    mkdir -p $FQ_DATA_DIR
+# create a conda environment for salmon
+if conda info --envs | grep -q salmon; then echo "environment 'salmon' already exists"; else conda create -y -n salmon -c conda-forge -c bioconda salmon=1.10.2; fi
 
-    # Navigate to the input directory
-    cd $FQ_DATA_DIR
+# activate conda environment with salmon
+conda activate salmon
 
-    # if using this for class, download data files into FQ_DIR
-    if [ "$CLASS_EXERCISE" = true ] ; then
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP1_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP2_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP3_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP4_R1.fastq.gz
-    	# WT EtOH
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP1_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP2_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP3_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP4_R1.fastq.gz
-    	# msn2/4dd unstressed (mock)
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP1_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP2_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP3_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP4_R1.fastq.gz
-    	# msn2/4dd EtOH
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP1_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP2_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP3_R1.fastq.gz
-    	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP4_R1.fastq.gz
-    fi
+# Create the reference genome dir if it doesn't already exist
+mkdir -p $REFERENCE_DIR
 
-    # return to where we were
-    cd -
+# Create the output directory if it doesn't exist
+mkdir -p $SALMON_OUT_DIR
 
-    ## Download the reference genome and transcriptome if not already in ref dir
+# Make the stated fastq file dir if doesn't already exist.
+mkdir -p $FQ_DATA_DIR
 
-    # Define the URL of reference transcriptome (latest from ensembl)
-    url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/$TRANSCRIPTOME"
+# Navigate to the input directory
+cd $FQ_DATA_DIR
 
-    # Check if the file already exists at the destination location
-    if [ ! -f "$REFERENCE_DIR/$TRANSCRIPTOME" ]; then
-        echo "Reference transcriptome not found, downloading..."
-        # If the file does not exist, download it using curl
-        curl -o "$REFERENCE_DIR/$TRANSCRIPTOME" "$url"
-        echo "Downloading finished"
+# if using this for class, download data files into FQ_DIR
+if [ "$CLASS_EXERCISE" = true ] ; then
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP4_R1.fastq.gz
+	# WT EtOH
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP4_R1.fastq.gz
+	# msn2/4dd unstressed (mock)
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP4_R1.fastq.gz
+	# msn2/4dd EtOH
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP4_R1.fastq.gz
+fi
+
+# return to where we were
+cd -
+
+## Download the reference genome and transcriptome if not already in ref dir
+
+# Define the URL of reference transcriptome (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/$TRANSCRIPTOME"
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REFERENCE_DIR/$TRANSCRIPTOME" ]; then
+    echo "Reference transcriptome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REFERENCE_DIR/$TRANSCRIPTOME" "$url"
+    echo "Downloading finished"
+else
+    echo "Transcriptome file already exists at $REFERENCE_DIR. Skipping download."
+fi
+
+
+# Define the URL of reference genome (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/$GENOME"
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" ]; then
+    echo "Reference genome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" "$url"
+    echo "Downloading finished"
+else
+    echo "Genome file already exists at $REFERENCE_DIR. Skipping download."
+fi
+
+
+# These two commands generate a decoy.txt file from the genome we downloaded
+grep "^>" <(gunzip -c $REFERENCE_DIR/$GENOME) | cut -d " " -f 1 > $REFERENCE_DIR/decoys.txt
+sed -i.bak -e 's/>//g' $REFERENCE_DIR/decoys.txt
+
+echo "Decoy file generation complete"
+
+# Combine the transcriptome and genome into a single file for indexing
+cat "$REFERENCE_DIR/$TRANSCRIPTOME" "$REFERENCE_DIR/$GENOME" > $REFERENCE_DIR/gentrome.fasta.gz
+
+# move to our reference folder
+cd $REFERENCE_DIR
+
+# We can now create our salmon index
+salmon index -t $REFERENCE_DIR/gentrome.fasta.gz -d $REFERENCE_DIR/decoys.txt -p $NCORES -i "${REFERENCE_DIR}/${INDEX}"
+
+echo "index generation complete"
+
+# move to the folder with our trimmed fastq files
+cd $FQ_DATA_DIR
+
+# Detect if both "_R1" and "_R2" files exist for the same sample to identify paired-end data
+
+echo "Initiating salmon counting..."
+
+for sampname_r1 in *_R1.fastq.gz; do
+    sampname="${sampname_r1%%_R1*}"
+    r1="$sampname_R1"
+    r2="${sampname}_R2.fastq.gz"
+
+    if [ -f "$r2" ]; then
+        # Paired-end data
+        echo "Processing paired-end sample $sampname"
+	salmon quant -i "${REFERENCE_DIR}/${INDEX}" \
+            -l A \
+	    -1 ${sampname}_R1.fastq.gz \
+            -2 ${sampname}_R2.fastq.gz \
+            --useVBOpt \
+            -p $NCORES \
+            --validateMappings \
+            -o $SALMON_OUT_DIR/${sampname}_quant
     else
-        echo "Transcriptome file already exists at $REFERENCE_DIR. Skipping download."
+        # Single-end data
+	echo "Processing single-end sample $sampname"
+        salmon quant -i "${REFERENCE_DIR}/${INDEX}" \
+            -l A \
+            -r ${sampname}_R1.fastq.gz \
+            --useVBOpt \
+            -p $NCORES \
+            --validateMappings \
+            -o ${SALMON_OUT_DIR}/${sampname}_quant
     fi
+done
 
+# combine all of the output files into a merged count matrix
+salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column numreads \
+          -o $SALMON_OUT_DIR/salmon.gene_counts.merged.$EXPERIMENTNAME.tsv
 
-    # Define the URL of reference genome (latest from ensembl)
-    url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/$GENOME"
+# remove the _mRNA from gene name
+sed -i  -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' "$SALMON_OUT_DIR/salmon.gene_counts.merged.$EXPERIMENTNAME.tsv"
 
-    # Check if the file already exists at the destination location
-    if [ ! -f "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" ]; then
-        echo "Reference genome not found, downloading..."
-        # If the file does not exist, download it using curl
-        curl -o "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" "$url"
-        echo "Downloading finished"
-    else
-        echo "Genome file already exists at $REFERENCE_DIR. Skipping download."
-    fi
+# we can also create a table of tpm values per gene by changing the --column flag
+salmon quantmerge --quants ${SALMON_OUT_DIR}/*_quant --column tpm \
+          -o "${SALMON_OUT_DIR}/salmon.gene_tpm.merged.${EXPERIMENTNAME}.tsv"
 
+# remove the _mRNA from gene name for tpm file as well.
+sed -i  -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' "${SALMON_OUT_DIR}/salmon.gene_tpm.merged.${EXPERIMENTNAME}.tsv"
 
-    # These two commands generate a decoy.txt file from the genome we downloaded
-    grep "^>" <(gunzip -c $REFERENCE_DIR/$GENOME) | cut -d " " -f 1 > $REFERENCE_DIR/decoys.txt
-    sed -i.bak -e 's/>//g' $REFERENCE_DIR/decoys.txt
+echo "Salmon job completed."
+```
 
-    echo "Decoy file generation complete"
+::: {.callout-warning collapse="true"}
+## Tips for modifying this script to use with your own data
 
-    # Combine the transcriptome and genome into a single file for indexing
-    cat "$REFERENCE_DIR/$TRANSCRIPTOME" "$REFERENCE_DIR/$GENOME" > $REFERENCE_DIR/gentrome.fasta.gz
+You won't need this information for the class example, but you might if you're using it for your own data.
 
-    # move to our reference folder
-    cd $REFERENCE_DIR
+### Changing partition: 
+If your job doesn't finish after an hour when running your own samples, you can change the line of code that is `#SBATCH --partition=comp01` so that the partition is instad `comp06` or `comp72`, depending on your needs. 
+You'll also need to adjust the time you're requesting a max of 06:00:00 on comp06 or a maximum of 72:00:00 on comp72. Note these queues usually have more jobs waiting, so it will take longer for your job to start.
 
-    # We can now create our salmon index
-    salmon index -t $REFERENCE_DIR/gentrome.fasta.gz -d $REFERENCE_DIR/decoys.txt -p $NCORES -i "${REFERENCE_DIR}/${INDEX}"
+### Assigning variables
+You'll see a list of variables at the top of the script. You'll want to modify these to make sure they are what you need. **Be sure to change `CLASS_EXERCISE` to be `false`, otherwise the script downloads example files you won't need**. Otherwise, here are the variables and what you should know:
 
-    echo "index generation complete"
+- `NCORES=32`
+  - Number of cores to use, as long as you're on a comp partition, don't change this.
+- `FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"`
+  - This is where on the HPC you have saved your trimmed fastq files.
+  - Good etiqute on the HPC is to store them in your storage folder (`/storage/$USER/`)
+- `SALMON_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon"`
+  - This is the directory where you'd like the Salmon output to be saved
+  - The script will create this folder if it doesn't already exist.
+- `REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"`
+  - This is where the script looks for your reference files
+  - If using this for your own data, you'll need to make this folder yourself & put the reference files inside.
+- `TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"`
+  - This is the name of your transcriptome file (Salmon accepts the gzipped form)
+  - For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/
+  - You can peruse through that website to find what you need.
+  - IF NOT USING YEAST, be sure to replace the url within the script as well. 
+  - You'll need to copy the link that you find like I showed above, but replace the beginning `https:` with `ftp:`
+- `GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"`
+  - This is the name of your genome file (Salmon accepts the gzipped form)
+  - For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/
+  - Again, be sure to replace the url within the actual code with the proper URL for your analysis.
+- `INDEX=index_salmon_Saccharomyces_cerevisiae.R64-1-1`
+  - This is the name that the script will save your indexed genome as.
+  - It is a good idea to use a descriptive name
+- `EXPERIMENTNAME="yeast"` 
+ - This let's you pick the output count file's name, e.g.: salmon.gene_counts.merged.EXPERIMENTNAME.tsv
 
-    # move to the folder with our trimmed fastq files
-    cd $FQ_DATA_DIR
+### Working with paired-end data
+- In class, we used single-end read data. 
+- This script checks for paired end samples and runs them accordingly with no changes needed.
 
-    # Detect if both "_R1" and "_R2" files exist for the same sample to identify paired-end data
+### Modifying Salmon flag settings
+- If you want to change any settings in your Salmon run, you can change them just like normal
+- Be sure to change the single-end salmon command or the paired-end command depending on your data.
 
-    echo "Initiating salmon counting..."
+:::
 
-    for sampname_r1 in *_R1.fastq.gz; do
-        sampname="${sampname_r1%%_R1*}"
-        r1="$sampname_R1"
-        r2="${sampname}_R2.fastq.gz"
+5.  Once you've copied all of the code,
 
-        if [ -f "$r2" ]; then
-            # Paired-end data
-            echo "Processing paired-end sample $sampname"
-    	salmon quant -i "${REFERENCE_DIR}/${INDEX}" \
-                -l A \
-    	    -1 ${sampname}_R1.fastq.gz \
-                -2 ${sampname}_R2.fastq.gz \
-                --useVBOpt \
-                -p $NCORES \
-                --validateMappings \
-                -o $SALMON_OUT_DIR/${sampname}_quant
-        else
-            # Single-end data
-    	echo "Processing single-end sample $sampname"
-            salmon quant -i "${REFERENCE_DIR}/${INDEX}" \
-                -l A \
-                -r ${sampname}_R1.fastq.gz \
-                --useVBOpt \
-                -p $NCORES \
-                --validateMappings \
-                -o ${SALMON_OUT_DIR}/${sampname}_quant
-        fi
-    done
+    a.  Go into your terminal window connected to the HPC and type `cd ~` and press enter. This makes sure you are in your home directory
 
-    # combine all of the output files into a merged count matrix
-    salmon quantmerge --quants $SALMON_OUT_DIR/*_quant --column numreads -o $SALMON_OUT_DIR/salmon.gene_counts.merged.$EXPERIMENTNAME.tsv
+    b.  Type `nano launch_salmon.slurm` and press enter. This opens a text editor in command line, creating a new empty file called `launch_salmon.slurm`.
 
-    # remove the _mRNA from gene name
-    sed -i  -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' "$SALMON_OUT_DIR/salmon.gene_counts.merged.$EXPERIMENTNAME.tsv"
-
-    # we can also create a table of tpm values per gene by changing the --column flag
-    salmon quantmerge --quants ${SALMON_OUT_DIR}/*_quant --column tpm \
-              -o "${SALMON_OUT_DIR}/salmon.gene_tpm.merged.${EXPERIMENTNAME}.tsv"
-
-    # remove the _mRNA from gene name for tpm file as well.
-    sed -i  -E 's/^([^\t]+)_mRNA(\t|$)/\1\2/' "${SALMON_OUT_DIR}/salmon.gene_tpm.merged.${EXPERIMENTNAME}.tsv"
-
-    echo "Salmon job completed."
-    ```
-
-5.  Once you've copied all of the code (there should be a button in the top right corner of the code),
-
-    a.  go into your terminal window connected to the HPC and type `cd ~` and press enter. This makes sure you are in your home directory
-
-    b.  Type `nano launch_salmon.slurm` and press enter. This opens a text editor in command line, creating a new empty file with the given name.
-
-    c.  Right-click on the terminal, and click "paste". This should paste all of your code into this new file.
+    c.  Right-click inside the terminal window, and click "paste". This should paste all of your code into this new file.
 
     d.  Simultaneously press `Ctrl+O` to save the file, and then type `Ctrl+X` to exit this text editor
 
-    e.  type `cat launch_salmon.slurm` , you should see a couple hundred lines of code appear in your terminal. This should be the same code we see above.
+    e.  Type `cat launch_salmon.slurm` and press enter, you should see a couple hundred lines of code appear in your terminal. This should be the same code we see above.
 
-6.  Great, you have your script for running salmon on the HPC ready to go. To submit this script to the queue to be run, we type `sbatch launch_salmon.slurm` and press enter.
+6.  Great, your script for running salmon on the HPC is ready to go. To submit this script to the queue to be run, we type `sbatch launch_salmon.slurm` and press enter.
 
-7.  Depending on how busy the HPC is, it might take some time to run your job. To see if your job has started yet, you can run `squeue -u $USER`, which let's us know if R for running (and how long), or PD for pending (in the queue behind other jobs).
+::: {.callout-tip collapse="true"}
+## Checking the status of your job
 
-8.  What does this script create? You'll see the job itself creates output files called out.salmon\_###### and err.salmon\_###### where the numbers are your submitted computing job's number. You don't need any information in these files for this script, but they are very useful for troubleshooting. You'll also see a new folder has been created in your home directory called Genomic_Data_Analysis. Inside that folder, you'll see reference and data folders. The reference folder has files the script has downloaded to map to. The Data folder has the raw subsampled fastq files we used in class for an input to map, and the final outputs are in the Data/Counts/Salmon folder, labeled as `salmon.gene_counts.merged.yeast.tsv` and `salmon.gene_tpm.merged.yeast.tsv` . These are the files we can use for subsequent differential expression analysis.
+Depending on how busy the HPC is, it might take some time before it is your job's turn to run. To see if your job has started yet, you can run `squeue -u $USER`, which let's us know it's status. You'll see a column with either `R` for running (and how long), or `PD` for pending (in the queue behind other jobs).
 
-9.  When you're done with your session on the HPC, you can log out typing `exit` in the terminal, and you're all good.
+If you run this command and don't see a job, that means your job is done, either it finished or an error occurred and the job stopped.
+:::
 
-10. If you want to move those files to your computer, you can use the HPC gui by going in your browser to hpc-portal2.hpc.uark.edu and clicking Files, and finding the file in the given folder. You should then be able to download them to your computer. It's also possible to move them with code using the `scp` command. If you know how to do that, it's great! Otherwise, it might be easier to use the GUI.
+7.  What does this script create? You'll see the job itself creates output files called out.salmon\_###### and err.salmon\_###### where the numbers are your submitted computing job's number. You don't need any information in these files for this script, but they are very useful for troubleshooting. You'll also see a new folder has been created in your home directory called `Genomic_Data_Analysis`. Inside that folder, you'll see `Reference` and `Data` folders. The Reference folder has files the script has downloaded to map to. The Data folder has the raw subsampled fastq files we used in class for an input to map, and the final outputs are in the `Data/Counts/Salmon` folder, labeled as `salmon.gene_counts.merged.yeast.tsv` and `salmon.gene_tpm.merged.yeast.tsv` . These are the files we can use for subsequent differential expression analysis.
 
-The script is commented with what all it does. If you have questions, reach out and I can add more useful information below.
+8.  When you're done with your session on the HPC, you can log out typing `exit` in the terminal, and you're all good.
+
+9.  If you want to move those files to your computer, you can use the HPC gui by going in your browser to `hpc-portal2.hpc.uark.edu` and clicking Files in the top left corner. Then you can find the file in the given folder. You should then be able to download them to your computer through that web portal. It's also possible to move them with code using the `scp` command. If you know how to do that, great! Otherwise, it might be easier to use the GUI.
+
+The script is commented with what all it does. If you have questions, reach out!

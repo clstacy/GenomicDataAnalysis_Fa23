@@ -85,6 +85,25 @@ code span.st { color: #4070a0; }
 code span.va { color: #19177c; } 
 code span.vs { color: #4070a0; } 
 code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
 </style>
 
 
@@ -2636,7 +2655,7 @@ vertical-align: -.125em;
 
 </header>
 
-<p>This is a tutorial for using the provided code to run the Salmon mapper by <span class="citation" data-cites="salmon">@salmon</span> on the UARK HPC. The code can be modified to analyze your own data. First, let’s start recall how to log on to the HPC.</p>
+<p>This is a tutorial for using the provided code to run Salmon by <span class="citation" data-cites="patro2017">(<a href="#ref-patro2017" role="doc-biblioref">Patro et al. 2017</a>)</span> on the <a href="https://hpc.uark.edu/">UARK HPC</a>. This code can be modified to analyze your own data. First, let’s start by recalling how to log on to the HPC.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> youruarkusername@hpc-portal2.hpc.uark.edu</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -2644,8 +2663,8 @@ vertical-align: -.125em;
 <ol type="1">
 <li><p>Open a terminal window</p>
 <ol type="a">
-<li><p>on Windows: use either Git Bash or WSL terminal. There’s also PuTTy, but that’s not used much anymore</p></li>
-<li><p>on MacOS/Linux: you can run salmon on your own PC, but can also use the HPC. Just use your usual terminal.</p></li>
+<li><p>Windows: use either <a href="https://gitforwindows.org/">Git Bash</a> or <a href="https://learn.microsoft.com/en-us/windows/wsl/install">WSL</a> terminal. There’s also <a href="https://www.putty.org/">PuTTy</a> but that’s not used much anymore</p></li>
+<li><p>MacOS/Linux: Use your usual terminal. While you can run salmon on Mac on Linux, you can also use the HPC.</p></li>
 </ol></li>
 <li><p>Run the code above, being sure to change <code>youruarkusername</code> to your uark username. It will ask you to enter your uark password to log in.</p></li>
 </ol>
@@ -2901,7 +2920,7 @@ Tips for modifying this script to use with your own data
 <li><code>FQ_DATA_DIR=&quot;/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files&quot;</code>
 <ul>
 <li>This is where on the HPC you have saved your trimmed fastq files.</li>
-<li>Good etiqute on the HPC is to store them in your storage folder (<code>/storage/$USER/</code>)</li>
+<li>Good etiquette on the HPC is to store them in your storage folder (<code>/storage/$USER/</code>)</li>
 </ul></li>
 <li><code>SALMON_OUT_DIR=&quot;/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon&quot;</code>
 <ul>
@@ -2987,8 +3006,16 @@ Checking the status of your job
 <li><p>If you want to move those files to your computer, you can use the HPC gui by going in your browser to <code>hpc-portal2.hpc.uark.edu</code> and clicking Files in the top left corner. Then you can find the file in the given folder. You should then be able to download them to your computer through that web portal. It’s also possible to move them with code using the <code>scp</code> command. If you know how to do that, great! Otherwise, it might be easier to use the GUI.</p></li>
 </ol>
 <p>The script is commented with what all it does. If you have questions, reach out!</p>
+<section id="references" class="level2 unnumbered">
 
-</main>
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="doc-bibliography">
+<div id="ref-patro2017" class="csl-entry" role="doc-biblioentry">
+Patro, Rob, Geet Duggal, Michael I Love, Rafael A Irizarry, and Carl Kingsford. 2017. <span>“Salmon Provides Fast and Bias-Aware Quantification of Transcript Expression.”</span> <em>Nature Methods</em> 14 (4): 417–19. <a href="https://doi.org/10.1038/nmeth.4197">https://doi.org/10.1038/nmeth.4197</a>.
+</div>
+</div></section></div></main>
 <!-- /main column -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
@@ -3121,6 +3148,20 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       });
     }
   }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+    var links = window.document.querySelectorAll('a:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+          // target, if specified
+          link.setAttribute("target", "_blank");
+      }
+    }
 });
 </script>
 </div> <!-- /content -->

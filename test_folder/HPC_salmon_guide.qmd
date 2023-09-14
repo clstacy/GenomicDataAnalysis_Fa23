@@ -14,9 +14,11 @@ execute:
   freeze: auto
 engine: knitr
 code-fold: "show"
+link-external-newwindow: true
+bibliography: references.bib
 ---
 
-This is a tutorial for using the provided code to run the Salmon mapper by @salmon on the UARK HPC. The code can be modified to analyze your own data. First, let's start recall how to log on to the HPC.
+This is a tutorial for using the provided code to run Salmon by [@patro2017] on the [UARK HPC](https://hpc.uark.edu/). This code can be modified to analyze your own data. First, let's start by recalling how to log on to the HPC.
 
 ```{bash login}
 #| eval: false
@@ -28,9 +30,9 @@ To log on, we:
 
 1.  Open a terminal window
 
-    a.  on Windows: use either Git Bash or WSL terminal. There's also PuTTy, but that's not used much anymore
+    a.  Windows: use either [Git Bash](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) terminal. There's also [PuTTy](https://www.putty.org/) but that's not used much anymore
 
-    b.  on MacOS/Linux: you can run salmon on your own PC, but can also use the HPC. Just use your usual terminal.
+    b.  MacOS/Linux: Use your usual terminal. While you can run salmon on Mac on Linux, you can also use the HPC.
 
 2.  Run the code above, being sure to change `youruarkusername` to your uark username. It will ask you to enter your uark password to log in.
 
@@ -246,48 +248,50 @@ echo "Salmon job completed."
 
 You won't need this information for the class example, but you might if you're using it for your own data.
 
-### Changing partition: 
-If your job doesn't finish after an hour when running your own samples, you can change the line of code that is `#SBATCH --partition=comp01` so that the partition is instad `comp06` or `comp72`, depending on your needs. 
-You'll also need to adjust the time you're requesting a max of 06:00:00 on comp06 or a maximum of 72:00:00 on comp72. Note these queues usually have more jobs waiting, so it will take longer for your job to start.
+### Changing partition:
+
+If your job doesn't finish after an hour when running your own samples, you can change the line of code that is `#SBATCH --partition=comp01` so that the partition is instad `comp06` or `comp72`, depending on your needs. You'll also need to adjust the time you're requesting a max of 06:00:00 on comp06 or a maximum of 72:00:00 on comp72. Note these queues usually have more jobs waiting, so it will take longer for your job to start.
 
 ### Assigning variables
+
 You'll see a list of variables at the top of the script. You'll want to modify these to make sure they are what you need. **Be sure to change `CLASS_EXERCISE` to be `false`, otherwise the script downloads example files you won't need**. Otherwise, here are the variables and what you should know:
 
-- `NCORES=32`
-  - Number of cores to use, as long as you're on a comp partition, don't change this.
-- `FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"`
-  - This is where on the HPC you have saved your trimmed fastq files.
-  - Good etiqute on the HPC is to store them in your storage folder (`/storage/$USER/`)
-- `SALMON_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon"`
-  - This is the directory where you'd like the Salmon output to be saved
-  - The script will create this folder if it doesn't already exist.
-- `REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"`
-  - This is where the script looks for your reference files
-  - If using this for your own data, you'll need to make this folder yourself & put the reference files inside.
-- `TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"`
-  - This is the name of your transcriptome file (Salmon accepts the gzipped form)
-  - For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/
-  - You can peruse through that website to find what you need.
-  - IF NOT USING YEAST, be sure to replace the url within the script as well. 
-  - You'll need to copy the link that you find like I showed above, but replace the beginning `https:` with `ftp:`
-- `GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"`
-  - This is the name of your genome file (Salmon accepts the gzipped form)
-  - For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/
-  - Again, be sure to replace the url within the actual code with the proper URL for your analysis.
-- `INDEX=index_salmon_Saccharomyces_cerevisiae.R64-1-1`
-  - This is the name that the script will save your indexed genome as.
-  - It is a good idea to use a descriptive name
-- `EXPERIMENTNAME="yeast"` 
- - This let's you pick the output count file's name, e.g.: salmon.gene_counts.merged.EXPERIMENTNAME.tsv
+-   `NCORES=32`
+    -   Number of cores to use, as long as you're on a comp partition, don't change this.
+-   `FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"`
+    -   This is where on the HPC you have saved your trimmed fastq files.
+    -   Good etiquette on the HPC is to store them in your storage folder (`/storage/$USER/`)
+-   `SALMON_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/Salmon"`
+    -   This is the directory where you'd like the Salmon output to be saved
+    -   The script will create this folder if it doesn't already exist.
+-   `REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"`
+    -   This is where the script looks for your reference files
+    -   If using this for your own data, you'll need to make this folder yourself & put the reference files inside.
+-   `TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"`
+    -   This is the name of your transcriptome file (Salmon accepts the gzipped form)
+    -   For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/
+    -   You can peruse through that website to find what you need.
+    -   IF NOT USING YEAST, be sure to replace the url within the script as well.
+    -   You'll need to copy the link that you find like I showed above, but replace the beginning `https:` with `ftp:`
+-   `GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"`
+    -   This is the name of your genome file (Salmon accepts the gzipped form)
+    -   For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/
+    -   Again, be sure to replace the url within the actual code with the proper URL for your analysis.
+-   `INDEX=index_salmon_Saccharomyces_cerevisiae.R64-1-1`
+    -   This is the name that the script will save your indexed genome as.
+    -   It is a good idea to use a descriptive name
+-   `EXPERIMENTNAME="yeast"`
+-   This let's you pick the output count file's name, e.g.: salmon.gene_counts.merged.EXPERIMENTNAME.tsv
 
 ### Working with paired-end data
-- In class, we used single-end read data. 
-- This script checks for paired end samples and runs them accordingly with no changes needed.
+
+-   In class, we used single-end read data.
+-   This script checks for paired end samples and runs them accordingly with no changes needed.
 
 ### Modifying Salmon flag settings
-- If you want to change any settings in your Salmon run, you can change them just like normal
-- Be sure to change the single-end salmon command or the paired-end command depending on your data.
 
+-   If you want to change any settings in your Salmon run, you can change them just like normal
+-   Be sure to change the single-end salmon command or the paired-end command depending on your data.
 :::
 
 5.  Once you've copied all of the code,
@@ -319,3 +323,5 @@ If you run this command and don't see a job, that means your job is done, either
 9.  If you want to move those files to your computer, you can use the HPC gui by going in your browser to `hpc-portal2.hpc.uark.edu` and clicking Files in the top left corner. Then you can find the file in the given folder. You should then be able to download them to your computer through that web portal. It's also possible to move them with code using the `scp` command. If you know how to do that, great! Otherwise, it might be easier to use the GUI.
 
 The script is commented with what all it does. If you have questions, reach out!
+
+## References

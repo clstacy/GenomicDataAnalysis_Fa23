@@ -166,7 +166,7 @@ salmon index -t $REF_DIR/gentrome.fasta.gz -d $REF_DIR/decoys.txt -p 4 -i $REF_D
 
 # set locations of input and output data
 DATA_DIR="$WORK_DIR/Data/full/Trimmed_rfastp"
-SALMON_OUT_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Counts/full/Salmon"
+SALMON_OUT_DIR="$WORK_DIR/Data/Counts/full/Salmon"
 SALMON_INDEX_DIR="$REF_DIR/index_salmon_Saccharomyces_cerevisiae.R64-1-1"
 
 # make the analysis directory if it doesn't already exist

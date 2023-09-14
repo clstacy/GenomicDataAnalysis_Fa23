@@ -17,3 +17,4 @@ exercises/multiqc_data/multiqc_sources.txt
 *.RData
 exercises/Read_Counting_files/figure-html/visualizeq-qs-1.png
 exercises/Read_Counting_cache/html/__packages
+test_folder/HPC_salmon_guide.html

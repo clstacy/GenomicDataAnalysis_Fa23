@@ -5,8 +5,11 @@ format:
   html:
     embed-resources: true
     code-background: true
+    code-copy: true
+    code-link: true
 date: "`r Sys.Date()`"
 editor: visual
+code-fold: "show"
 execute:
   eval: false
 engine: knitr
@@ -16,6 +19,7 @@ This is a tutorial for using the provided code to run salmon mapper on the UARK 
 
 ```{bash login}
 #| eval: false
+#| code-fold: false
 ssh youruarkusername@hpc-portal2.hpc.uark.edu
 ```
 

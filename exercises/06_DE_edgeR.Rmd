@@ -65,7 +65,7 @@ counts_subset <- readRDS(file = path_fc_object)$counts
 We generated those counts on a subset of the fastq files, but we can load the complete count file with the command below. This file has been generated with the full size fastq files with Salmon. 
 ```{r altLoad-fc}
 counts <- read_tsv('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/counts/salmon.gene_counts.merged.nonsubsamp.tsv',
-                   col_names = TRUE,) %>%
+                   col_names = TRUE) %>%
   # when we saved the tsv file, it converted the rownames to a column,
   # we are converting it back with this piped command.
   column_to_rownames("Name")
@@ -233,7 +233,7 @@ plotQLDisp(fit)
 EB squeezing of the raw dispersion estimators towards the trend reduces the uncertainty of the final estimators. The extent of this moderation is determined by the value of the prior df, as estimated from the data. Large estimates for the prior df indicate that the QL dispersions are less variable between genes, meaning that stronger EB moderation can be performed. Small values for the prior df indicate that the dispersions are highly
 variable, meaning that strong moderation would be inappropriate
 
-Setting robust=TRUE in glmQLFit is strongly recommended. This causes glmQLFit to estimate a vector of df.prior values, with lower values for outlier genes and larger values for the main body of genes.
+Setting `robust=TRUE` in glmQLFit is strongly recommended. This causes glmQLFit to estimate a vector of df.prior values, with lower values for outlier genes and larger values for the main body of genes.
 
 
 # Testing for differential expression
@@ -278,7 +278,7 @@ Let's take a quick look at the differential expression
 plotSmear(res, de.tags=rownames(res)[is.de!=0])
 ```
 
-We need to make sure and save our output file(s).
+Here is how we can save our output file(s).
 ```{r save-res}
 # Choose topTags destination
 dir_output_edgeR <-

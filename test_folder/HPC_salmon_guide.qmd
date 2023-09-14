@@ -5,18 +5,22 @@ format:
   html:
     embed-resources: true
     code-background: true
+    code-copy: true
+    code-link: true
 date: "`r Sys.Date()`"
 editor: visual
 execute:
   eval: false
   freeze: auto
 engine: knitr
+code-fold: "show"
 ---
 
 This is a tutorial for using the provided code to run salmon mapper on the UARK HPC. The code can be modified to analyze your own data. First, let's start recall how to log on to the HPC.
 
 ```{bash login}
 #| eval: false
+#| code-fold: false
 ssh youruarkusername@hpc-portal2.hpc.uark.edu
 ```
 

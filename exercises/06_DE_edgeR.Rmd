@@ -2,11 +2,11 @@
 title: "Differential Expression Analysis with EdgeR"
 author: "Carson Stacy & Jeffrey Lewis"
 date: "Fall 2023"
-output: 
+output:
   html_document:
     code_folding: show
-editor_options: 
-  markdown: 
+editor_options:
+  markdown:
     wrap: 72
 ---
 
@@ -30,6 +30,7 @@ p_load("tidyverse", "knitr", "readr",
        "dplyr", "stringr", 
        "statmod", # required dependency, need to load manually on some macOS versions.
        "purrr", # for working with lists (beautify column names)
+       "webshot2", # allow for pdf of output table.
        "reactable") # for pretty tables.
 
 # We also need these Bioconductor packages today.
@@ -223,6 +224,8 @@ against the average log-expression across those libraries (the mean).
 The below command plots an MD plot, comparing sample 1 against an
 artificial library constructed from the average of all other samples.
 
+## MDS plots
+
 ```{r plotMDS, fig.show="hold", out.width="25%"}
 for (sample in 1:nrow(y$samples)) {
   plotMD(cpm(y, log=TRUE), column=sample)
@@ -243,6 +246,7 @@ colors <- rep(c("black", "red"),8)
 plotMDS(y, col=colors[group], pch=points[group])
 legend("topright", legend=levels(group),
      pch=points, col=colors, ncol=2)
+title(main="PCA plot")
 ```
 
 # Estimate Dispersion
@@ -256,6 +260,7 @@ biological coefficient of variation for each gene
 ```{r estimate-dispersion}
 y <- estimateDisp(y, design, robust=TRUE)
 plotBCV(y)
+title(main="Biological Coefficient of Variation (BCV) vs gene abundance")
 ```
 
 In general, the trend in the NB dispersions should decrease smoothly
@@ -275,6 +280,7 @@ of the GLM coefficients for each gene
 fit <- glmQLFit(y, design, robust=TRUE)
 head(fit$coefficients)
 plotQLDisp(fit)
+title(main="QL Dispersion of the fit")
 ```
 
 EB squeezing of the raw dispersion estimators towards the trend reduces
@@ -319,8 +325,21 @@ topTags(res, n=10)
 topTags(res, n=Inf) %>% data.frame() %>% 
   arrange(FDR) %>%
   mutate(logFC=round(logFC,2)) %>%
-  mutate(across(where(is.numeric), signif, 3)) %>%
-  reactable()
+  # mutate(across(where(is.numeric), signif, 3)) %>%
+  mutate_if(is.numeric, signif, 3) %>%
+  remove_rownames() %>%
+  reactable(
+    searchable = TRUE,
+    showSortable = TRUE,
+    columns = list(ORF = colDef(
+      cell = function(value) {
+        # Render as a link
+        url <-
+          sprintf("https://www.yeastgenome.org/locus/%s", value)
+        htmltools::tags$a(href = url, target = "_blank", as.character(value))
+      }
+    ))
+  )
 ```
 
 ```{r summarize-DEgenes}
@@ -336,6 +355,7 @@ Let's take a quick look at the differential expression
 
 ```{r visualize-DEgenes}
 plotSmear(res, de.tags=rownames(res)[is.de!=0])
+title(main="DE genes using glmQLFTest, FDR<0.05")
 ```
 
 Here is how we can save our output file(s).
@@ -352,7 +372,8 @@ if (!dir.exists(dir_output_edgeR)) {
 topTags(res, n = Inf) %>% data.frame() %>%
   arrange(desc(logFC)) %>%
   mutate(logFC = round(logFC, 2)) %>%
-  mutate(across(where(is.numeric), signif, 3)) %>%
+  # mutate(across(where(is.numeric), signif, 3)) %>%
+  mutate_if(is.numeric, signif, 3) %>%
   write_tsv(., file = paste0(dir_output_edgeR, "yeast_topTags_edgeR.tsv"))
 
 # for subsequent analysis, let's save the res object as an R data object.
@@ -422,22 +443,36 @@ fit <- glmQLFit(y, design, robust=TRUE)
 # Implement a test against FC at least 1 the test our contrast of interest
 tr <- glmTreat(fit, 
                contrast = my.contrasts[,"EtOHvsWT.MSN24ddvsWT"],
-               lfc=0)
+               lfc=1)
 
 # generate a beautiful table for the pdf/html file.
-topTags(tr, n=Inf) %>% 
-  data.frame() %>% 
+topTags(tr, n = Inf) %>%
+  data.frame() %>%
   arrange(FDR) %>%
-  mutate(logFC=round(logFC,2)) %>%
-  mutate(across(where(is.numeric), signif, 3)) %>%
-  reactable()
+  mutate(logFC = round(logFC, 2)) %>%
+  # mutate(across(where(is.numeric), signif, 3)) %>%
+  mutate_if(is.numeric, signif, 3) %>%
+  remove_rownames() %>%
+  reactable(
+    searchable = TRUE,
+    showSortable = TRUE,
+    columns = list(ORF = colDef(
+      cell = function(value) {
+        # Render as a link
+        url <-
+          sprintf("https://www.yeastgenome.org/locus/%s", value)
+        htmltools::tags$a(href = url, target = "_blank", as.character(value))
+      }
+    ))
+  )
 
 # write the table to a tsv file
 topTags(tr, n=Inf) %>% 
   data.frame() %>% 
   arrange(FDR) %>%
   mutate(logFC=round(logFC,2)) %>%
-  mutate(across(where(is.numeric), signif, 3)) %>%
+  # mutate(across(where(is.numeric), signif, 3)) %>%
+  mutate_if(is.numeric, signif, 3) %>%
   write_tsv(., file = paste0(dir_output_edgeR, "yeast_lfc1topTags_edgeR.tsv"))
 
 # summarize the DE genes
@@ -446,6 +481,7 @@ summary(is.de_tr)
 
 # visualize results
 plotSmear(tr, de.tags=rownames(tr)[is.de_tr!=0])
+title(main="DE genes using glmTreat with logFC cutoff")
 ```
 
 Be sure to knit this file into a pdf or html file once you're finished.

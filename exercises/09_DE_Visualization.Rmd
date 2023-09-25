@@ -214,7 +214,6 @@ topTags_DESeq2 %>%
 # load in res objects for both limma and edgeR
 res_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_res_limma.Rds")
 res_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
-# res_deseq2 <- 
 
 # load in the DGE lists for each
 y_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
@@ -224,10 +223,7 @@ y_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edg
 
 glimmaMA(res_limma, dge = y_limma)
 glimmaMA(res_edgeR, dge = y_edgeR)
-glimmaMA(x = dds, counts = dds@assays@data$counts, anno = rownames(dds@assays@data$counts), groups = y_limma$samples$group)
-#          counts = 
-# anno = the data.frame containing gene annotations.
-# groups = the factor containing experimental groups of the samples.)
+
 ```
 
 

@@ -534,6 +534,82 @@ ggVennDiagram(down_DEG_results_list,
   ggtitle("Downregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
 ```
 
+
+## Correlation between logFC estimates across softwares
+```{r compare-estimates}
+# Custom labels for facet headers
+custom_labels <- c("purple" = "Sig in Both",
+                   "red" = "Only in edgeR",
+                   "blue" = "Only in DESeq2",
+                   "black" = "Not Sig",
+                   "grey" = "NA encountered")
+
+
+# compare edgeR & DESeq2
+full_join(topTags_edgeR, topTags_DESeq2,
+          by = join_by(ORF, SGD, GENENAME)) %>%
+  mutate(edgeR_sig = ifelse(FDR < sig_cutoff, "red", "black")) %>%
+  mutate(DESeq2_sig = ifelse(padj < sig_cutoff, "blue", "black")) %>% 
+  mutate(sig = factor(case_when(
+    edgeR_sig == "red" & DESeq2_sig == "blue" ~ "purple",
+    edgeR_sig == "red" & DESeq2_sig != "blue" ~ "red",
+    edgeR_sig != "red" & DESeq2_sig == "blue" ~ "blue",
+    edgeR_sig != "red" & DESeq2_sig != "blue" ~ "black",
+    TRUE ~ "grey"  # if none of these are met
+  ), levels = c("purple", "red", "blue", "black", "grey"), labels = c("Sig in Both", "Only in edgeR", "Only in DESeq2", "Not Sig", "NA encountered"))) %>%
+  ggplot(aes(x=logFC, y=log2FoldChange, color = sig, size=logCPM)) +
+  geom_abline(slope = 1,) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("purple", "red", "blue", "black", "grey")) + # use colors given
+  theme_bw() +
+  facet_wrap(~sig, labeller = labeller(new_column = custom_labels)) +
+  ggtitle("Comparing genewise logFC estimates between edgeR and DESeq2")
+
+# compare edgeR & limma
+full_join(topTags_edgeR, topTags_limma,
+          by = join_by(ORF, SGD, GENENAME)) %>%
+  mutate(edgeR_sig = ifelse(FDR < sig_cutoff, "red", "black")) %>%
+  mutate(limma_sig = ifelse(adj.P.Val < sig_cutoff, "green", "black")) %>% 
+  mutate(sig = factor(case_when(
+    edgeR_sig == "red" & limma_sig == "green" ~ "brown",
+    edgeR_sig == "red" & limma_sig != "green" ~ "red",
+    edgeR_sig != "red" & limma_sig == "green" ~ "green",
+    edgeR_sig != "red" & limma_sig != "green" ~ "black",
+    TRUE ~ "grey"  # if none of these are met
+  ), levels = c("brown", "red", "green", "black", "grey"), labels = c("Sig in Both", "Only in edgeR", "Only in limma", "Not Sig", "NA encountered"))) %>%
+  ggplot(aes(x=logFC.x, y=logFC.y, color = sig, size=logCPM)) +
+  geom_abline(slope = 1,) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("brown", "red", "green", "black", "grey")) + # use colors given
+  theme_bw() +
+  facet_wrap(~sig, labeller = labeller(new_column = custom_labels)) +
+  ggtitle("Comparing genewise logFC estimates between edgeR and limma") +
+  labs(x="logFC estimate: edgeR", y="logFC estimate: limma")
+
+# compare DESeq2 & limma
+full_join(topTags_DESeq2, topTags_limma,
+          by = join_by(ORF, SGD, GENENAME)) %>%
+  mutate(DESeq2_sig = ifelse(padj < sig_cutoff, "blue", "black")) %>%
+  mutate(limma_sig = ifelse(adj.P.Val < sig_cutoff, "green", "black")) %>% 
+  mutate(sig = factor(case_when(
+    DESeq2_sig == "blue" & limma_sig == "green" ~ "aquamarine3",
+    DESeq2_sig == "blue" & limma_sig != "green" ~ "blue",
+    DESeq2_sig != "blue" & limma_sig == "green" ~ "green",
+    DESeq2_sig != "blue" & limma_sig != "green" ~ "black",
+    TRUE ~ "grey"  # if none of these are met
+  ), levels = c("aquamarine3", "blue", "green", "black", "grey"), labels = c("Sig in Both", "Only in DESeq2", "Only in limma", "Not Sig", "NA encountered"))) %>%
+  ggplot(aes(x=log2FoldChange, y=logFC, color = sig, size=AveExpr)) +
+  geom_abline(slope = 1,) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("aquamarine3", "blue", "green", "black", "grey")) + # use colors given
+  theme_bw() +
+  facet_wrap(~sig, labeller = labeller(new_column = custom_labels, drop=FALSE)) +
+  ggtitle("Comparing genewise logFC estimates between DESeq2 and limma") +
+  labs(x="logFC estimate: DESeq2", y="logFC estimate: limma")
+
+```
+
+
 ## Questions
 
 Question 1: How many genes were upregulated and downregulated in the

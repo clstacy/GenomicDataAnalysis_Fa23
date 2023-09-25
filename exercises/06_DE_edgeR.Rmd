@@ -378,6 +378,9 @@ topTags(res, n = Inf) %>% data.frame() %>%
 
 # for subsequent analysis, let's save the res object as an R data object.
 saveRDS(object = res, file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
+
+# we might also want our y object list
+saveRDS(object = y, file = paste0(dir_output_edgeR, "yeast_y_edgeR.Rds"))
 ```
 
 ## Questions

@@ -2,7 +2,9 @@
 title: "Differential Expression Analysis with limma"
 author: "Carson Stacy & Jeffrey Lewis"
 date: "Fall 2023"
-output: html_document
+output: 
+  html_document:
+    code_folding: show
 editor_options: 
   markdown: 
     wrap: 72
@@ -32,7 +34,7 @@ p_load("tidyverse", "knitr", "readr",
        "reactable") # for pretty tables.
 
 # We also need these Bioconductor packages today.
-p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db")
+p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "ggVennDiagram")
 #NOTE: edgeR loads limma as a dependency
 ```
 
@@ -61,7 +63,10 @@ options(digits=3)
 
 # Loading in the count data file
 
-We are downloading the counts for the non-subsampled fastq files from a Github repository using the code below. Just as in previous exercises, assign the data to the variable `counts`. You can change the file path if you have saved it to your computer in a different location.
+We are downloading the counts for the non-subsampled fastq files from a
+Github repository using the code below. Just as in previous exercises,
+assign the data to the variable `counts`. You can change the file path
+if you have saved it to your computer in a different location.
 
 ```{r load-fc, error=TRUE}
 counts <- read_tsv('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/counts/salmon.gene_counts.merged.nonsubsamp.tsv',
@@ -390,7 +395,6 @@ summary(is.de)
 limma::plotMA(res, status=is.de)
 ```
 
-
 We need to make sure and save our output file(s).
 
 ```{r save-res}
@@ -415,10 +419,11 @@ saveRDS(object = res, file = paste0(dir_output_limma, "yeast_res_limma.Rds"))
 saveRDS(object = y, file = paste0(dir_output_limma, "yeast_y_limma.Rds"))
 ```
 
-
 ## How to test against a logFC cutoff in limma
 
-We can use the limma command `treat()` to test against a fold-change cutoff. `res` (or `fit`) can be either before or after eBayes has been run. Note that we need to use 
+We can use the limma command `treat()` to test against a fold-change
+cutoff. `res` (or `fit`) can be either before or after eBayes has been
+run. Note that we need to use
 
 ```{r lmtreat-workflow}
 lfc1_res <- treat(res,
@@ -453,12 +458,90 @@ summary(is.de.lfc1)
 limma::plotMA(lfc1_res, status=is.de.lfc1)
 ```
 
+# Comparing DE analysis softwares
+
+We have went through some example DE workflows with edgeR, DESeq2, and
+limma-voom. Since we have saved our outputs for each analysis, we can
+compare their outcomes now.
+
+```{r load-DEworkflows}
+# load in all of the DE results for the difference of difference contrast
+path_output_edgeR <- "~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_topTags_edgeR.tsv"
+path_output_DESeq2 <- "~/Desktop/Genomic_Data_Analysis/Analysis/DESeq2/yeast_res_DESeq2.tsv"
+path_output_limma <- "~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_topTags_limma.tsv"
+
+topTags_edgeR <- read_tsv(path_output_edgeR)
+topTags_DESeq2 <- read_tsv(path_output_DESeq2)
+topTags_limma <- read_tsv(path_output_limma)
+```
+
+```{r get-geneLists,  fig.show="hold", out.width="50%"}
+sig_cutoff <- 0.01
+FC_cutoff <- 1
+# NOTE: we need to be very careful applying an FC cutoff like this
+
+## edgeR
+# get genes that are upregualted
+up_edgeR_DEG <- topTags_edgeR %>%
+  dplyr::filter(FDR < sig_cutoff & logFC > FC_cutoff) %>%
+  pull(ORF)
+
+down_edgeR_DEG <- topTags_edgeR %>%
+  dplyr::filter(FDR < sig_cutoff & logFC < -FC_cutoff) %>%
+  pull(ORF)
+
+## DESeq2
+up_DESeq2_DEG <- topTags_DESeq2 %>%
+  dplyr::filter(padj < sig_cutoff & log2FoldChange > FC_cutoff) %>%
+  pull(ORF)
+
+down_DESeq2_DEG <- topTags_DESeq2 %>%
+  dplyr::filter(padj < sig_cutoff & log2FoldChange < -FC_cutoff) %>%
+  pull(ORF)
+
+## limma
+up_limma_DEG <- topTags_limma %>%
+  dplyr::filter(adj.P.Val < sig_cutoff & logFC > FC_cutoff) %>%
+  pull(ORF)
+
+down_limma_DEG <- topTags_limma %>%
+  dplyr::filter(adj.P.Val < sig_cutoff & logFC < -FC_cutoff) %>%
+  pull(ORF)
+
+up_DEG_results_list <- list(up_edgeR_DEG,
+                        up_DESeq2_DEG,
+                        up_limma_DEG)
+
+# visualize the GO results list as a venn diagram
+ggVennDiagram(up_DEG_results_list,
+              category.names = c("edgeR", "DESeq2", "limma")) +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_fill_distiller(palette = "RdBu"
+  ) +
+  ggtitle("Upregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
+
+
+# Now let's do the same for downregulated genes:
+down_DEG_results_list <- list(down_edgeR_DEG,
+                        down_DESeq2_DEG,
+                        down_limma_DEG)
+
+ggVennDiagram(down_DEG_results_list,
+              category.names = c("edgeR", "DESeq2", "limma")) +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_fill_distiller(palette = "RdBu"
+  ) +
+  ggtitle("Downregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
+```
+
 ## Questions
 
-Question 1: How many genes were upregulated and downregulated in the contrast we looked at in todays activity? Be sure to clarify the cutoffs used for determining significance.
+Question 1: How many genes were upregulated and downregulated in the
+contrast we looked at in today's activity? Be sure to clarify the
+cutoffs used for determining significance.
 
-Question 2: What are the pros and cons of applying a logFC cutoff to a differential expression analysis?
-
+Question 2: What are the pros and cons of applying a logFC cutoff to a
+differential expression analysis?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

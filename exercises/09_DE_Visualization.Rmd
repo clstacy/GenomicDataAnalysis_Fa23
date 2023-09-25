@@ -195,7 +195,20 @@ full_join(topTags_DESeq2, topTags_limma,
 
 MA plots display a log ratio (M) vs an average (A) in order to visualize the differences between two groups. In general we would expect the expression of genes to remain consistent between conditions and so the MA plot should be similar to the shape of a trumpet with most points residing on a y intercept of 0. DESeq2 has a built in function for creating the MA plot that we have used before (`plotMA()`), but we can also make our own:
 
-```{r}
+```{r plot-MA, out.width="33.3%"}
+topTags_edgeR %>%
+  ggplot(aes(logCPM, log2FC, colour=FDR)) + 
+    geom_point(size=1) + 
+    scale_y_continuous(limits=c(-5, 5), oob=squish) + 
+    scale_x_log10() + 
+    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
+    labs(x="mean of normalized counts", y="log fold change") + 
+    scale_colour_viridis(direction=-1, trans='sqrt') + 
+    theme_bw() + 
+    geom_density_2d(colour="grey", size=1) + 
+    ggtitle("edgeR MA plot")
+
+
 topTags_DESeq2 %>%
   ggplot(aes(baseMean, log2FoldChange, colour=padj)) + 
     geom_point(size=1) + 
@@ -205,7 +218,21 @@ topTags_DESeq2 %>%
     labs(x="mean of normalized counts", y="log fold change") + 
     scale_colour_viridis(direction=-1, trans='sqrt') + 
     theme_bw() + 
-    geom_density_2d(colour="grey", size=1)
+    geom_density_2d(colour="grey", size=1) + 
+    ggtitle("DESeq2 MA plot")
+
+
+topTags_limma %>%
+  ggplot(aes(AveExpr, logFC, colour=adj.P.Val)) + 
+    geom_point(size=1) + 
+    scale_y_continuous(limits=c(-5, 5), oob=squish) + 
+    scale_x_log10() + 
+    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
+    labs(x="mean of normalized counts", y="log fold change") + 
+    scale_colour_viridis(direction=-1, trans='sqrt') + 
+    theme_bw() + 
+    geom_density_2d(colour="grey", size=1) + 
+    ggtitle("edgeR MA plot")
 ```
 
 
@@ -227,7 +254,11 @@ glimmaMA(res_edgeR, dge = y_edgeR)
 ```
 
 
+# Volcano Plots
+
+
 ```{r}
+
 glimmaVolcano(res_limma)
 glimmaVolcano(res_edgeR)
 ```

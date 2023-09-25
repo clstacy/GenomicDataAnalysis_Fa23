@@ -27,6 +27,7 @@ p_load("tidyverse", "knitr", "readr",
        "pander", "BiocManager", 
        "dplyr", "stringr", 
        "statmod", # required dependency, need to load manually on some macOS versions.
+       "Glimma", # beautifies limma results
        "purrr", # for working with lists (beautify column names)
        "reactable") # for pretty tables.
 
@@ -58,33 +59,26 @@ library(org.Sc.sgd.db)
 options(digits=3)
 ```
 
-# Loading in the featureCounts object
+# Loading in the count data file
 
-We saved this file in the last exercise (Read_Counting.Rmd) from the
-RSubread package. Now we can load that object back in and assign it to
-the variable `fc`. Be sure to change the file path if you have saved it
-in a different location.
+We are downloading the counts for the non-subsampled fastq files from a Github repository using the code below. Just as in previous exercises, assign the data to the variable `counts`. You can change the file path if you have saved it to your computer in a different location.
 
 ```{r load-fc, error=TRUE}
-path_fc_object <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/yeast_fc_output.Rds")
-fc <- readRDS(file = path_fc_object)
+counts <- read_tsv('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/counts/salmon.gene_counts.merged.nonsubsamp.tsv',
+                   col_names = TRUE) %>%
+  # when we saved the tsv file, it converted the rownames to a column,
+  # we are converting it back with this piped command.
+  column_to_rownames("Name")
 ```
 
 If you don't have that file for any reason, the below code chunk will
 load a copy of it from Github.
 
-```{r altLoad-fc}
-if( !exists("fc") )
-{
-  fc <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/yeast_fc_output.Rds')
-}
-```
-
 To find the order of files we need, we can get just the part of the
 column name before the first "." symbol with this command:
 
 ```{r identify-sampleOrder}
-str_split_fixed(fc$counts %>% colnames(), "\\.", n = 2)[, 1]
+str_split_fixed(counts %>% colnames(), "\\.", n = 2)[, 1]
 ```
 
 ```{r generate-metadata}
@@ -145,7 +139,7 @@ the data, including library sizes and dispersion estimates as well as
 counts for each gene.
 
 ```{r load-counts}
-y <- DGEList(fc$counts, group=group)
+y <- DGEList(counts, group=group)
 colnames(y) <- sample_metadata$Sample
 y$samples
 ```
@@ -170,7 +164,7 @@ expressed at a count-per-million (CPM) above 60 in at least four
 samples.
 
 ```{r filter-lowCounts}
-keep <- rowSums(cpm(y) > 60) >= 4
+keep <- rowSums(cpm(y) > 0.7) >= 4
 y <- y[keep,]
 summary(keep)
 ```
@@ -234,8 +228,12 @@ for the yeast heatshock data.
 points <- c(1,1,2,2)
 colors <- rep(c("black", "red"),8)
 plotMDS(y, col=colors[group], pch=points[group])
-legend("topright", legend=levels(group),
-     pch=points, col=colors, ncol=2)
+# legend("bottomright", legend=levels(group),
+     # pch=points, col=colors, ncol=2)
+legend("bottomright",legend=levels(group),
+       pch=points, col=colors, ncol=2,
+       inset=c(0,1.05), xpd=TRUE)
+
 ```
 
 # Estimate Dispersion
@@ -244,8 +242,7 @@ This is the first step in a limma analysis that differs from the edgeR
 workflow.
 
 ```{r estimate-dispersion}
-
-y <- voom(y, design, plot = T)
+y <- voom(y, design, plot = T,)
 
 # compare this to the edgeR function estimateDisp, which uses a NB distribution.
 # y <- estimateDisp(y, design, robust=TRUE)
@@ -380,7 +377,20 @@ top.table %>%
   mutate(across(where(is.numeric), signif, 3)) %>%
   reactable()
 
+
+is.de <- decideTests(res, p.value=0.05)
+summary(is.de)
+
+# visualize results
+plotMA(res, status=is.de)
 ```
+
+## See the DE genes
+
+```{r visualize-contrast}
+res
+```
+
 
 We need to make sure and save our output file(s).
 
@@ -401,6 +411,9 @@ top.table %>% tibble() %>%
 
 # for subsequent analysis, let's save the res object as an R data object.
 saveRDS(object = res, file = paste0(dir_output_limma, "yeast_res_limma.Rds"))
+
+# we might also want our y object list
+saveRDS(object = y, file = paste0(dir_output_limma, "yeast_y_limma.Rds"))
 ```
 
 

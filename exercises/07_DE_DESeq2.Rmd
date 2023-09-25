@@ -239,7 +239,7 @@ DESeq2::plotMA(res, alpha=0.01)
 ```
 Plot an individual gene:
 ```{r}
-gene <- "YEL039C"
+gene <- "YER091C"
 
 # Here is the default visualization. Depending on screen size, the xlab 
 # might not show all of the groups.

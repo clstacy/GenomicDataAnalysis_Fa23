@@ -24,17 +24,17 @@ p_load("tidyverse", "knitr", "readr",
        "pander", "BiocManager", 
        "dplyr", "stringr", 
        "purrr", # for working with lists (beautify column names)
-       "scales", "virdis", # for ggplot
+       "scales", "viridis", # for ggplot
        "reactable") # for pretty tables.
 
 # We also need these Bioconductor packages today.
 p_load("DESeq2", "edgeR", "AnnotationDbi", "org.Sc.sgd.db", "Glimma",
-       "ggVennDiagram")
+       "ggVennDiagram", "ggplot2")
 ```
 
 # Description
 
-
+This exercises shows more ways differential expression analysis data can be visualized.
 
 # Learning outcomes
 
@@ -206,5 +206,33 @@ topTags_DESeq2 %>%
     scale_colour_viridis(direction=-1, trans='sqrt') + 
     theme_bw() + 
     geom_density_2d(colour="grey", size=1)
+```
+
+
+# Using Glimma for an interactive visualization
+```{r}
+# load in res objects for both limma and edgeR
+res_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_res_limma.Rds")
+res_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
+# res_deseq2 <- 
+
+# load in the DGE lists for each
+y_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
+
+y_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
+  
+
+glimmaMA(res_limma, dge = y_limma)
+glimmaMA(res_edgeR, dge = y_edgeR)
+glimmaMA(x = dds, counts = dds@assays@data$counts, anno = rownames(dds@assays@data$counts), groups = y_limma$samples$group)
+#          counts = 
+# anno = the data.frame containing gene annotations.
+# groups = the factor containing experimental groups of the samples.)
+```
+
+
+```{r}
+glimmaVolcano(res_limma)
+glimmaVolcano(res_edgeR)
 ```
 

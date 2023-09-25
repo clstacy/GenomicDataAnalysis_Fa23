@@ -171,7 +171,7 @@ head(y$genes)
 # Filtering to remove low counts
 
 Genes with very low counts across all libraries provide little evidence
-for differential ex- pression. In addition, the pronounced discreteness
+for differential expression. In addition, the pronounced discreteness
 of these counts interferes with some of the statistical approximations
 that are used later in the pipeline. These genes should be filtered out
 prior to further analysis. Here, we will retain a gene only if it is

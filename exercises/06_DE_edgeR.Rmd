@@ -405,7 +405,7 @@ decideTests_edgeR <- list_cbind(decideTests_edgeR_tmp) %>%
 head(decideTests_edgeR)
 
 # save this file for future analysis
-write_rds(decideTests_edgeR, "~/Documents/GitHub/GenomicDataAnalysis_Fa23/analysis/yeast_decideTests_allContrasts_edgeR.tsv")
+write_tsv(decideTests_edgeR, "~/Documents/GitHub/GenomicDataAnalysis_Fa23/analysis/yeast_decideTests_allContrasts_edgeR.tsv")
 ```
 
 

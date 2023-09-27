@@ -2,7 +2,10 @@
 title: "Visualizing Differential Expression Results"
 author: "Carson Stacy & Jeffrey Lewis"
 date: "Fall 2023"
-output: html_document
+output: 
+  html_document:
+    embed_resources: TRUE
+    code_folding: show
 ---
 
 last updated: `r Sys.Date()`
@@ -100,7 +103,7 @@ up_DEG_results_list <- list(up_edgeR_DEG,
 
 MA plots display a log ratio (M) vs an average (A) in order to visualize the differences between two groups. In general we would expect the expression of genes to remain consistent between conditions and so the MA plot should be similar to the shape of a trumpet with most points residing on a y intercept of 0. DESeq2 has a built in function for creating the MA plot that we have used before (`plotMA()`), but we can also make our own:
 
-```{r plot-MA, out.width="33.3%"}
+```{r plot-MA, fig.show="hold", out.width="33.3%"}
 
 # assign pvalue and logFC cutoffs for coloring DE genes
 sig_cutoff <- 0.01
@@ -164,7 +167,7 @@ topTags_limma %>%
 
 # Volcano Plot
 
-```{r plot-volcano, out.width="33.3%"}
+```{r plot-volcano, fig.show="hold", out.width="33.3%"}
 # change the dimensions of the output figure by clicking the gear icon in topright corner of the code chunk > "use custom figure size"
 
 
@@ -247,7 +250,7 @@ glimmaVolcano(res_limma)
 glimmaVolcano(res_edgeR)
 ```
 
-# Generating bargraph summaries
+# Generating bar graph summaries
 
 This visualization approach compresses relevant information, so it's generally a discouraged approach for visualizing DE data. However, it is done, so if it is useful for your study, here is how you could do it.
 

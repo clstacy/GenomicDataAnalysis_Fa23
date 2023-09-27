@@ -60,9 +60,9 @@ path_output_limma <- "~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_topTa
 
 # if you don't have these files, we generated them in previous lessons.
 # you can remove the "#" from the chunks below to grab them from the interwebs.
-# path_output_edgeR <- "~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_topTags_edgeR.tsv"
-# path_output_DESeq2 <- "~/Desktop/Genomic_Data_Analysis/Analysis/DESeq2/yeast_res_DESeq2.tsv"
-# path_output_limma <- "~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_topTags_limma.tsv"
+# path_output_edgeR <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_topTags_edgeR.tsv"
+# path_output_DESeq2 <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_res_DESeq2.tsv"
+# path_output_limma <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_topTags_limma.tsv"
 
 topTags_edgeR <- read_tsv(path_output_edgeR)
 topTags_DESeq2 <- read_tsv(path_output_DESeq2)
@@ -239,11 +239,18 @@ topTags_limma %>%
 res_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_res_limma.Rds")
 res_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
 
+# code to pull it from github:
+# res_limma <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_res_limma.Rds")
+# res_edgeR <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_res_edgeR.Rds")
+
+
 # load in the DGE lists for each
 y_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_y_limma.Rds")
-
 y_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_y_edgeR.Rds")
-  
+
+# again, alternative code to pull from github
+# y_limma <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_y_limma.Rds")
+# y_edgeR <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_y_edgeR.Rds")
 
 glimmaMA(res_limma, dge = y_limma)
 glimmaMA(res_edgeR, dge = y_edgeR)
@@ -253,8 +260,8 @@ glimmaMA(res_edgeR, dge = y_edgeR)
 ## Volcano Plots
 
 ```{r}
-glimmaVolcano(res_limma)
-glimmaVolcano(res_edgeR)
+glimmaVolcano(res_limma, dge = y_limma)
+glimmaVolcano(res_edgeR, dge = y_edgeR)
 ```
 
 # Generating bar graph summaries
@@ -286,7 +293,7 @@ res_all_limma %>%
             position = position_dodge(width = .9),
             hjust = "inward") +
   labs(y="Number of DE genes") +
-  ggtitle("Summary of DE genes by contrast")
+  ggtitle("Summary of DE genes by contrast (limma)")
 
 # how to do the same for edgeR
 decideTests_all_edgeR %>%

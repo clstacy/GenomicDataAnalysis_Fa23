@@ -46,6 +46,7 @@ This exercises shows more ways differential expression analysis data can be visu
 At the end of this exercise, you should be able to:
 
 -   Visualize Differential Expression Results
+-   Interpret MA and volcano plots
 
 ```{r load-libraries}
 library(org.Sc.sgd.db)

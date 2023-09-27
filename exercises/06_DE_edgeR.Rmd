@@ -383,6 +383,32 @@ saveRDS(object = res, file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
 saveRDS(object = y, file = paste0(dir_output_edgeR, "yeast_y_edgeR.Rds"))
 ```
 
+# Looking at all contrasts at once
+
+If we want results from all contrasts, we need to loop through them in edgeR, and them combine the results We will look more at the results of this in a later activity.
+```{r}
+# need to loop to get DE genes in each contrast.
+# here we are just saving which genes are DE per contrast
+decideTests_edgeR_tmp <- list()
+for (i in 1:ncol(my.contrasts)){
+
+    current.res <- glmQLFTest(fit, contrast = my.contrasts[,paste0(dimnames(my.contrasts)$Contrasts[i])])
+    # current.res <- eBayes(current.res)
+    decideTests_edgeR_tmp[[i]] <- current.res %>% decideTests(p.value = 0.05, lfc = 0) %>%
+  as.data.frame()
+
+}
+
+decideTests_edgeR <- list_cbind(decideTests_edgeR_tmp) %>%
+  rownames_to_column("gene")
+
+head(decideTests_edgeR)
+
+# save this file for future analysis
+write_rds(decideTests_edgeR, "~/Documents/GitHub/GenomicDataAnalysis_Fa23/analysis/yeast_decideTests_allContrasts_edgeR.tsv")
+```
+
+
 ## Questions
 
 Question 1: How many genes were upregulated and downregulated in the

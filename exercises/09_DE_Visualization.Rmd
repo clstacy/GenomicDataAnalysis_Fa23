@@ -44,7 +44,6 @@ At the end of this exercise, you should be able to:
 
 -   Visualize Differential Expression Results
 
-
 ```{r load-libraries}
 library(org.Sc.sgd.db)
 ```
@@ -157,6 +156,7 @@ topTags_limma %>%
     theme_bw() + 
     ggtitle("limma MA plot")
 ```
+
 # Volcano Plot
 
 ```{r plot-volcano, out.width="33.3%"}
@@ -219,7 +219,6 @@ topTags_limma %>%
   ggtitle("limma Volcano plot")
 ```
 
-
 # Using Glimma for an interactive visualization
 
 ## MA plots
@@ -240,24 +239,24 @@ glimmaMA(res_edgeR, dge = y_edgeR)
 
 ```
 
-
 ## Volcano Plots
-
 
 ```{r}
 glimmaVolcano(res_limma)
 glimmaVolcano(res_edgeR)
 ```
 
-
 # Generating bargraph summaries
 
 This visualization approach compresses relevant information, so it's generally a discouraged approach for visualizing DE data. However, it is done, so if it is useful for your study, here is how you could do it.
+
 ```{r}
 # let's use the res_all object from the 08_DE_limma exercise:
 res_all_limma <- read_rds('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_res_allContrasts_limma.Rds')
 
-res_all %>%
+decideTests_all_edgeR <- read_tsv('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/analysis/yeast_decideTests_allContrasts_edgeR.tsv')
+
+res_all_limma %>%
   decideTests(p.value = 0.05, lfc = 0) %>%
   as.data.frame() %>%
   rownames_to_column("gene") %>%
@@ -277,18 +276,57 @@ res_all %>%
             hjust = "inward") +
   labs(y="Number of DE genes") +
   ggtitle("Summary of DE genes by contrast")
+
+# how to do the same for edgeR
+decideTests_all_edgeR %>%
+  pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
+  group_by(contrast) %>%
+  summarise(
+    upregulated = sum(DE_direction == 1),
+    downregulated = sum(DE_direction == -1)
+  ) %>%
+  pivot_longer(-contrast, names_to = "DE_direction", values_to = "n_genes") %>%
+  mutate(contrast = fct_reorder(contrast, 1/(1+n_genes))) %>%
+  ggplot(aes(x = contrast, y = n_genes, fill = DE_direction)) +
+  geom_col(position = "dodge") +
+  theme_bw() +
+  coord_flip() +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+  geom_text(aes(label = n_genes),
+            position = position_dodge(width = .9),
+            hjust = "inward") +
+  labs(y="Number of DE genes") +
+  ggtitle("Summary of DE genes by contrast (edgeR)")
+
 ```
 
 If we want to show the same amount of information, in a more informative way, a venn diagram is often a better alternative. Here's an easy way to get that visualization if you use either edgeR or limma for your analysis.
 
-```{r venn-allContrasts, fig.height=7, fig.width=10}
+```{r venn-allContrasts, fig.height=8, fig.width=10}
 # same as before, we can make the plot from the decideTests output
-res_all %>%
+res_all_limma %>%
   decideTests(p.value = 0.01, lfc = 0) %>%
   vennDiagram(include=c("up", "down"),
               lwd=0.75,
               mar=rep(2,4), # increase margin size
               counts.col= c("red", "blue"),
               show.include=TRUE)
+
+decideTests_all_edgeR %>%
+  column_to_rownames("gene") %>%
+  vennDiagram(include=c("up", "down"),
+              lwd=0.75,
+              mar=rep(4,4), # increase margin size
+              counts.col= c("red", "blue"),
+              show.include=TRUE)
 ```
 
+Venn diagrams are useful for showing gene counts as well as there overlaps between contrasts. A useful gui based web-page for creating venn diagrams inclues: <https://eulerr.co/>. If you enjoy coding, it also exists as an R package (<https://cran.r-project.org/web/packages/eulerr/index.html>).
+
+## Exercise
+
+1.  Modify the code below to find out how many genes are upregulated in the ethanol stress response of both WT cells and msn2/4 mutants.
+
+```{r create-your-own-Venn}
+res_all_limma
+```

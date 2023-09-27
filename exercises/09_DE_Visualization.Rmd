@@ -101,6 +101,11 @@ up_DEG_results_list <- list(up_edgeR_DEG,
 MA plots display a log ratio (M) vs an average (A) in order to visualize the differences between two groups. In general we would expect the expression of genes to remain consistent between conditions and so the MA plot should be similar to the shape of a trumpet with most points residing on a y intercept of 0. DESeq2 has a built in function for creating the MA plot that we have used before (`plotMA()`), but we can also make our own:
 
 ```{r plot-MA, out.width="33.3%"}
+
+# assign pvalue and logFC cutoffs for coloring DE genes
+sig_cutoff <- 0.01
+FC_label_cutoff <- 3
+
 #plot MA for edgeR using ggplot2
 topTags_edgeR %>%
   mutate(`Significant FDR` = case_when(
@@ -161,10 +166,6 @@ topTags_limma %>%
 
 ```{r plot-volcano, out.width="33.3%"}
 # change the dimensions of the output figure by clicking the gear icon in topright corner of the code chunk > "use custom figure size"
-
-# assign pvalue and logFC cutoffs for coloring DE genes
-sig_cutoff <- 0.01
-FC_label_cutoff <- 3
 
 
 topTags_edgeR %>%
@@ -229,7 +230,7 @@ res_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_res_l
 res_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
 
 # load in the DGE lists for each
-y_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_limma.Rds")
+y_limma <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_res_limma.Rds")
 
 y_edgeR <- readRDS("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_res_edgeR.Rds")
   
@@ -325,8 +326,23 @@ Venn diagrams are useful for showing gene counts as well as there overlaps betwe
 
 ## Exercise
 
-1.  Modify the code below to find out how many genes are upregulated in the ethanol stress response of both WT cells and msn2/4 mutants.
+1.  Modify the code below to find out how many genes are upregulated (p.value \< 0.01 and \|lfc\| \> 1) in the ethanol stress response of both WT cells and msn2/4 mutants.
 
-```{r create-your-own-Venn}
-res_all_limma
+```{r create-your-own-Venn, fig.height=4, fig.width=12}
+# here are all of the contrasts
+colnames(res_all_limma)
+
+# select the correct two and replace them below
+res_all_limma %>%
+  decideTests(p.value = 0.05, lfc = 0) %>%
+  data.frame() %>%
+  # change the columns selected in this select command
+  dplyr::select(c("MOCK.MSN24ddvsWT", "EtOH.MSN24ddvsWT")) %>%
+  vennDiagram(include="down",
+              lwd=0.75,
+              mar=rep(0,4), # increase margin size
+              # counts.col= c("red", "blue"),
+              show.include=TRUE
+              )
+  
 ```

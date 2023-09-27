@@ -27,8 +27,10 @@ p_load("tidyverse", "knitr", "readr",
        "scales", "viridis", # for ggplot
        "reactable") # for pretty tables.
 
-# We also need these Bioconductor packages today.
-p_load("DESeq2", "edgeR", "AnnotationDbi", "org.Sc.sgd.db", "Glimma",
+# We also need these packages today.
+p_load("DESeq2", "edgeR", "AnnotationDbi", "org.Sc.sgd.db",
+       "ggrepel",
+       "Glimma",
        "ggVennDiagram", "ggplot2")
 ```
 
@@ -101,84 +103,119 @@ MA plots display a log ratio (M) vs an average (A) in order to visualize the dif
 
 ```{r plot-MA, out.width="33.3%"}
 topTags_edgeR %>%
-  ggplot(., aes(x=logCPM, y=logFC, colour=FDR)) + 
+  mutate(`Significant FDR` = case_when(
+        FDR < sig_cutoff ~ "Yes",
+        .default = "No"),
+        delabel = case_when(FDR < sig_cutoff & abs(logFC) > FC_label_cutoff ~ ORF,
+                             .default = NA)) %>%
+  ggplot(aes(x=logCPM, y=logFC, color = `Significant FDR`, label = delabel)) + 
     geom_point(size=1) + 
     scale_y_continuous(limits=c(-5, 5), oob=squish) + 
-    # scale_x_log10() + 
-    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
-    labs(x="mean of normalized counts", y="log fold change") + 
-    scale_colour_viridis(direction=-1, trans='sqrt') + 
+    geom_hline(yintercept = 0, colour="darkgrey", linewidth=1, linetype="longdash") +
+    labs(x="mean of normalized counts", y="log fold change") +
+    # ggrepel::geom_text_repel(size = 1.5) +
+    scale_color_manual(values = c("black", "red")) +
     theme_bw() + 
-    geom_density_2d(colour="grey", size=1) + 
     ggtitle("edgeR MA plot")
 
 
 topTags_DESeq2 %>%
-  ggplot(aes(baseMean, log2FoldChange, colour=padj)) + 
+  mutate(
+    `Significant FDR` = case_when(padj < sig_cutoff ~ "Yes",
+                                  .default = "No"),
+    delabel = case_when(
+      padj < sig_cutoff & abs(log2FoldChange) > FC_label_cutoff ~ ORF,
+      .default = NA)
+  ) %>% 
+  ggplot(aes(log(baseMean), log2FoldChange, color = `Significant FDR`, label = delabel)) +
     geom_point(size=1) + 
     scale_y_continuous(limits=c(-5, 5), oob=squish) + 
-    # DESeq2 doesn't give log scale counts, so we manually can do that now.
-    scale_x_log10() + 
-    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
-    labs(x="log10(mean of normalized counts)", y="log fold change") + 
-    scale_colour_viridis(direction=-1, trans='sqrt') + 
-    theme_bw() + 
-    geom_density_2d(colour="grey", size=1) + 
+    geom_hline(yintercept = 0, colour="darkgrey", linewidth=1, linetype="longdash") +
+    labs(x="mean of normalized counts", y="log fold change") +
+    # ggrepel::geom_text_repel(size = 1.5) +
+    scale_color_manual(values = c("black", "red")) +
+    theme_bw() +
     ggtitle("DESeq2 MA plot")
-
+  
 
 topTags_limma %>%
-  ggplot(aes(AveExpr, logFC, colour=adj.P.Val)) + 
+  mutate(
+    `Significant FDR` = case_when(adj.P.Val < sig_cutoff ~ "Yes",
+                                  .default = "No"),
+    delabel = case_when(
+      adj.P.Val < sig_cutoff & abs(logFC) > FC_label_cutoff ~ ORF,
+      .default = NA)
+  ) %>% 
+  ggplot(aes(AveExpr, logFC, color = `Significant FDR`, label = delabel)) + 
     geom_point(size=1) + 
     scale_y_continuous(limits=c(-5, 5), oob=squish) + 
-    # scale_x_log10() + 
-    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
+    geom_hline(yintercept = 0, colour="darkgrey", linewidth=1, linetype="longdash") +
     labs(x="mean of normalized counts", y="log fold change") + 
-    scale_colour_viridis(direction=-1, trans='sqrt') + 
+    # ggrepel::geom_text_repel(size = 1.5) +
+    scale_color_manual(values = c("black", "red")) +
     theme_bw() + 
-    geom_density_2d(colour="grey", size=1) + 
     ggtitle("limma MA plot")
 ```
 
 
 ```{r plot-volcano, out.width="33.3%"}
+# change the dimensions of the output figure by clicking the gear icon in topright corner of the code chunk > "use custom figure size"
+
+# assign pvalue and logFC cutoffs for coloring DE genes
+sig_cutoff <- 0.01
+FC_label_cutoff <- 3
+
+
 topTags_edgeR %>%
-  ggplot(.,aes(x=logFC,-log10(FDR))) + 
-    geom_point(size=1) + 
-    # scale_y_continuous(limits=c(-5, 5), oob=squish) + 
-    # scale_x_log10() + 
-    # geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
-    labs(x="log fold change", y="-log10(adjusted p-value)") + 
-    # scale_colour_viridis(direction=-1, trans='sqrt') + 
-    theme_bw() + 
-    # geom_density_2d(colour="grey", size=1) + 
-    ggtitle("edgeR MA plot")
+  mutate(`Significant FDR` = case_when(
+        FDR < sig_cutoff ~ "Yes",
+        .default = "No"),
+        delabel = case_when(FDR < sig_cutoff & abs(logFC) > FC_label_cutoff ~ ORF,
+                             .default = NA)) %>%
+  ggplot(aes(x = logFC, -log10(FDR), color = `Significant FDR`, label = delabel)) +
+  geom_point(size = 1) +
+  ggrepel::geom_text_repel(size = 1.5) +
+  labs(x = "log fold change", y = "-log10(adjusted p-value)") +
+  theme_bw() +
+  guides(color="none") +
+  scale_color_manual(values = c("black", "red")) +
+  ggtitle("edgeR Volcano plot")
 
 
 topTags_DESeq2 %>%
-  ggplot(aes(log2FoldChange,-log10(padj))) + 
-    geom_point(size=1) + 
-    scale_y_continuous(limits=c(-5, 5), oob=squish) + 
-    scale_x_log10() + 
-    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
-    labs(x="mean of normalized counts", y="log fold change") + 
-    scale_colour_viridis(direction=-1, trans='sqrt') + 
-    theme_bw() + 
-    geom_density_2d(colour="grey", size=1) + 
-    ggtitle("DESeq2 MA plot")
+  mutate(
+    `Significant FDR` = case_when(padj < sig_cutoff ~ "Yes",
+                                  .default = "No"),
+    delabel = case_when(
+      padj < sig_cutoff & abs(log2FoldChange) > FC_label_cutoff ~ ORF,
+      .default = NA)
+  ) %>% 
+  ggplot(aes(log2FoldChange,-log10(padj), color = `Significant FDR`, label = delabel)) + 
+    geom_point(size = 1) +
+  ggrepel::geom_text_repel(size = 1.5) +
+  labs(x = "log fold change", y = "-log10(adjusted p-value)") +
+  theme_bw() +
+  guides(color="none") +
+  scale_color_manual(values = c("black", "red")) +
+    ggtitle("DESeq2 Volcano plot")
 
 
 topTags_limma %>%
-  ggplot(aes(AveExpr, logFC, -log10(adj.P.Val))) + 
-    geom_point(size=1) + 
-    scale_y_continuous(limits=c(-5, 5), oob=squish) + 
-    scale_x_log10() + 
-    geom_hline(yintercept = 0, colour="darkorchid4", linewidth=1, linetype="longdash") +
-    labs(x="mean of normalized counts", y="log fold change") + 
-    scale_colour_viridis(direction=-1, trans='sqrt') + 
-    theme_bw() + 
-    geom_density_2d(colour="grey", size=1) + 
-    ggtitle("limma MA plot")
+  mutate(
+    `Significant FDR` = case_when(adj.P.Val < sig_cutoff ~ "Yes",
+                                  .default = "No"),
+    delabel = case_when(
+      adj.P.Val < sig_cutoff & abs(logFC) > FC_label_cutoff ~ ORF,
+      .default = NA)
+  ) %>% 
+  ggplot(aes(x=logFC, y=-log10(P.Value), color = `Significant FDR`, label = delabel)) + 
+  geom_point(size = 1) +
+  ggrepel::geom_text_repel(size = 1.5) +
+  labs(x = "log fold change", y = "-log10(UNADJUSTED p-value)") +
+  theme_bw() +
+  guides(color="none") +
+  scale_color_manual(values = c("black", "red")) +
+  ggtitle("limma Volcano plot")
 ```
 
 
@@ -217,6 +254,8 @@ glimmaVolcano(res_edgeR)
 This really compresses relevant information, so it's generally not a good way to visualize DE data. However, it is done, so if it is useful for your experiment, here is how you could do it.
 ```{r}
 # let's use the res_all object from the 08_DE_limma exercise:
+res_all_limma <- 
+
 res_all %>%
   decideTests(p.value = 0.05, lfc = 0) %>%
   as.data.frame() %>%
@@ -241,8 +280,14 @@ res_all %>%
 
 If we want to show the same amount of information, in a more informative way, a venn diagram is often a better alternative. Here's an easy way to get that visualization if you use either edgeR or limma for your analysis.
 
-```{r}
+```{r venn-allContrasts, fig.height=7, fig.width=10}
 # same as before, we can make the plot from the decideTests output
-
+res_all %>%
+  decideTests(p.value = 0.01, lfc = 0) %>%
+  vennDiagram(include=c("up", "down"),
+              lwd=0.75,
+              mar=rep(2,4), # increase margin size
+              counts.col= c("red", "blue"),
+              show.include=TRUE)
 ```
 

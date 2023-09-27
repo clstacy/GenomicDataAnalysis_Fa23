@@ -323,6 +323,7 @@ top.table %>%
   mutate(across(where(is.numeric), signif, 3)) %>%
   reactable()
 
+
 # edgeR equivalent below:
 
 # let's take a quick look at the results
@@ -345,13 +346,17 @@ res_all %>%
   decideTests(p.value = 0.05, lfc = 0) %>%
   summary()
 
+# we can save the decideTests output for graphing
+decide_tests_res_all_limma <- res_all %>%
+  decideTests(p.value = 0.05, lfc = 0) 
+  
 # Bonus: limma allows us to create a venn diagram of these contrasts 
 # up & downregulated genes
 res_all %>%
   decideTests(p.value = 0.05, lfc = 1) %>% 
   vennDiagram(include=c("up", "down"),
               lwd=0.75,
-              mar=rep(2,4), # increase margine size
+              mar=rep(2,4), # increase margin size
               counts.col= c("red", "blue"),
               show.include=TRUE)
 

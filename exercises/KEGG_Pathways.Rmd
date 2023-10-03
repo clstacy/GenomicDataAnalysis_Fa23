@@ -27,21 +27,23 @@ p_load("tidyverse", "knitr", "readr",
        "reactable") # for pretty tables.
 
 # We also need these Bioconductor packages today.
-p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview")
+p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview",
+       "clusterProfiler")# for dotplot
 ```
 
 
 # Description
 
-This will be our first differential expression analysis workflow, converting gene counts across samples into meaningful information about genes that appear to be significantly differentially expressed between samples
+
+In this class exercise, we will explore the use of KEGG pathways in genomic data analysis. KEGG is a valuable resource for understanding biological pathways and functions associated with genomic data.
 
 # Learning outcomes
 
 At the end of this exercise, you should be able to:
 
--   Generate a table of sample metadata.
--   Filter low counts and normalize count data.
--   Utilize the edgeR package to identify differentially expressed genes.
+-   Understand the basics of KEGG pathways.
+-   Learn how to retrieve and analyze pathway information using R.
+-   Apply KEGG analysis to genomic data.
 
 
 ```{r load-libraries}
@@ -57,21 +59,25 @@ options(digits=3)
 ```{r save-res}
 # Choose topTags destination
 dir_output_edgeR <-
-  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR")
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
 
 # for subsequent analysis, let's save the res object as an R data object.
-res <- readRDS(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
+res <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
 ```
 
 
 
 # KEGG
+
+First, let's do a simple KEGG enrichment with the limma package, using the function `kegga()`. This approach is nice, because we can directly load in the `res` object we created in the `edgeR` workflow, set our FDR cutoff, and the process happens automatically.
+
 ```{r}
 # alias2Symbol()
 
 # go <- goana(res, species.KEGG="sce")
 # topGO(go, n=10)
 
+# from limma, there is the 
 kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
       plot=T)
 
@@ -105,6 +111,53 @@ test <- pathview(gene.data  = gene_data_logFC,
                      limit = list(gene=5, cpd=1))
 ```
 
+
+
+Of course, you might want more control over the process. In that case, we can use another package. For example, we could use `clusterProfiler`. In this case, we need to manually select the genes that we want to run KEGG enrichment on.
+
+```{r}
+# turn res object into a list of genes
+DE_genes <- res %>% data.frame() %>%
+  filter(PValue < 0.01 #& abs(logFC)>1
+         ) %>%
+  pull(ORF)
+```
+
+
+To run the enrichment, we can use the `enrichKEGG()` function from the `clusterProfiler` package. The argument "gene" for this funciton requires a vector of entrez gene id's. Right now we have a vector of gene IDs, but they are the ORF names instead of entrez IDs, so for most organisms we neeed to convert them.
+
+Thankfully, the `clusterProfiler` package comes with the function `bitr` (Biological Id TRanslator) to translate geneIDs.
+
+Note: the `sce` genome database is coded differently than most genome databases, so it requests the `ORF` instead of the `entrezID`, so we can directly use the DE_genes vector instead of the entrez ID. If you don't work with yeast, you'll probably need to use the entrez ID list. 
+
+```{r}
+# convert gene IDs to entrez IDs
+entrez_ids <- bitr(DE_genes, fromType = "ORF", toType = "ENTREZID", OrgDb = org.Sc.sgd.db)
+
+# Run our KEGG enrichment
+kegg_results <- enrichKEGG(gene = DE_genes, #entrez_ids$ENTREZID, 
+                           organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
+                           )
+
+# take a peak at the results
+head(kegg_results)
+data.frame(kegg_results) %>% View()
+
+
+# Remove " - Saccharomyces cerevesiae" from each description entry
+kegg_results@result$Description <- kegg_results@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
+```
+
+clusterProfiler also let's us visualize these results
+```{r}
+# Plot the KEGG pathway enrichment results
+dotplot(kegg_results, showCategory = 10)
+
+# cnetplot
+cnetplot(kegg_results, categorySize="pvalue", foldChange=res %>% data.frame() %>%
+  filter(PValue < 0.01 #& abs(logFC)>1
+         ) %>% pull(logFC))
+```
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

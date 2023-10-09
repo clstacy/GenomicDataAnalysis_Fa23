@@ -28,7 +28,7 @@ p_load("tidyverse", "knitr", "readr",
 
 # We also need these Bioconductor packages today.
 p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview",
-       "clusterProfiler")# for dotplot
+       "clusterProfiler", "KEGGgraph")# for dotplot
 ```
 
 
@@ -86,12 +86,15 @@ topKEGG(kegg, sort="up")
 
 gene_data_logFC <- res$table %>% dplyr::select(logFC)
 
+fold_change_geneList <- setNames(object = data.frame(res)$logFC,nm = data.frame(res)$ORF)
+head(fold_change_geneList)
+
 
 if (!requireNamespace("pathview", quietly = TRUE))
     BiocManager::install("pathview")
 
 library("pathview")
-test <- pathview(gene.data  = gene_data_logFC,
+test <- pathview(gene.data  = fold_change_geneList,
                      # pathway.id = "sce01100", #metabolic pathways
                      pathway.id = "sce00010", #glycolysis/gluconeogenesis
                      # pathway.id = "sce03050", # proteasome cycle
@@ -100,10 +103,13 @@ test <- pathview(gene.data  = gene_data_logFC,
                      # pathway.id = "sce00030", #PPP
                      species    = "sce",
                      gene.idtype="orf",
-                     expand.node = TRUE,
+                     # expand.node = TRUE,
+                     split.group=T,
                      map.symbol = T,
+                 is.signal=F,
                      kegg.native = F, 
                      match.data = T, 
+                 node.sum='max.abs',
                      multi.state = T, 
                      bins=20,
                      same.layer = F,
@@ -158,9 +164,6 @@ clusterProfiler also let's us visualize these results
 ```{r fig.height=8, fig.width=8}
 # Plot the KEGG pathway enrichment results
 dotplot(kegg_results, showCategory = 10)
-
-fold_change_geneList <- setNames(object = data.frame(res)$logFC,nm = data.frame(res)$ORF)
-head(fold_change_geneList)
 
 # cnetplot
 cnetplot(kegg_results,  
@@ -245,6 +248,254 @@ enrichplot::gseaplot2(gse_kegg, geneSetID = 1:3, pvalue_table = TRUE,
 ```
 
 
+# comparing Paralogs in common pathways
+
+```{r}
+# p_load(KEGGgraph)
+toyKGML <- "~/Documents/GitHub/GenomicDataAnalysis_Fa23/exercises/sce00010.xml"
+toyGraph <- parseKGML2Graph(toyKGML, genesOnly=FALSE)
+toyGraph
+
+nodes(toyGraph)
+
+plot(toyGraph)
+```
+
+```{r}
+p_install("ggkegg",try.bioconductor = TRUE)
+
+p_install_gh("noriakis/ggkegg")
+
+if(require(org.Sc.sgd.db)) {
+  tnodes <- nodes(toprSub)
+  tgeneids <- translateKEGGID2GeneID(tnodes)
+  tgenesymbols <- sapply(mget(tgeneids, org.Hs.egSYMBOL, ifnotfound=NA), "[[")
+  toprSubSymbol <- toprSub
+  nodes(toprSubSymbol) <- tgenesymbols
+  plot(toprSubSymbol, "neato",attrs=list(node=list(font=5, fillcolor="lightblue")))
+}
+                          
+
+
+graph.par(list(nodes=list(col="darkgreen", lty="dotted", lwd=2, fontsize=6)))
+labels <- edgeNames(toyGraph)
+names(labels) <- labels
+
+
+
+layToyGraph <- layoutGraph(toyGraph)
+
+
+renderGraph(layToyGraph)                
+
+graph <- ggkegg::pathway("hsa04110", use_cache=TRUE)
+graph
+```
+
+```{r}
+library(ggkegg)
+p_load(ggfx)
+library(igraph)
+library(tidygraph)
+library(dplyr)
+
+pathway("ko01100",use_cache = TRUE) |>
+  process_reaction() |>
+  highlight_module(module("M00021")) |>
+  highlight_module(module("M00338")) |>
+  ggraph(x=x, y=y) +
+  geom_node_point(size=1, aes(color=I(fgcolor),
+                              filter=fgcolor!="none" & type!="line"))+
+  geom_edge_link0(width=0.1, aes(color=I(fgcolor),
+                                filter=type=="line"& fgcolor!="none"))+
+  with_outer_glow(
+    geom_edge_link0(width=1,
+                   aes(color=I(fgcolor),
+                       filter=(M00021 | M00338))),
+    colour="red", expand=5
+  )+
+  with_outer_glow(
+    geom_node_point(size=1.5,
+                    aes(color=I(fgcolor),
+                        filter=(M00021 | M00338))),
+    colour="red", expand=5
+  )+
+  geom_node_text(size=2,
+                 aes(x=x, y=y,
+                     label=graphics_name,
+                     filter=name=="path:ko00270"),
+                 repel=TRUE, family="sans", bg.colour="white")+
+  theme_void()
+```
+
+```{r}
+
+
+pathway("sce00010",use_cache = TRUE) |>
+  process_line() |>
+  # highlight_module(module("M00021")) |>
+  # highlight_module(module("M00338")) |>
+  ggraph(x=x, y=y) +
+  geom_node_point(size=1, aes(color=I(fgcolor),
+                              filter=fgcolor!="none" & type!="line"))+
+  geom_edge_link0(width=0.1, aes(color=I(fgcolor),
+                                filter=type=="line"& fgcolor!="none"))+
+  with_outer_glow(
+    geom_edge_link0(width=1,
+                   aes(color=I(fgcolor),
+                       filter=(M00021 | M00338))),
+    colour="red", expand=5
+  )+
+  with_outer_glow(
+    geom_node_point(size=1.5,
+                    aes(color=I(fgcolor),
+                        filter=(M00021 | M00338))),
+    colour="red", expand=5
+  )+
+  geom_node_text(size=2,
+                 aes(x=x, y=y,
+                     label=graphics_name,
+                     filter=name=="path:ko00270"),
+                 repel=TRUE, family="sans", bg.colour="white")+
+  theme_void()
+
+
+
+g <- pathway("sce00010")
+pseudo_lfc <- sample(seq(0,3,0.1), length(V(g)), replace=TRUE)
+names(pseudo_lfc) <- V(g)$name
+
+
+
+ggkegg(
+  "sce00010",
+  convert_org = c("pathway", "sce", "ko"),
+  convert_collapse = " ",
+  numeric_attribute = pseudo_lfc
+) +
+  geom_edge_parallel2(
+    aes(color = subtype_name),
+    arrow = arrow(length = unit(1, 'mm')),
+    start_cap = square(1, 'cm'),
+    end_cap = square(1.5, 'cm')
+  ) +
+  geom_node_rect(aes(filter = .data$type == "group"),
+                 fill = "transparent",
+                 color = "red") +
+  geom_node_rect(aes(fill = numeric_attribute,
+                     filter = .data$type == "gene")) +
+  geom_node_text(
+    aes(label = converted_name,
+        filter = .data$type == "gene"),
+    size = 2.5,
+    color = "black"
+  ) +
+  with_outer_glow(
+    geom_node_text(
+      aes(label = converted_name,
+          filter = converted_name == "PCNA"),
+      size = 2.5,
+      color = "red"
+    ),
+    colour = "white",
+    expand = 4
+  ) +
+  scale_edge_color_manual(values = viridis::plasma(11)) +
+  scale_fill_viridis(name = "LFC") +
+  theme_void()
+
+
+kegg_results %>% ggkegg(convert_collapse = ":") +
+  geom_node_point(size=1) +
+  geom_edge_link0()
+
+
+
+
+g <- pathway("ko00520",convert_org = c("pathway","sce"))
+V(g)$color_one <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set1"))(length(V(g)))
+V(g)$color_two <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set2"))(length(V(g)))
+
+ggraph(g, x=x, y=y) +
+  geom_node_rect(aes(xmin=xmin, xmax=x, fill=I(color_one)), alpha=0.5)+
+  geom_node_rect(aes(xmin=x, xmax=xmax, fill=I(color_two)), alpha=0.5)+
+  geom_node_text(size=2,
+                 aes(x=x, y=y,
+                     label=graphics_name#,
+                     # filter=name=="path:ko00270"
+                     ),
+                 # repel=TRUE,
+                 family="sans", bg.colour="white")+
+  # geom_edge_parallel()+
+  ggfx::with_outer_glow(geom_node_text(aes(label=name |> 
+                       strsplit(":") |> 
+                       sapply("[", 2) |>
+                       strsplit(" ") |>
+                       sapply("[", 1),
+                     filter=type=="ortholog"),
+                     size=2), colour="white", expand=1)
+
+
+
+kegg_results |>
+  ggkegg(convert_org = "sce", pathway_number = 2,group_rect_nudge=0) +
+    geom_edge_link(
+    aes(color=subtype_name),
+    arrow = arrow(length = unit(1, 'mm')), 
+    start_cap = square(1, 'cm'),
+    end_cap = square(1.5, 'cm')) + 
+    # geom_node_rect(aes(filter=.data$undefined & !.data$type=="ortholog"),
+    #                fill="transparent", color="red")+
+    geom_node_rect(aes(xmin=xmin*.9, xmax=x*1.1,filter=!.data$undefined &
+                         .data$type=="gene"), fill="white", color="black")+
+    geom_node_text(aes(label=graphics_name,
+                       filter=.data$type == "gene"),
+                   size=1.5,
+                   color="black",family="serif")+
+    with_outer_glow(geom_node_text(aes(label=converted_name,
+                                       filter=.data$enrich_attribute),
+                                   size=2.5, color="red"),
+                    colour="white",
+                    expand=4)+
+    theme_void()
+
+
+
+
+g <- pathway("sce00010",group_rect_nudge=0) |> mutate(conv=convert_id("sce")) ## Obtain pathway graph (don't show grouping rect)
+
+V(g)$color_one <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set1"))(length(V(g)))
+V(g)$color_two <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set2"))(length(V(g)))
+
+V(g)
+
+gg <- ggraph(g, layout="manual", x=x, y=y)+
+  geom_node_point(aes(filter=type=="compound"), color="blue", size=2)+
+  # geom_node_rect(fill="red",aes(filter=type=="ortholog"))+
+  geom_node_rect(aes(filter=type=="ortholog",xmin=xmin, xmax=x, fill=I(color_one)), alpha=0.5)+
+  geom_node_rect(aes(filter=type=="ortholog",xmin=x, xmax=xmax, fill=I(color_two)), alpha=0.5)+
+  overlay_raw_map("sce00010")+
+  geom_node_text(
+    aes(label=graphics_name,
+        filter=type=="gene"),
+    # repel=TRUE,
+    bg.colour="white")+
+  theme_void()
+gg
+
+gg$labels
+
+
+g <- delete_vertex_attr(g, "x")
+g <- delete_vertex_attr(g, "y")
+ggraph(g, layout = "nicely") +
+  geom_node_point(aes(filter=type=="gene" | type=="group"), color="black") +
+  geom_edge_link(aes(color=subtype_name),end_cap=circle(2,"mm"),
+                 start_cap=circle(2,"mm"),
+                     label_dodge = unit(2,"mm"))+
+  geom_node_text(aes(label=conv), repel=TRUE, bg.colour="white")+
+  theme_void()
+```
 
 
 Be sure to knit this file into a pdf or html file once you're finished.

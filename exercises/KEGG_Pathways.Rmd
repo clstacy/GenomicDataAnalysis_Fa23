@@ -29,6 +29,12 @@ p_load("tidyverse", "knitr", "readr",
 # We also need these Bioconductor packages today.
 p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview",
        "clusterProfiler", "KEGGgraph")# for dotplot
+
+library(ggkegg)
+p_load(ggfx)
+library(igraph)
+library(tidygraph)
+library(dplyr)
 ```
 
 
@@ -61,8 +67,9 @@ options(digits=3)
 dir_output_edgeR <-
   path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
 
-# for subsequent analysis, let's save the res object as an R data object.
+# for this, let's load the res objects as an R data object.
 res <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
+res_all <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_all_edgeR.Rds"))
 ```
 
 
@@ -324,11 +331,7 @@ graph
 ```
 
 ```{r}
-library(ggkegg)
-p_load(ggfx)
-library(igraph)
-library(tidygraph)
-library(dplyr)
+# started ggkegg here I think
 
 pathway("ko01100",use_cache = TRUE) |>
   process_reaction() |>
@@ -646,7 +649,7 @@ test <- kegg_results %>%
        # pid="sce00010",
       convert_first = FALSE,
       convert_collapse = "\n",
-    pathway_number = 2,
+    pathway_number = 20,
             convert_org = c("sce"),
             delete_zero_degree = TRUE,
             return_igraph = FALSE)
@@ -673,10 +676,11 @@ tmp <- test$data
 
 
 # where it came from: "https://rest.kegg.jp/list/reaction/"
-KEGG_reactions <- keggList("reaction") |> as.data.frame() |>
-  rownames_to_column("reactionID") |>
-  mutate(reaction = str_split_i(`keggList("reaction")`, ";", 1)) |>
-  select(reactionID, reaction)
+KEGG_reactions <- KEGGREST::keggList("reaction") |> as.data.frame() |>
+  rownames_to_column("reaction") |>
+  mutate(reaction_description = str_split_i(`KEGGREST::keggList("reaction")`, ";", 1)) |>
+  select(reaction, reaction_description) |>
+  mutate(reaction=paste0('rn:', reaction))
 
 tmp |>
   filter(type == "gene") |>
@@ -684,14 +688,87 @@ tmp |>
   mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
   separate_rows(showname, sep = " ") |>
   left_join(rownames_to_column(res$table), by=c("showname" = "rowname")) |>
-  left_join(KEGG_reactions, by=c(""=""))
+  left_join(KEGG_reactions, by="reaction") |>
+  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
+  mutate(gene_name = coalesce(gene_name,showname)) |>
   ggplot(aes(x=x,y=y)) +
-  ggrepel::geom_label_repel(aes(label = showname, fill = logFC), box.padding = 0.0,direction = "y") +
+  overlay_raw_map("sce00020")+
+  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC), box.padding = 0.01,direction = "y",
+                            size=2,max.overlaps = 15#,position=position_jitter()
+                            ) +
   # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
   theme_void() +
-  facet_wrap(~reaction)
+  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
+             # scales = "free") +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")#, limits=c(-6, 6)
+                       )
 ```
+Let's look at the paralogs in glycolysis KEGG pathway
+```{r}
+# 24th path in kegg_results
+glycolysis_KEGG <- kegg_results %>%
+  ggkegg(
+       # pid="sce00010",
+      convert_first = FALSE,
+      convert_collapse = "\n",
+    pathway_number = 24,
+            convert_org = c("sce"),
+            delete_zero_degree = TRUE,
+            return_igraph = FALSE)
 
+
+glycolysis_KEGG$data |>
+  filter(type == "gene") |>
+  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
+  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  separate_rows(showname, sep = " ") |>
+  left_join(rownames_to_column(res$table), by=c("showname" = "rowname")) |>
+  left_join(KEGG_reactions, by="reaction") |>
+  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
+  mutate(gene_name = coalesce(gene_name,showname)) |>
+  ggplot(aes(x=x,y=y)) +
+  overlay_raw_map("sce00010")+
+  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC), box.padding = 0.01,label.padding=0.05,direction = "y",
+                            size=3,max.overlaps = 15,color = "black",label.r=0.01
+                # bg.color = "white",#,position=position_jitter()
+                            ) +
+  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
+  theme_void() +
+  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
+             # scales = "free") +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")#, limits=c(-6, 6)
+                       )
+```
+Try it with the res_all object instead, so we can compare logFC across contrasts.
+```{r}
+glycolysis_KEGG$data |>
+  filter(type == "gene") |>
+  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
+  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  separate_rows(showname, sep = " ") |>
+  left_join(rownames_to_column(res_all$table), by=c("showname" = "rowname")) |>
+  left_join(KEGG_reactions, by="reaction") |>
+  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
+  mutate(gene_name = coalesce(gene_name,showname)) |> #View()
+  ggplot(aes(x=x,y=y)) +
+  overlay_raw_map("sce00010")+
+  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT, color=logFC.EtOHvsMOCK.MSN24dd), box.padding = 0.05,label.padding=0.05,direction = "y",label.size = 1.8,
+                            size=3,max.overlaps = 100,label.r=0.002,seed=123
+                # bg.color = "white",#,position=position_jitter()
+                            ) +
+  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), color="black", box.padding = 0.05,label.padding=0.05,direction = "y",label.size = NA,
+                            size=3,max.overlaps = 100,label.r=0.02,seed=123
+                # bg.color = "white",#,position=position_jitter()
+                            ) +
+  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
+  theme_void() +
+  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
+             # scales = "free") +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)) +
+  scale_color_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)
+                       ) +
+  ggtitle("EtOH response of WT and Msn2/4∆ (border: Msn2/4∆, fill: WT)")
+```
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

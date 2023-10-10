@@ -387,7 +387,15 @@ saveRDS(object = y, file = paste0(dir_output_edgeR, "yeast_y_edgeR.Rds"))
 
 If we want results from all contrasts, we need to loop through them in edgeR, and them combine the results We will look more at the results of this in a later activity.
 ```{r}
-# need to loop to get DE genes in each contrast.
+# One way is to not specify just one contrast, like this:
+res_all <- glmQLFTest(fit, contrast = my.contrasts)
+
+res_all %>% 
+  topTags(n=Inf) %>% 
+  data.frame()
+  head()
+
+# alternatively, we can loop to get DE genes in each contrast.
 # here we are just saving which genes are DE per contrast
 decideTests_edgeR_tmp <- list()
 for (i in 1:ncol(my.contrasts)){
@@ -406,6 +414,9 @@ head(decideTests_edgeR)
 
 # save this file for future analysis
 write_tsv(decideTests_edgeR, "~/Documents/GitHub/GenomicDataAnalysis_Fa23/analysis/yeast_decideTests_allContrasts_edgeR.tsv")
+
+# for subsequent analysis, let's also save the res_all object as an R data object.
+saveRDS(object = res_all, file = paste0(dir_output_edgeR, "yeast_res_all_edgeR.Rds"))
 ```
 
 

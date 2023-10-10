@@ -259,6 +259,37 @@ toyGraph
 nodes(toyGraph)
 
 plot(toyGraph)
+
+test <- ggkegg(#toyGraph,
+       pid="sce00010",
+            # convert_org = c("pathway","eco"),
+            delete_zero_degree = TRUE,
+            return_igraph = TRUE)
+
+ttest <- ggraph(test, layout="stress") 
+ttest$data$type |> unique()
+#> [1] "map"      "compound" "gene"
+ttest + geom_edge_diagonal(
+  aes(color=subtype_name,
+      filter=type!="maplink"))+
+  geom_node_point(
+  aes(filter= !type%in%c("map","compound")),
+    # fill=gg$data[!gg$data$type%in%c("map","compound"),]$bgcolor,
+    color="black",
+    shape=21, size=4
+  )+
+  geom_node_point(
+    aes(filter= !type%in%c("map","gene")),
+    # fill=gg$data[!gg$data$type%in%c("map","gene"),]$bgcolor,
+    color="black",
+    shape=21, size=6
+  )+
+  geom_node_text(
+    aes(label=name,
+        filter=type=="gene"),
+    repel=TRUE,
+    bg.colour="white")+
+  theme_void()
 ```
 
 ```{r}
@@ -495,6 +526,170 @@ ggraph(g, layout = "nicely") +
                      label_dodge = unit(2,"mm"))+
   geom_node_text(aes(label=conv), repel=TRUE, bg.colour="white")+
   theme_void()
+
+
+```
+
+```{r}
+# try TCA instead of glycolysis, see if any paralogs better labelled
+g <- pathway("sce00020",group_rect_nudge=0) |> mutate(conv=convert_id("sce")) ## Obtain pathway graph (don't show grouping rect)
+
+V(g)$color_one <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set1"))(length(V(g)))
+V(g)$color_two <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set2"))(length(V(g)))
+
+V(g)
+
+gg <- ggraph(g, layout="manual", x=x, y=y)+
+  geom_node_point(aes(filter=type=="compound"), color="blue", size=2)+
+  # geom_node_rect(fill="red",aes(filter=type=="ortholog"))+
+  geom_node_rect(aes(filter=type=="ortholog",xmin=xmin, xmax=x, fill=I(color_one)), alpha=0.5)+
+  geom_node_rect(aes(filter=type=="ortholog",xmin=x, xmax=xmax, fill=I(color_two)), alpha=0.5)+
+  # overlay_raw_map("sce00020")+
+  geom_node_text(
+    aes(label=graphics_name,
+        filter=type=="gene"),
+    size=2,
+    # repel=TRUE,
+    bg.colour="white")+
+  theme_void()
+gg
+
+
+
+# let me try again, splitting graphics_name
+graph <- pathway("sce00500")  |> mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) #|>
+  
+graph <- graph |> mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  mutate(showname=strsplit(showname, " ") |>
+                    vapply("[", 1, FUN.VALUE="a"))
+
+
+ggraph(graph, layout="manual", x=x, y=y)+
+    geom_edge_parallel(aes(linetype=subtype_name),
+        arrow=arrow(length=unit(1,"mm"), type="closed"),
+        end_cap=circle(1,"cm"),
+        start_cap=circle(1,"cm"))+
+    geom_node_rect(aes(fill=I(bgcolor),
+                      filter=type == "ortholog"),
+                  color="black")+
+    geom_node_text(aes(label=showname,
+                      filter=type == "ortholog"),
+                  size=2)+
+    theme_void()
+```
+
+
+# making a custom visualization
+```{r}
+
+
+graph <- pathway("sce00500")  |> mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) #|>
+  
+graph <- graph |> mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  mutate(showname=strsplit(showname, " ") |>
+                    vapply("[", 1, FUN.VALUE="a"))
+
+data <- graph |>   mutate(
+    test_orthologs=convert_id("ko", first_arg_sep= FALSE))
+    
+
+
+# i saw here that instead of gene, we can use ortholog as our filter type here.
+ggraph(data, layout="manual", x=x, y=y)+
+    geom_edge_parallel(aes(linetype=subtype_name),
+        arrow=arrow(length=unit(1,"mm"), type="closed"),
+        end_cap=circle(1,"cm"),
+        start_cap=circle(1,"cm"))+
+    overlay_raw_map("sce00500")+
+    geom_node_rect(aes(fill=I(bgcolor),
+                      filter=type == "ortholog"),
+                  color="black")+
+    geom_node_text(aes(label=test_orthologs,
+                      filter=type == "ortholog"),
+                  size=2)+
+    theme_void()
+  
+  
+```
+
+
+
+```{r}
+tst <- ggkegg(
+  pid= "sce00010",
+  return_igraph = TRUE,
+  # convert_org = c("sce", "ko", "pathways"),
+  convert_first = FALSE,
+  # delete_zero_degree = TRUE,
+  # delete_undefined = TRUE
+)
+
+tst
+
+kegg_results %>%
+  ggkegg(#toyGraph,
+       # pid="sce00010",
+      convert_first = FALSE,
+      convert_collapse = "\n",
+    pathway_number = 2,
+            convert_org = c("sce"),
+            delete_zero_degree = TRUE,
+            return_igraph = FALSE)+
+  # geom_node_rect(aes(.data$type=="gene",ymin=y-20, ymax=y+2), position = , fill="white", color="black") +
+  geom_node_text(aes(label=converted_name,
+                       filter=.data$type == "gene"),
+                   size=2.5,
+                   color="black",family="serif") 
+      
+test <- kegg_results %>%
+  ggkegg(
+       # pid="sce00010",
+      convert_first = FALSE,
+      convert_collapse = "\n",
+    pathway_number = 2,
+            convert_org = c("sce"),
+            delete_zero_degree = TRUE,
+            return_igraph = FALSE)
+
+
+test$data$n_genes <- str_count(test$data$name, '\\w+')/2
+# 
+# test +
+#   # geom_node_rect(aes(filter=.data$type=="gene"),fill="white", color="black") +
+#   # geom_node_rect(aes(filter=.data$type=="gene",ymin=y-4*(y-ymin), ymax=ymin, y=y-2.5*(y-ymin)), fill="white", color="black") +
+#   # geom_rect(data)
+#   geom_rect(data = filter(test$data, type=="gene" & n_genes == 1), mapping = aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)) +
+#   geom_rect(data = filter(test$data, type=="gene" & n_genes == 1),mapping = aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)) +
+#   geom_node_text(aes(label=converted_name,
+#                        filter=.data$type == "gene"),
+#                    size=2.5,
+#                    color="black",family="serif")
+
+
+
+res
+
+tmp <- test$data
+
+
+# where it came from: "https://rest.kegg.jp/list/reaction/"
+KEGG_reactions <- keggList("reaction") |> as.data.frame() |>
+  rownames_to_column("reactionID") |>
+  mutate(reaction = str_split_i(`keggList("reaction")`, ";", 1)) |>
+  select(reactionID, reaction)
+
+tmp |>
+  filter(type == "gene") |>
+  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
+  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  separate_rows(showname, sep = " ") |>
+  left_join(rownames_to_column(res$table), by=c("showname" = "rowname")) |>
+  left_join(KEGG_reactions, by=c(""=""))
+  ggplot(aes(x=x,y=y)) +
+  ggrepel::geom_label_repel(aes(label = showname, fill = logFC), box.padding = 0.0,direction = "y") +
+  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
+  theme_void() +
+  facet_wrap(~reaction)
 ```
 
 

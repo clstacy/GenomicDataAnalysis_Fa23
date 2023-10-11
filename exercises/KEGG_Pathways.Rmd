@@ -29,14 +29,8 @@ p_load("tidyverse", "knitr", "readr",
 # We also need these Bioconductor packages today.
 p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview",
        "clusterProfiler", "KEGGgraph", "ggkegg", "patchwork",
-       "igraph", "tidygraph", "ggfx")# for dotplot
+       "igraph", "tidygraph", "ggfx")
 
-# library(ggkegg)
-# p_load(ggfx)
-# library(igraph)
-# library(tidygraph)
-# library(dplyr)
-# library(patchwork)
 ```
 
 
@@ -52,6 +46,7 @@ At the end of this exercise, you should be able to:
 -   Understand the basics of KEGG pathways.
 -   Learn how to retrieve and analyze pathway information using R.
 -   Apply KEGG analysis to genomic data.
+-   Identify paralog differences within KEGG pathways
 
 
 ```{r load-libraries}
@@ -63,7 +58,6 @@ options(digits=3)
 
 # Loading in the edgeR DE gene file output.
 
-
 ```{r save-res}
 # Choose topTags destination
 dir_output_edgeR <-
@@ -71,38 +65,76 @@ dir_output_edgeR <-
 
 # for this, let's load the res objects as an R data object.
 res <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
-res_all <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_all_edgeR.Rds"))
+
+# the below code downloads the file from the internet if you don't have in on your computer
+# comment out the above line of code if it gives an error.
+if (!exists("res", envir = .GlobalEnv)) {
+  # If variable doesn't exist, load from
+  url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
+  res <- read_rds(url)
+  # assign("res", data, envir = .GlobalEnv)
+  cat(paste("Loaded res from", url, "\n"))
+  rm("url", envir = .GlobalEnv)
+} else {
+  url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
+  cat(paste("res object is already loaded. Skipping loading from", url, "\n"))
+  rm("url", envir = .GlobalEnv)
+}
+
+# let's also get the res object for all of the contrasts at once, (from GitHub)
+res_all <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds")
 ```
 
 
+# KEGG Analysis
 
-# KEGG
+Recall that the `res` object from the `edgeR` Differential Expression analysis was defined as `glmQLFTest(fit, contrast = my.contrasts[,"EtOHvsWT.MSN24ddvsWT"])`. In other words, we are looking at the difference in the ethanol stress response of the Msn2/4∆∆ mutant and the WT cells. Recall that positive log2 fold changes correspond to relatively higher expression of that gene in the Msn2/4∆∆ mutant cells in response stress compared to how WT cells change during stress.
 
-First, let's do a simple KEGG enrichment with the limma package, using the function `kegga()`. This approach is nice, because we can directly load in the `res` object we created in the `edgeR` workflow, set our FDR cutoff, and the process happens automatically.
+## A quick and dirty approach
+
+One approach is to do a simple KEGG enrichment with the `limma` package, using the function `kegga()`. This approach is nice, because we can directly load in the `res` object we created in the `edgeR` workflow, set our FDR cutoff, and the process happens automatically. See https://www.kegg.jp/kegg/catalog/org_list.html or https://rest.kegg.jp/list/organism for list of organisms available.
 
 ```{r}
-# alias2Symbol()
+# test for overrepresentation of KEGG pathways in given gene list
+k <- kegga(res,
+           species.KEGG = "sce",# three-letter KEGG species identifier.
+           FDR = 0.01) #FDR cutoff we want in deciding which genes to include.
 
-# go <- goana(res, species.KEGG="sce")
-# topGO(go, n=10)
-
-# from limma, there is the 
-kegg <- kegga(res, species.KEGG="sce", FDR=0.01,
-      plot=T)
-
-topKEGG(kegg, sort="up")
-
-
-gene_data_logFC <- res$table %>% dplyr::select(logFC)
-
-fold_change_geneList <- setNames(object = data.frame(res)$logFC,nm = data.frame(res)$ORF)
-head(fold_change_geneList)
+# we can see the p-value results for both up & down enrichment
+k
+```
+Interesting, but note those are in order of the pathway ID, which are the left-most rowname values above.
+If we want to sort the rows based on their significance, we can use the `topKEGG` function to do so, like this:
+```{r}
+# extract the top KEGG pathways from kegg output
+topKEGG(k, sort="up")
+```
+Notice I chose to sort on p-value for the "upregulated" genes (aka higher in the mutant). We could change "up" to "down" in the code above to sort on the other column.
 
 
+## Pathway Visualization
+
+So, we've found out which KEGG pathways are enriched in our gene list for this comparison. A common thing we will want to do is visualize those enriched pathways.  The Bioconductor package `pathview` allows us to visualize these pathways.
+```{r}
 if (!requireNamespace("pathview", quietly = TRUE))
     BiocManager::install("pathview")
 
 library("pathview")
+
+
+# save the logFC values from res object to a new variable
+gene_data_logFC <- res$table %>% dplyr::select(logFC)
+
+# put the ORF names as names for each entry
+fold_change_geneList <- setNames(object = data.frame(res)$logFC,nm = data.frame(res)$ORF)
+
+# we can see what this look like with head()
+head(fold_change_geneList)
+```
+
+
+```{r}
+
 test <- pathview(gene.data  = fold_change_geneList,
                      # pathway.id = "sce01100", #metabolic pathways
                      pathway.id = "sce00010", #glycolysis/gluconeogenesis
@@ -125,6 +157,12 @@ test <- pathview(gene.data  = fold_change_geneList,
                      pdf.size=c(7,7),
                      limit = list(gene=5, cpd=1))
 ```
+
+
+
+In addition to just the genes which are included in the list of signficant genes for the KEGG pathway, we might also want to see the magnitude of fold change those 
+
+
 
 
 

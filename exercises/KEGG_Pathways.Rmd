@@ -35,6 +35,7 @@ p_load(ggfx)
 library(igraph)
 library(tidygraph)
 library(dplyr)
+library(patchwork)
 ```
 
 
@@ -711,7 +712,7 @@ glycolysis_KEGG <- kegg_results %>%
        # pid="sce00010",
       convert_first = FALSE,
       convert_collapse = "\n",
-    pathway_number = 24,
+    pathway_number = 24, # the 24th entry in kegg_results is glycolysis, change this to change the pathway.
             convert_org = c("sce"),
             delete_zero_degree = TRUE,
             return_igraph = FALSE)
@@ -769,6 +770,102 @@ glycolysis_KEGG$data |>
                        ) +
   ggtitle("EtOH response of WT and Msn2/4∆ (border: Msn2/4∆, fill: WT)")
 ```
+
+Side by side of the WT EtOH response and the Msn2/4∆∆ EtOH response
+```{r fig.height=5.5, fig.width=8}
+set.seed=123
+pathway_to_graph <- "sce00010" #glycolysis/gluconeogenesis
+
+pathway_number <- kegg_results %>% 
+  data.frame() |> 
+  mutate(row_number = row_number()) |> 
+  filter(ID == pathway_to_graph) %>%
+  pull(row_number)
+
+KEGG_data <- kegg_results %>%
+  ggkegg(
+       # pid="sce00010",
+      convert_first = FALSE,
+      convert_collapse = "\n",
+    pathway_number = pathway_number, # the 24th entry in kegg_results is glycolysis, changing this to change the pathway.
+            convert_org = c("sce"),
+            delete_zero_degree = TRUE,
+            return_igraph = FALSE)
+
+WT.glycolysis.graph <- KEGG_data$data |>
+  filter(type == "gene") |>
+  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
+  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  separate_rows(showname, sep = " ") |>
+  left_join(rownames_to_column(res_all$table), by=c("showname" = "rowname")) |>
+  left_join(KEGG_reactions, by="reaction") |>
+  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
+  mutate(gene_name = coalesce(gene_name,showname)) |> #View()
+  ggplot(aes(x=x,y=y)) +
+  overlay_raw_map(pathway_to_graph)+
+  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), box.padding = 0.05,label.padding=0.05,direction = "y",#label.size = 1.8,
+                            size=2,max.overlaps = 100,label.r=0.002,seed=123
+                # bg.color = "white",#,position=position_jitter()
+                            ) +
+  # ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), color="black", box.padding = 0.05,label.padding=0.05,direction = "y",label.size = NA,
+  #                           size=3,max.overlaps = 100,label.r=0.02,seed=123
+                # bg.color = "white",#,position=position_jitter()
+                            # ) +
+  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
+  theme_void() +
+  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
+             # scales = "free") +
+  scale_fill_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")), limits=c(-10.5,10.5)
+                       ) +
+  # 
+  # scale_color_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)
+                       # ) +
+  # theme(plot.margin=margin(l=-0.8,unit="cm"), legend.margin = margin(l=-0.8,unit="cm")) +
+  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")#,legend.position="none"
+        ) +
+  labs(fill="logFC", title="      WT Response to Ethanol")
+
+msn24.glycolysis.graph <- glycolysis_KEGG$data |>
+  filter(type == "gene") |>
+  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
+  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
+  separate_rows(showname, sep = " ") |>
+  left_join(rownames_to_column(res_all$table), by=c("showname" = "rowname")) |>
+  left_join(KEGG_reactions, by="reaction") |>
+  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
+  mutate(gene_name = coalesce(gene_name,showname)) |> #View()
+  ggplot(aes(x=x,y=y)) +
+  overlay_raw_map(pathway_to_graph)+
+  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.MSN24dd), box.padding = 0.05,label.padding=0.05,direction = "y",#label.size = 1.8,
+                            size=2,max.overlaps = 100,label.r=0.002,seed=123
+                # bg.color = "white",#,position=position_jitter()
+                            ) +
+  # ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), color="black", box.padding = 0.05,label.padding=0.05,direction = "y",label.size = NA,
+  #                           size=3,max.overlaps = 100,label.r=0.02,seed=123
+                # bg.color = "white",#,position=position_jitter()
+                            # ) +
+  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
+  theme_void() +
+  guides(fill = FALSE) +
+  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
+             # scales = "free") +
+  scale_fill_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")), limits=c(-10.5,10.5)
+                       ) +
+  # scale_color_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)
+                       # )
+  
+  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+  labs(fill="logFC", title="      Msn2/4∆∆ Response to Ethanol")
+
+
+
+
+WT.glycolysis.graph + msn24.glycolysis.graph +
+  patchwork::plot_annotation(tag_levels = 'A')# & 
+  # theme(plot.tag = element_text(size = 8))
+
+```
+
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

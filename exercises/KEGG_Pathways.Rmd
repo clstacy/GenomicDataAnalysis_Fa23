@@ -28,14 +28,15 @@ p_load("tidyverse", "knitr", "readr",
 
 # We also need these Bioconductor packages today.
 p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview",
-       "clusterProfiler", "KEGGgraph")# for dotplot
+       "clusterProfiler", "KEGGgraph", "ggkegg", "patchwork",
+       "igraph", "tidygraph", "ggfx")# for dotplot
 
-library(ggkegg)
-p_load(ggfx)
-library(igraph)
-library(tidygraph)
-library(dplyr)
-library(patchwork)
+# library(ggkegg)
+# p_load(ggfx)
+# library(igraph)
+# library(tidygraph)
+# library(dplyr)
+# library(patchwork)
 ```
 
 
@@ -772,9 +773,13 @@ glycolysis_KEGG$data |>
 ```
 
 Side by side of the WT EtOH response and the Msn2/4∆∆ EtOH response
-```{r fig.height=5.5, fig.width=8}
+```{r}
 set.seed=123
 pathway_to_graph <- "sce00010" #glycolysis/gluconeogenesis
+# pathway_to_graph <- "sce00020" # TCA cycle
+# pathway_to_graph <- "sce04213" #longevity
+# pathway_to_graph <- "sce00500" # starch & sucrose metabolism
+# pathway_to_graph <- "sce00620" # pyruvate metabolism
 
 pathway_number <- kegg_results %>% 
   data.frame() |> 
@@ -784,15 +789,16 @@ pathway_number <- kegg_results %>%
 
 KEGG_data <- kegg_results %>%
   ggkegg(
-       # pid="sce00010",
-      convert_first = FALSE,
-      convert_collapse = "\n",
-    pathway_number = pathway_number, # the 24th entry in kegg_results is glycolysis, changing this to change the pathway.
-            convert_org = c("sce"),
-            delete_zero_degree = TRUE,
-            return_igraph = FALSE)
+    # pid="sce00010",
+    convert_first = FALSE,
+    convert_collapse = "\n",
+    pathway_number = pathway_number, # changing this to change the pathway.
+    convert_org = c("sce"),
+    delete_zero_degree = TRUE,
+    return_igraph = FALSE
+  )
 
-WT.glycolysis.graph <- KEGG_data$data |>
+WT.graph <- KEGG_data$data |>
   filter(type == "gene") |>
   mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
   mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
@@ -825,7 +831,7 @@ WT.glycolysis.graph <- KEGG_data$data |>
         ) +
   labs(fill="logFC", title="      WT Response to Ethanol")
 
-msn24.glycolysis.graph <- glycolysis_KEGG$data |>
+msn24.graph <- KEGG_data$data |>
   filter(type == "gene") |>
   mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
   mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
@@ -860,7 +866,7 @@ msn24.glycolysis.graph <- glycolysis_KEGG$data |>
 
 
 
-WT.glycolysis.graph + msn24.glycolysis.graph +
+WT.graph + msn24.graph +
   patchwork::plot_annotation(tag_levels = 'A')# & 
   # theme(plot.tag = element_text(size = 8))
 

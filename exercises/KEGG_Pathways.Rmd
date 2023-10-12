@@ -1,8 +1,14 @@
 ---
-title: "Differential Expression Analysis with EdgeR"
+title: "KEGG Pathways and Enrichment Analysis"
 author: "Carson Stacy & Jeffrey Lewis"
 date: "Fall 2023"
-output: html_document
+output:
+  html_document:
+    code_folding: show
+    embed-resources: true
+editor_options:
+  markdown:
+    wrap: 72
 ---
 
 last updated: `r Sys.Date()`
@@ -12,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 set.seed("1492")
 ```
 
-# Getting Things Setup
+## Getting Things Ready
 
 As usual, make sure we have the right packages for this exercise
 
@@ -24,7 +30,9 @@ p_load("tidyverse", "knitr", "readr",
        "pander", "BiocManager", 
        "dplyr", "stringr", 
        "purrr", # for working with lists (beautify column names)
-       "reactable") # for pretty tables.
+       "reactable", # for pretty tables.
+       "BiocFileCache" # for saving downloaded data files
+       ) 
 
 # a package from github to install (using pacman library to install)
 p_install_gh("noriakis/ggkegg")
@@ -392,7 +400,7 @@ cnetplot(kegg_results,
                          category_label=0.5), 
          max.overlaps=100) +
   # change the color scale
-  scale_colour_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), limits=c(-6, 6)) +
+  scale_colour_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")), limits=c(-6, 6)) +
   labs(colour="logFC")
 
 # circular cnetplot
@@ -405,7 +413,7 @@ cnetplot(kegg_results,
                          category_label=0.5), 
          max.overlaps=100) +
   # change the color scale
-  scale_colour_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), limits=c(-6, 6)) +
+  scale_colour_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")), limits=c(-6, 6)) +
   labs(colour="logFC")
 ```
 

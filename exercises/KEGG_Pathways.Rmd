@@ -26,11 +26,15 @@ p_load("tidyverse", "knitr", "readr",
        "purrr", # for working with lists (beautify column names)
        "reactable") # for pretty tables.
 
-# We also need these Bioconductor packages today.
-p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "pathview",
-       "clusterProfiler", "KEGGgraph", "ggkegg", "patchwork",
-       "igraph", "tidygraph", "ggfx")
+# a package from github to install (using pacman library to install)
+p_install_gh("noriakis/ggkegg")
 
+# We also need these Bioconductor packages today.
+p_load("edgeR", 
+       "AnnotationDbi", "org.Sc.sgd.db", 
+       "pathview","clusterProfiler", "ggupset",
+       "KEGGgraph", "ggkegg", "patchwork",
+       "igraph", "tidygraph", "ggfx")
 ```
 
 
@@ -58,7 +62,7 @@ options(digits=3)
 
 # Loading in the edgeR DE gene file output.
 
-```{r save-res}
+```{r load-res}
 # Choose topTags destination
 dir_output_edgeR <-
   path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
@@ -94,7 +98,7 @@ Recall that the `res` object from the `edgeR` Differential Expression analysis w
 
 One approach is to do a simple KEGG enrichment with the `limma` package, using the function `kegga()`. This approach is nice, because we can directly load in the `res` object we created in the `edgeR` workflow, set our FDR cutoff, and the process happens automatically. See https://www.kegg.jp/kegg/catalog/org_list.html or https://rest.kegg.jp/list/organism for list of organisms available.
 
-```{r}
+```{r kegga-enrichment}
 # test for overrepresentation of KEGG pathways in given gene list
 k <- kegga(res,
            species.KEGG = "sce",# three-letter KEGG species identifier.
@@ -105,36 +109,51 @@ k
 ```
 Interesting, but note those are in order of the pathway ID, which are the left-most rowname values above.
 If we want to sort the rows based on their significance, we can use the `topKEGG` function to do so, like this:
-```{r}
+```{r findTop-kegga}
 # extract the top KEGG pathways from kegg output
-topKEGG(k, sort="up")
+topKEGG(k, sort="down")
 ```
-Notice I chose to sort on p-value for the "upregulated" genes (aka higher in the mutant). We could change "up" to "down" in the code above to sort on the other column.
+Notice I chose to sort on p-value for the "downregulated" genes (aka lower in the mutant). We could change "down" to "up" in the code above to sort on the other column.
 
 
 ## Pathway Visualization
 
-So, we've found out which KEGG pathways are enriched in our gene list for this comparison. A common thing we will want to do is visualize those enriched pathways.  The Bioconductor package `pathview` allows us to visualize these pathways.
-```{r}
+So, we've found out which KEGG pathways are enriched in our gene list for this comparison. A common thing we will want to do is visualize those enriched pathways.  The Bioconductor package `pathview` allows us to visualize these pathways. If you prefer web based tools, it has a free web version at: https://pathview.uncc.edu
+
+In addition to just the genes that are DE, we can also include information about their changes by coloring the corresponding parts of the graph accordingly.
+
+```{r prepare-geneList}
+# this makes sure you have pathview and tries to install it if you don't
 if (!requireNamespace("pathview", quietly = TRUE))
     BiocManager::install("pathview")
-
 library("pathview")
 
-
-# save the logFC values from res object to a new variable
+# save the logFC values from the res object to a new variable
 gene_data_logFC <- res$table %>% dplyr::select(logFC)
 
 # put the ORF names as names for each entry
-fold_change_geneList <- setNames(object = data.frame(res)$logFC,nm = data.frame(res)$ORF)
+fold_change_geneList <- setNames(object = data.frame(res)$logFC,
+                                 nm = data.frame(res)$ORF)
 
 # we can see what this look like with head()
 head(fold_change_geneList)
 ```
 
 
-```{r}
+```{r generate-pathImage}
+# the pathview command saves the file to your current directory.
+# let's create a place for that information to go.
+path_to_kegg_images <- "~/Desktop/Genomic_Data_Analysis/Analysis/KEGG/"
+if (!dir.exists(path_to_kegg_images)) {
+  dir.create(path_to_kegg_images, recursive = TRUE)
+}
 
+# move to this place so images save there.
+setwd(path_to_kegg_images)
+
+# now, we can run the pathview command.
+# you can try changing the pathway.id below to one of the shown examples
+# this will let you see the different pathways.
 test <- pathview(gene.data  = fold_change_geneList,
                      # pathway.id = "sce01100", #metabolic pathways
                      pathway.id = "sce00010", #glycolysis/gluconeogenesis
@@ -147,10 +166,10 @@ test <- pathview(gene.data  = fold_change_geneList,
                      # expand.node = TRUE,
                      split.group=T,
                      map.symbol = T,
-                 is.signal=F,
+                     is.signal=F,
                      kegg.native = F, 
                      match.data = T, 
-                 node.sum='max.abs',
+                     node.sum='max.abs', # this determines how to choose which gene to show.
                      multi.state = T, 
                      bins=20,
                      same.layer = F,
@@ -158,32 +177,32 @@ test <- pathview(gene.data  = fold_change_geneList,
                      limit = list(gene=5, cpd=1))
 ```
 
+Of course, you might want more control over the process. In that case, we can use another package. For example, we could use `clusterProfiler` that we've used before. If you want to learn more, this is a useful guide: https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-kegg.html. In this analysis, we need to manually select the genes that we want to run KEGG enrichment on, and save that character vector of gene names.
 
-
-In addition to just the genes which are included in the list of signficant genes for the KEGG pathway, we might also want to see the magnitude of fold change those 
-
-
-
-
-
-Of course, you might want more control over the process. In that case, we can use another package. For example, we could use `clusterProfiler`. In this case, we need to manually select the genes that we want to run KEGG enrichment on.
-
-```{r}
+```{r define-DEgenes}
 # turn res object into a list of genes
-DE_genes <- res %>% data.frame() %>%
+# Recall that these genes are those that are DE between mutant stress response and
+# the WT stress response.
+DE_genes <- res %>% 
+  data.frame() %>%
   filter(PValue < 0.01 & abs(logFC)>0.5
          ) %>%
   pull(ORF)
 ```
 
 
-To run the enrichment, we can use the `enrichKEGG()` function from the `clusterProfiler` package. The argument "gene" for this funciton requires a vector of entrez gene id's. Right now we have a vector of gene IDs, but they are the ORF names instead of entrez IDs, so for most organisms we neeed to convert them.
+To run the enrichment, we can use the `enrichKEGG()` function from the `clusterProfiler` package. The argument "gene" for this function requires a vector of Entrez gene id's. Right now we have a vector of gene IDs, but they are the ORF names instead of entrez IDs, so for most organisms we need to convert them.
+
+```{r find-yourOrganism}
+# how can we find our organism & its code? try this clusterProfiler command:
+search_kegg_organism('yeast', by='common_name')
+```
 
 Thankfully, the `clusterProfiler` package comes with the function `bitr` (Biological Id TRanslator) to translate geneIDs.
 
-Note: the `sce` genome database is coded differently than most genome databases, so it requests the `ORF` instead of the `entrezID`, so we can directly use the DE_genes vector instead of the entrez ID. If you don't work with yeast, you'll probably need to use the entrez ID list. 
+Note: the `sce` genome database is coded differently than many genome databases, so it requests the `ORF` instead of the `entrezID`, so we can directly use the DE_genes vector instead of the entrez ID. If you don't work with yeast, you'll probably need to use the entrez ID list for analyses that you do on your own.
 
-```{r}
+```{r enrich-kegg}
 # convert gene IDs to entrez IDs
 entrez_ids <- bitr(DE_genes, fromType = "ORF", toType = "ENTREZID", OrgDb = org.Sc.sgd.db)
 
@@ -194,24 +213,176 @@ kegg_results <- enrichKEGG(gene = DE_genes, #entrez_ids$ENTREZID,
 
 # take a peak at the results
 head(kegg_results)
-data.frame(kegg_results) %>% View()
+
+# create a table for the html file
+data.frame(kegg_results) %>% reactable()
 
 
 # Remove " - Saccharomyces cerevesiae" from each description entry
 kegg_results@result$Description <- kegg_results@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
 ```
-The first way we might want to visualize this plot is part of a KEGG pathway. We can open an html window with genes that are enriched highlighted, like this:
-```{r}
-browseKEGG(kegg_results, 'sce00500')
-browseKEGG(kegg_results, 'sce04213')
+
+## Visualize on the KEGG website
+The first way we might want to visualize this plot is part of a KEGG pathway. We can open an html window with genes that are enriched highlighted, like this. Run one of these lines below and it will open a new window in your browser.
+```{r open-KEGGbrowser}
+browseKEGG(kegg_results, 'sce00500')  # starch & sucrose metabolism
+browseKEGG(kegg_results, 'sce04213')  # longevity
 ```
 
 
-clusterProfiler also let's us visualize these results
-```{r fig.height=8, fig.width=8}
+# Comparing Paralogs in common pathways
+
+Using the `res_all` object instead, we can compare logFC across contrasts.
+We can create a side by side of the WT EtOH response and the Msn2/4∆∆ EtOH response.
+```{r graphing-paralogs, warning=FALSE}
+# choose the pathway we want to visualize:
+
+pathway_to_graph <- "sce00010" # glycolysis/gluconeogenesis
+# pathway_to_graph <- "sce00020" # TCA cycle
+# pathway_to_graph <- "sce04213" # longevity
+# pathway_to_graph <- "sce00500" # starch & sucrose metabolism
+# pathway_to_graph <- "sce00620" # pyruvate metabolism
+
+# get the ID for the pathway we want to see
+pathway_number <- kegg_results %>%
+  data.frame() %>%
+  mutate(row_number = row_number()) %>%
+  filter(ID == pathway_to_graph) %>%
+  pull(row_number)
+
+
+# this saves the kegg list reaction mappings to KEGG_reactions for plotting
+# where these came from: "https://rest.kegg.jp/list/reaction/"
+if (!exists("KEGG_reactions")) {
+  # save the kegglist reaction infromation
+  KEGG_reactions <- KEGGREST::keggList("reaction") %>%
+    as.data.frame() 
+  colnames(KEGG_reactions) <- "long_reaction_description"
+  KEGG_reactions <- KEGG_reactions %>%
+    tibble::rownames_to_column("reaction") %>%
+    dplyr::mutate(reaction_description = str_split_i(
+      long_reaction_description, ";", 1)
+      ) %>%
+    dplyr::select(reaction, reaction_description) %>%
+    dplyr::mutate(reaction = paste0('rn:', reaction))
+}
+
+# save the kegg_data as a ggkegg object
+KEGG_data <- kegg_results %>%
+  ggkegg(
+    convert_first = FALSE,
+    convert_collapse = "\n",
+    pathway_number = pathway_number, # changing this to change the pathway.
+    convert_org = c("sce"),
+    delete_zero_degree = TRUE,
+    return_igraph = FALSE
+  )
+
+# process thsi data to visualize
+graph.data <- KEGG_data$data %>%
+  filter(type == "gene") %>%
+  mutate(showname = strsplit(name, " ") %>% str_remove_all("sce:")) %>%
+  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) %>%
+  separate_rows(showname, sep = " ") %>%
+  left_join(rownames_to_column(res_all$table),
+            by = c("showname" = "rowname")) %>%
+  left_join(KEGG_reactions, by = "reaction") %>%
+  mutate(gene_name = AnnotationDbi::select(org.Sc.sgd.db, 
+                                           keys = showname, 
+                                           columns = "GENENAME")$GENENAME) %>%
+  mutate(gene_name = coalesce(gene_name, showname))
+
+# find our fc values needed for color scale
+max_fc <-
+  ceiling(max(c(
+    abs(graph.data$logFC.EtOHvsMOCK.MSN24dd),
+    abs(graph.data$logFC.EtOHvsMOCK.WT)
+  ), na.rm = TRUE))
+
+# create graph for WT stress response
+WT.graph <- graph.data %>%
+  ggplot(aes(x = x, y = y)) +
+  overlay_raw_map(pathway_to_graph) +
+  ggrepel::geom_label_repel(
+    aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT),
+    box.padding = 0.05,
+    label.padding = 0.05,
+    direction = "y",
+    size = 2,
+    max.overlaps = 100,
+    label.r = 0.002,
+    seed = 123
+  ) +
+  theme_void() +
+  scale_fill_gradientn(
+    colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")),
+    limits = c(-max_fc, max_fc)
+  ) +
+  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+  labs(fill = "logFC", title = "      WT Response to Ethanol")
+
+# create graph for mutant stress response
+msn24.graph <- graph.data %>%
+  ggplot(aes(x = x, y = y)) +
+  overlay_raw_map(pathway_to_graph) +
+  ggrepel::geom_label_repel(
+    aes(label = gene_name, fill = logFC.EtOHvsMOCK.MSN24dd),
+    box.padding = 0.05,
+    label.padding = 0.05,
+    direction = "y",
+    size = 2,
+    max.overlaps = 100,
+    label.r = 0.002,
+    seed = 123
+  ) +
+  theme_void() +
+  guides(fill = FALSE) +
+  scale_fill_gradientn(
+    colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")),
+    limits = c(-max_fc, max_fc)
+  ) +
+  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+  labs(fill = "logFC", title = "      Msn2/4∆∆ Response to Ethanol")
+
+
+
+# generate the graph
+side_by_side_graph <- WT.graph + msn24.graph +
+  patchwork::plot_annotation(tag_levels = 'A')
+
+# display the graph
+side_by_side_graph
+```
+
+Once we are happy with our graph. We might want to save it. We can save it like this
+```{r save-graph, warning=FALSE}
+# command to save
+ggsave(paste0(path_to_kegg_images,pathway_to_graph,".sidebyside.pdf"), 
+       plot = side_by_side_graph,
+       device = "pdf",
+       width=10,
+       height=6,
+       dpi=300
+       )
+```
+
+# Additional KEGG-related analyses
+
+clusterProfiler let's us visualize the output of `enrichKEGG()`, that we named as `kegg_results` in this exercise, using the `res` object. 
+
+## Dotplot
+
+We can create a dotplot from this object as shown below. The dotplot shows KEGG categories that are enriched, the adjusted p.values, the number of genes in the KEGG category, and the proportion of genes in the KEGG pathway that are included in the DE gene list.
+```{r kegg-dotplot, fig.height=8, fig.width=8}
 # Plot the KEGG pathway enrichment results
 dotplot(kegg_results, showCategory = 10)
+```
 
+## cnetplot
+
+The `dotplot()` only shows the most significant or selected enriched terms, while we may want to know which genes are involved in these significant terms. In order to consider the potentially biological complexities in which a gene may belong to multiple annotation categories and provide log2FC information, we can use the `cnetplot()` function to extract the complex association. The `cnetplot()` depicts the linkages of genes and KEGG pathways as a network. We can project the network into 2D space, or we can create a circular version of the graph. See each below.
+
+```{r kegg-cnetplot, fig.height=8, fig.width=8}
 # cnetplot
 cnetplot(kegg_results,  
          showCategory=10,
@@ -224,7 +395,7 @@ cnetplot(kegg_results,
   scale_colour_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), limits=c(-6, 6)) +
   labs(colour="logFC")
 
-# circulate cnetplot
+# circular cnetplot
 cnetplot(kegg_results,  
          showCategory=6,
          circular=TRUE, # this changes the output graphing
@@ -236,28 +407,52 @@ cnetplot(kegg_results,
   # change the color scale
   scale_colour_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), limits=c(-6, 6)) +
   labs(colour="logFC")
+```
 
+
+## heatplot
+
+The `heatplot` is similar to `cnetplot`, while displaying the relationships as a heatmap. The gene-concept network may become too complicated if you want to show a large number significant terms. The heatplot can simplify the result and more easy to identify expression patterns.
+
+```{r kegg-heatplot, fig.height=8, fig.width=8}
 # heatplot
-heatplot(kegg_results, showCategory=18, foldChange = fold_change_geneList)
-
-
+heatplot(kegg_results, showCategory=10, foldChange = fold_change_geneList) +
+  # the below code hides the messy overlapping gene names.
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 ```
 
-emapplot
-```{r}
+## upsetplot
+
+The `upsetplot` shows the the overlaps and unique contributions of KEGG pathways across multiple gene sets. It helps to identify which KEGG pathways are shared or distinct between different conditions or experimental groups, providing insights into the common and specific KEGG pathways enriched in each set of genes. Here, the bars show number of genes in the category.
+
+```{r kegg-enrichplot}
+enrichplot::upsetplot(kegg_results)
+```
+
+## emapplot
+
+The `emmapplot` enrichment map organizes enriched terms into a network with edges connecting overlapping gene sets. In this way, mutually overlapping gene sets are tend to cluster together, making it easy to identify functional modules.
+
+The `emapplot` function supports results obtained from hypergeometric test and gene set enrichment analysis. We have to first use the `pairwise_termsim` function from the `enrichplot` package on the `kegg_results` object in order to get a similarity matrix.
+```{r kegg-emmapplot}
 x2 = enrichplot::pairwise_termsim(kegg_results)
-emapplot(x2, showCategory = 30,cex_label_category = 0.4,)
+emapplot(x2, 
+         showCategory = 30,
+         cex.params = list(category_label = 0.4))
 ```
 
 
-## KEGG pathway gene set enrichment analysis
+# GSEA
 
-```{r}
+KEGG pathway gene set enrichment analysis allows us to identify whether a particular set of genes associated with a KEGG pathway is enriched in a given gene list compared to what would be expected by chance.
+```{r gse-analysis}
 # For gseKEGG, we need a gene list with na removed and sorted. let's do that now.
 # omit any NA values 
 kegg_gene_list = na.omit(fold_change_geneList)
 
-# sort the list in decreasing order (required for clusterProfiler)
+# sort the list in decreasing order by FOLD CHANGE (required for this analysis)
 kegg_gene_list = sort(kegg_gene_list, decreasing = TRUE)
 
 gse_kegg <- gseKEGG(geneList     = kegg_gene_list,
@@ -266,18 +461,67 @@ gse_kegg <- gseKEGG(geneList     = kegg_gene_list,
                pvalueCutoff = 0.05,
                verbose      = FALSE)
 head(gse_kegg)
-
-View(data.frame(gse_kegg))
-
-
-# replace gse_kegg too long of names
-gse_kegg@result$Description <- gse_kegg@result$Description %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
 ```
-visualize those results
-```{r fig.height=6}
+
+```{r gse-tableResults}
+# let's turn this into a searchable table for the knit file.
+data.frame(gse_kegg) %>% reactable()
+
+# shorten the gse_kegg descriptions that are too long
+gse_kegg@result$Description <- gse_kegg@result$Description %>% 
+  str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
+```
+
+## `gseKEGG` vs `enrichKEGG`
+
+What is the difference, and when to use each?
+
+Both `gseKEGG` and `enrichKEGG` functions are used for gene set enrichment analysis (GSEA) focusing on KEGG pathways, but they have different underlying methodologies and purposes.
+
+1. gseKEGG:
+
+    Methodology:
+        Gene Set Test (GSE): `gseKEGG` employs a gene set test approach. It calculates an enrichment score for each KEGG pathway based on the distribution of genes within the pathway in the ranked list of genes (usually by their differential expression values).
+        Permutations: The method involves permutations to assess the statistical significance of the enrichment scores.
+
+    Output:
+        The output is a `GSEAResult` object containing information about the enriched KEGG pathways, including their names, enrichment scores, and p-values.
+
+    Use Case:
+        `gseKEGG` is suitable when you have a ranked list of genes based on some criteria (e.g., differential expression) and want to perform GSEA to identify KEGG pathways associated with these genes.
+
+2. enrichKEGG:
+
+    Methodology:
+        Over-Representation Analysis (ORA): `enrichKEGG` uses an over-representation analysis approach. It tests whether a predefined set of genes associated with a KEGG pathway is overrepresented in a given gene list compared to what would be expected by chance.
+        Hypergeometric Test: The statistical significance is often assessed using a hypergeometric test.
+
+    Output:
+        The output is a data frame containing information about the enriched KEGG pathways, including names, p-values, and other statistics.
+
+    Use Case:
+        `enrichKEGG` is appropriate when you have a gene list and want to identify KEGG pathways that are significantly enriched in that list. It doesn't require a ranked list of genes.
+
+Which to Choose:
+
+    If you have a ranked list of genes (e.g., based on differential expression) and want to perform GSEA, use `gseKEGG`.
+
+    If you have a gene list and want to identify overrepresented pathways without ranking genes, use `enrichKEGG`.
+
+In summary, the choice between `gseKEGG` and `enrichKEGG` depends on your data and the analysis you want to perform. Both methods can provide insights into the functional enrichment of gene sets (KEGG pathways, in this case) in the context of different experimental conditions.
+
+## GSEA visualization
+
+We can also visualize the outputs of `gseKEGG` using the same functions as above. 
+```{r gse-dotplot, fig.height=6}
 dotplot(gse_kegg, showCategory = 3, title = "Enriched Pathways" , split=".sign") + facet_grid(.~.sign)
 
+# enrichplots of the gseaResult object
+enrichplot::upsetplot(gse_kegg)
+```
 
+There are also visualizations specific to the `gseaResult` output of `gseKEGG`, shown below. We can see where in the rankings the genes belonging to a given KEGG group are found relative to the entire ranked list. We can change the `geneSetID` value to get other KEGG pathways.
+```{r gse-gseaplot, fig.height=6}
 # Visualize the ranking of the genes by set
 gseaplot(gse_kegg, geneSetID = 1, by = "preranked", title = gse_kegg$Description[1])
 gseaplot(gse_kegg, geneSetID = 2, by = "preranked", title = gse_kegg$Description[2])
@@ -285,635 +529,32 @@ gseaplot(gse_kegg, geneSetID = 3, by = "preranked", title = gse_kegg$Description
 gseaplot(gse_kegg, geneSetID = 4, by = "preranked", title = gse_kegg$Description[4])
 ```
 
-```{r fig.height=6, fig.width=8, dpi=300}
+
+In addition to the plot above, we can create plots with more details by not included the `by="preranked"` argument. We can now see the calculated enrichment score across the list for this gene set.
+```{r gse-gseaplotEnrichScore, fig.height=6, fig.width=8, dpi=300}
 # take a closer look at the RNA polymerase genes
 gseaplot(gse_kegg, geneSetID = 4, title = gse_kegg$Description[4])
-
-# what if we want to look at multiple together?
+```
+What if we want to look at multiple together KEGG pathways simultaneously? We can do that with `gseaplot2` from the `enrichplot` package. Here we look at the first 3 KEGG pathways together.
+```{r gse-multipleGseaplot2, fig.height=6, fig.width=12, dpi=300}
+# gseaplot2 multiple KEGG pathway enrichments
 enrichplot::gseaplot2(gse_kegg, geneSetID = 1:3, pvalue_table = TRUE,
           color = c("#E495A5", "#86B875", "#7DB0DD"), ES_geom = "dot")
 ```
 
+# Questions
 
-# comparing Paralogs in common pathways
+1. Can you explain the concept of gene set enrichment analysis and its relevance in functional genomics?
 
-```{r}
-# p_load(KEGGgraph)
-toyKGML <- "~/Documents/GitHub/GenomicDataAnalysis_Fa23/exercises/sce00010.xml"
-toyGraph <- parseKGML2Graph(toyKGML, genesOnly=FALSE)
-toyGraph
+2. How would you interpret the results obtained from clusterProfiler, specifically focusing on enriched terms and associated p-values?
 
-nodes(toyGraph)
+3. Compare and contrast KEGG enrichment with other tools or methods used for functional enrichment analysis.
 
-plot(toyGraph)
-
-test <- ggkegg(#toyGraph,
-       pid="sce00010",
-            # convert_org = c("pathway","eco"),
-            delete_zero_degree = TRUE,
-            return_igraph = TRUE)
-
-ttest <- ggraph(test, layout="stress") 
-ttest$data$type |> unique()
-#> [1] "map"      "compound" "gene"
-ttest + geom_edge_diagonal(
-  aes(color=subtype_name,
-      filter=type!="maplink"))+
-  geom_node_point(
-  aes(filter= !type%in%c("map","compound")),
-    # fill=gg$data[!gg$data$type%in%c("map","compound"),]$bgcolor,
-    color="black",
-    shape=21, size=4
-  )+
-  geom_node_point(
-    aes(filter= !type%in%c("map","gene")),
-    # fill=gg$data[!gg$data$type%in%c("map","gene"),]$bgcolor,
-    color="black",
-    shape=21, size=6
-  )+
-  geom_node_text(
-    aes(label=name,
-        filter=type=="gene"),
-    repel=TRUE,
-    bg.colour="white")+
-  theme_void()
-```
-
-```{r}
-p_install("ggkegg",try.bioconductor = TRUE)
-
-p_install_gh("noriakis/ggkegg")
-
-if(require(org.Sc.sgd.db)) {
-  tnodes <- nodes(toprSub)
-  tgeneids <- translateKEGGID2GeneID(tnodes)
-  tgenesymbols <- sapply(mget(tgeneids, org.Hs.egSYMBOL, ifnotfound=NA), "[[")
-  toprSubSymbol <- toprSub
-  nodes(toprSubSymbol) <- tgenesymbols
-  plot(toprSubSymbol, "neato",attrs=list(node=list(font=5, fillcolor="lightblue")))
-}
-                          
-
-
-graph.par(list(nodes=list(col="darkgreen", lty="dotted", lwd=2, fontsize=6)))
-labels <- edgeNames(toyGraph)
-names(labels) <- labels
-
-
-
-layToyGraph <- layoutGraph(toyGraph)
-
-
-renderGraph(layToyGraph)                
-
-graph <- ggkegg::pathway("hsa04110", use_cache=TRUE)
-graph
-```
-
-```{r}
-# started ggkegg here I think
-
-pathway("ko01100",use_cache = TRUE) |>
-  process_reaction() |>
-  highlight_module(module("M00021")) |>
-  highlight_module(module("M00338")) |>
-  ggraph(x=x, y=y) +
-  geom_node_point(size=1, aes(color=I(fgcolor),
-                              filter=fgcolor!="none" & type!="line"))+
-  geom_edge_link0(width=0.1, aes(color=I(fgcolor),
-                                filter=type=="line"& fgcolor!="none"))+
-  with_outer_glow(
-    geom_edge_link0(width=1,
-                   aes(color=I(fgcolor),
-                       filter=(M00021 | M00338))),
-    colour="red", expand=5
-  )+
-  with_outer_glow(
-    geom_node_point(size=1.5,
-                    aes(color=I(fgcolor),
-                        filter=(M00021 | M00338))),
-    colour="red", expand=5
-  )+
-  geom_node_text(size=2,
-                 aes(x=x, y=y,
-                     label=graphics_name,
-                     filter=name=="path:ko00270"),
-                 repel=TRUE, family="sans", bg.colour="white")+
-  theme_void()
-```
-
-```{r}
-
-
-pathway("sce00010",use_cache = TRUE) |>
-  process_line() |>
-  # highlight_module(module("M00021")) |>
-  # highlight_module(module("M00338")) |>
-  ggraph(x=x, y=y) +
-  geom_node_point(size=1, aes(color=I(fgcolor),
-                              filter=fgcolor!="none" & type!="line"))+
-  geom_edge_link0(width=0.1, aes(color=I(fgcolor),
-                                filter=type=="line"& fgcolor!="none"))+
-  with_outer_glow(
-    geom_edge_link0(width=1,
-                   aes(color=I(fgcolor),
-                       filter=(M00021 | M00338))),
-    colour="red", expand=5
-  )+
-  with_outer_glow(
-    geom_node_point(size=1.5,
-                    aes(color=I(fgcolor),
-                        filter=(M00021 | M00338))),
-    colour="red", expand=5
-  )+
-  geom_node_text(size=2,
-                 aes(x=x, y=y,
-                     label=graphics_name,
-                     filter=name=="path:ko00270"),
-                 repel=TRUE, family="sans", bg.colour="white")+
-  theme_void()
-
-
-
-g <- pathway("sce00010")
-pseudo_lfc <- sample(seq(0,3,0.1), length(V(g)), replace=TRUE)
-names(pseudo_lfc) <- V(g)$name
-
-
-
-ggkegg(
-  "sce00010",
-  convert_org = c("pathway", "sce", "ko"),
-  convert_collapse = " ",
-  numeric_attribute = pseudo_lfc
-) +
-  geom_edge_parallel2(
-    aes(color = subtype_name),
-    arrow = arrow(length = unit(1, 'mm')),
-    start_cap = square(1, 'cm'),
-    end_cap = square(1.5, 'cm')
-  ) +
-  geom_node_rect(aes(filter = .data$type == "group"),
-                 fill = "transparent",
-                 color = "red") +
-  geom_node_rect(aes(fill = numeric_attribute,
-                     filter = .data$type == "gene")) +
-  geom_node_text(
-    aes(label = converted_name,
-        filter = .data$type == "gene"),
-    size = 2.5,
-    color = "black"
-  ) +
-  with_outer_glow(
-    geom_node_text(
-      aes(label = converted_name,
-          filter = converted_name == "PCNA"),
-      size = 2.5,
-      color = "red"
-    ),
-    colour = "white",
-    expand = 4
-  ) +
-  scale_edge_color_manual(values = viridis::plasma(11)) +
-  scale_fill_viridis(name = "LFC") +
-  theme_void()
-
-
-kegg_results %>% ggkegg(convert_collapse = ":") +
-  geom_node_point(size=1) +
-  geom_edge_link0()
-
-
-
-
-g <- pathway("ko00520",convert_org = c("pathway","sce"))
-V(g)$color_one <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set1"))(length(V(g)))
-V(g)$color_two <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set2"))(length(V(g)))
-
-ggraph(g, x=x, y=y) +
-  geom_node_rect(aes(xmin=xmin, xmax=x, fill=I(color_one)), alpha=0.5)+
-  geom_node_rect(aes(xmin=x, xmax=xmax, fill=I(color_two)), alpha=0.5)+
-  geom_node_text(size=2,
-                 aes(x=x, y=y,
-                     label=graphics_name#,
-                     # filter=name=="path:ko00270"
-                     ),
-                 # repel=TRUE,
-                 family="sans", bg.colour="white")+
-  # geom_edge_parallel()+
-  ggfx::with_outer_glow(geom_node_text(aes(label=name |> 
-                       strsplit(":") |> 
-                       sapply("[", 2) |>
-                       strsplit(" ") |>
-                       sapply("[", 1),
-                     filter=type=="ortholog"),
-                     size=2), colour="white", expand=1)
-
-
-
-kegg_results |>
-  ggkegg(convert_org = "sce", pathway_number = 2,group_rect_nudge=0) +
-    geom_edge_link(
-    aes(color=subtype_name),
-    arrow = arrow(length = unit(1, 'mm')), 
-    start_cap = square(1, 'cm'),
-    end_cap = square(1.5, 'cm')) + 
-    # geom_node_rect(aes(filter=.data$undefined & !.data$type=="ortholog"),
-    #                fill="transparent", color="red")+
-    geom_node_rect(aes(xmin=xmin*.9, xmax=x*1.1,filter=!.data$undefined &
-                         .data$type=="gene"), fill="white", color="black")+
-    geom_node_text(aes(label=graphics_name,
-                       filter=.data$type == "gene"),
-                   size=1.5,
-                   color="black",family="serif")+
-    with_outer_glow(geom_node_text(aes(label=converted_name,
-                                       filter=.data$enrich_attribute),
-                                   size=2.5, color="red"),
-                    colour="white",
-                    expand=4)+
-    theme_void()
-
-
-
-
-g <- pathway("sce00010",group_rect_nudge=0) |> mutate(conv=convert_id("sce")) ## Obtain pathway graph (don't show grouping rect)
-
-V(g)$color_one <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set1"))(length(V(g)))
-V(g)$color_two <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set2"))(length(V(g)))
-
-V(g)
-
-gg <- ggraph(g, layout="manual", x=x, y=y)+
-  geom_node_point(aes(filter=type=="compound"), color="blue", size=2)+
-  # geom_node_rect(fill="red",aes(filter=type=="ortholog"))+
-  geom_node_rect(aes(filter=type=="ortholog",xmin=xmin, xmax=x, fill=I(color_one)), alpha=0.5)+
-  geom_node_rect(aes(filter=type=="ortholog",xmin=x, xmax=xmax, fill=I(color_two)), alpha=0.5)+
-  overlay_raw_map("sce00010")+
-  geom_node_text(
-    aes(label=graphics_name,
-        filter=type=="gene"),
-    # repel=TRUE,
-    bg.colour="white")+
-  theme_void()
-gg
-
-gg$labels
-
-
-g <- delete_vertex_attr(g, "x")
-g <- delete_vertex_attr(g, "y")
-ggraph(g, layout = "nicely") +
-  geom_node_point(aes(filter=type=="gene" | type=="group"), color="black") +
-  geom_edge_link(aes(color=subtype_name),end_cap=circle(2,"mm"),
-                 start_cap=circle(2,"mm"),
-                     label_dodge = unit(2,"mm"))+
-  geom_node_text(aes(label=conv), repel=TRUE, bg.colour="white")+
-  theme_void()
-
-
-```
-
-```{r}
-# try TCA instead of glycolysis, see if any paralogs better labelled
-g <- pathway("sce00020",group_rect_nudge=0) |> mutate(conv=convert_id("sce")) ## Obtain pathway graph (don't show grouping rect)
-
-V(g)$color_one <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set1"))(length(V(g)))
-V(g)$color_two <- colorRampPalette(RColorBrewer::brewer.pal(5,"Set2"))(length(V(g)))
-
-V(g)
-
-gg <- ggraph(g, layout="manual", x=x, y=y)+
-  geom_node_point(aes(filter=type=="compound"), color="blue", size=2)+
-  # geom_node_rect(fill="red",aes(filter=type=="ortholog"))+
-  geom_node_rect(aes(filter=type=="ortholog",xmin=xmin, xmax=x, fill=I(color_one)), alpha=0.5)+
-  geom_node_rect(aes(filter=type=="ortholog",xmin=x, xmax=xmax, fill=I(color_two)), alpha=0.5)+
-  # overlay_raw_map("sce00020")+
-  geom_node_text(
-    aes(label=graphics_name,
-        filter=type=="gene"),
-    size=2,
-    # repel=TRUE,
-    bg.colour="white")+
-  theme_void()
-gg
-
-
-
-# let me try again, splitting graphics_name
-graph <- pathway("sce00500")  |> mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) #|>
-  
-graph <- graph |> mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  mutate(showname=strsplit(showname, " ") |>
-                    vapply("[", 1, FUN.VALUE="a"))
-
-
-ggraph(graph, layout="manual", x=x, y=y)+
-    geom_edge_parallel(aes(linetype=subtype_name),
-        arrow=arrow(length=unit(1,"mm"), type="closed"),
-        end_cap=circle(1,"cm"),
-        start_cap=circle(1,"cm"))+
-    geom_node_rect(aes(fill=I(bgcolor),
-                      filter=type == "ortholog"),
-                  color="black")+
-    geom_node_text(aes(label=showname,
-                      filter=type == "ortholog"),
-                  size=2)+
-    theme_void()
-```
-
-
-# making a custom visualization
-```{r}
-
-
-graph <- pathway("sce00500")  |> mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) #|>
-  
-graph <- graph |> mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  mutate(showname=strsplit(showname, " ") |>
-                    vapply("[", 1, FUN.VALUE="a"))
-
-data <- graph |>   mutate(
-    test_orthologs=convert_id("ko", first_arg_sep= FALSE))
-    
-
-
-# i saw here that instead of gene, we can use ortholog as our filter type here.
-ggraph(data, layout="manual", x=x, y=y)+
-    geom_edge_parallel(aes(linetype=subtype_name),
-        arrow=arrow(length=unit(1,"mm"), type="closed"),
-        end_cap=circle(1,"cm"),
-        start_cap=circle(1,"cm"))+
-    overlay_raw_map("sce00500")+
-    geom_node_rect(aes(fill=I(bgcolor),
-                      filter=type == "ortholog"),
-                  color="black")+
-    geom_node_text(aes(label=test_orthologs,
-                      filter=type == "ortholog"),
-                  size=2)+
-    theme_void()
-  
-  
-```
-
-
-
-```{r}
-tst <- ggkegg(
-  pid= "sce00010",
-  return_igraph = TRUE,
-  # convert_org = c("sce", "ko", "pathways"),
-  convert_first = FALSE,
-  # delete_zero_degree = TRUE,
-  # delete_undefined = TRUE
-)
-
-tst
-
-kegg_results %>%
-  ggkegg(#toyGraph,
-       # pid="sce00010",
-      convert_first = FALSE,
-      convert_collapse = "\n",
-    pathway_number = 2,
-            convert_org = c("sce"),
-            delete_zero_degree = TRUE,
-            return_igraph = FALSE)+
-  # geom_node_rect(aes(.data$type=="gene",ymin=y-20, ymax=y+2), position = , fill="white", color="black") +
-  geom_node_text(aes(label=converted_name,
-                       filter=.data$type == "gene"),
-                   size=2.5,
-                   color="black",family="serif") 
-      
-test <- kegg_results %>%
-  ggkegg(
-       # pid="sce00010",
-      convert_first = FALSE,
-      convert_collapse = "\n",
-    pathway_number = 20,
-            convert_org = c("sce"),
-            delete_zero_degree = TRUE,
-            return_igraph = FALSE)
-
-
-test$data$n_genes <- str_count(test$data$name, '\\w+')/2
-# 
-# test +
-#   # geom_node_rect(aes(filter=.data$type=="gene"),fill="white", color="black") +
-#   # geom_node_rect(aes(filter=.data$type=="gene",ymin=y-4*(y-ymin), ymax=ymin, y=y-2.5*(y-ymin)), fill="white", color="black") +
-#   # geom_rect(data)
-#   geom_rect(data = filter(test$data, type=="gene" & n_genes == 1), mapping = aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)) +
-#   geom_rect(data = filter(test$data, type=="gene" & n_genes == 1),mapping = aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)) +
-#   geom_node_text(aes(label=converted_name,
-#                        filter=.data$type == "gene"),
-#                    size=2.5,
-#                    color="black",family="serif")
-
-
-
-res
-
-tmp <- test$data
-
-
-# where it came from: "https://rest.kegg.jp/list/reaction/"
-KEGG_reactions <- KEGGREST::keggList("reaction") |> as.data.frame() |>
-  rownames_to_column("reaction") |>
-  mutate(reaction_description = str_split_i(`KEGGREST::keggList("reaction")`, ";", 1)) |>
-  select(reaction, reaction_description) |>
-  mutate(reaction=paste0('rn:', reaction))
-
-tmp |>
-  filter(type == "gene") |>
-  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
-  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  separate_rows(showname, sep = " ") |>
-  left_join(rownames_to_column(res$table), by=c("showname" = "rowname")) |>
-  left_join(KEGG_reactions, by="reaction") |>
-  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
-  mutate(gene_name = coalesce(gene_name,showname)) |>
-  ggplot(aes(x=x,y=y)) +
-  overlay_raw_map("sce00020")+
-  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC), box.padding = 0.01,direction = "y",
-                            size=2,max.overlaps = 15#,position=position_jitter()
-                            ) +
-  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
-  theme_void() +
-  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
-             # scales = "free") +
-  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")#, limits=c(-6, 6)
-                       )
-```
-Let's look at the paralogs in glycolysis KEGG pathway
-```{r}
-# 24th path in kegg_results
-glycolysis_KEGG <- kegg_results %>%
-  ggkegg(
-       # pid="sce00010",
-      convert_first = FALSE,
-      convert_collapse = "\n",
-    pathway_number = 24, # the 24th entry in kegg_results is glycolysis, change this to change the pathway.
-            convert_org = c("sce"),
-            delete_zero_degree = TRUE,
-            return_igraph = FALSE)
-
-
-glycolysis_KEGG$data |>
-  filter(type == "gene") |>
-  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
-  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  separate_rows(showname, sep = " ") |>
-  left_join(rownames_to_column(res$table), by=c("showname" = "rowname")) |>
-  left_join(KEGG_reactions, by="reaction") |>
-  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
-  mutate(gene_name = coalesce(gene_name,showname)) |>
-  ggplot(aes(x=x,y=y)) +
-  overlay_raw_map("sce00010")+
-  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC), box.padding = 0.01,label.padding=0.05,direction = "y",
-                            size=3,max.overlaps = 15,color = "black",label.r=0.01
-                # bg.color = "white",#,position=position_jitter()
-                            ) +
-  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
-  theme_void() +
-  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
-             # scales = "free") +
-  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")#, limits=c(-6, 6)
-                       )
-```
-Try it with the res_all object instead, so we can compare logFC across contrasts.
-```{r}
-glycolysis_KEGG$data |>
-  filter(type == "gene") |>
-  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
-  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  separate_rows(showname, sep = " ") |>
-  left_join(rownames_to_column(res_all$table), by=c("showname" = "rowname")) |>
-  left_join(KEGG_reactions, by="reaction") |>
-  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
-  mutate(gene_name = coalesce(gene_name,showname)) |> #View()
-  ggplot(aes(x=x,y=y)) +
-  overlay_raw_map("sce00010")+
-  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT, color=logFC.EtOHvsMOCK.MSN24dd), box.padding = 0.05,label.padding=0.05,direction = "y",label.size = 1.8,
-                            size=3,max.overlaps = 100,label.r=0.002,seed=123
-                # bg.color = "white",#,position=position_jitter()
-                            ) +
-  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), color="black", box.padding = 0.05,label.padding=0.05,direction = "y",label.size = NA,
-                            size=3,max.overlaps = 100,label.r=0.02,seed=123
-                # bg.color = "white",#,position=position_jitter()
-                            ) +
-  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
-  theme_void() +
-  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
-             # scales = "free") +
-  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)) +
-  scale_color_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)
-                       ) +
-  ggtitle("EtOH response of WT and Msn2/4∆ (border: Msn2/4∆, fill: WT)")
-```
-
-Side by side of the WT EtOH response and the Msn2/4∆∆ EtOH response
-```{r}
-set.seed=123
-pathway_to_graph <- "sce00010" #glycolysis/gluconeogenesis
-# pathway_to_graph <- "sce00020" # TCA cycle
-# pathway_to_graph <- "sce04213" #longevity
-# pathway_to_graph <- "sce00500" # starch & sucrose metabolism
-# pathway_to_graph <- "sce00620" # pyruvate metabolism
-
-pathway_number <- kegg_results %>% 
-  data.frame() |> 
-  mutate(row_number = row_number()) |> 
-  filter(ID == pathway_to_graph) %>%
-  pull(row_number)
-
-KEGG_data <- kegg_results %>%
-  ggkegg(
-    # pid="sce00010",
-    convert_first = FALSE,
-    convert_collapse = "\n",
-    pathway_number = pathway_number, # changing this to change the pathway.
-    convert_org = c("sce"),
-    delete_zero_degree = TRUE,
-    return_igraph = FALSE
-  )
-
-WT.graph <- KEGG_data$data |>
-  filter(type == "gene") |>
-  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
-  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  separate_rows(showname, sep = " ") |>
-  left_join(rownames_to_column(res_all$table), by=c("showname" = "rowname")) |>
-  left_join(KEGG_reactions, by="reaction") |>
-  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
-  mutate(gene_name = coalesce(gene_name,showname)) |> #View()
-  ggplot(aes(x=x,y=y)) +
-  overlay_raw_map(pathway_to_graph)+
-  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), box.padding = 0.05,label.padding=0.05,direction = "y",#label.size = 1.8,
-                            size=2,max.overlaps = 100,label.r=0.002,seed=123
-                # bg.color = "white",#,position=position_jitter()
-                            ) +
-  # ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), color="black", box.padding = 0.05,label.padding=0.05,direction = "y",label.size = NA,
-  #                           size=3,max.overlaps = 100,label.r=0.02,seed=123
-                # bg.color = "white",#,position=position_jitter()
-                            # ) +
-  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
-  theme_void() +
-  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
-             # scales = "free") +
-  scale_fill_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")), limits=c(-10.5,10.5)
-                       ) +
-  # 
-  # scale_color_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)
-                       # ) +
-  # theme(plot.margin=margin(l=-0.8,unit="cm"), legend.margin = margin(l=-0.8,unit="cm")) +
-  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")#,legend.position="none"
-        ) +
-  labs(fill="logFC", title="      WT Response to Ethanol")
-
-msn24.graph <- KEGG_data$data |>
-  filter(type == "gene") |>
-  mutate(showname=strsplit(name, " ") |> str_remove_all("sce:")) |> 
-  mutate(showname = gsub('c\\(|\\)|"|"|,', '', showname)) |>
-  separate_rows(showname, sep = " ") |>
-  left_join(rownames_to_column(res_all$table), by=c("showname" = "rowname")) |>
-  left_join(KEGG_reactions, by="reaction") |>
-  mutate(gene_name= AnnotationDbi::select(org.Sc.sgd.db,keys=showname,columns="GENENAME")$GENENAME) |>
-  mutate(gene_name = coalesce(gene_name,showname)) |> #View()
-  ggplot(aes(x=x,y=y)) +
-  overlay_raw_map(pathway_to_graph)+
-  ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.MSN24dd), box.padding = 0.05,label.padding=0.05,direction = "y",#label.size = 1.8,
-                            size=2,max.overlaps = 100,label.r=0.002,seed=123
-                # bg.color = "white",#,position=position_jitter()
-                            ) +
-  # ggrepel::geom_label_repel(aes(label = gene_name, fill = logFC.EtOHvsMOCK.WT), color="black", box.padding = 0.05,label.padding=0.05,direction = "y",label.size = NA,
-  #                           size=3,max.overlaps = 100,label.r=0.02,seed=123
-                # bg.color = "white",#,position=position_jitter()
-                            # ) +
-  # geom_text(aes(label = showname),position = position_stack(vjust = -0.01),)
-  theme_void() +
-  guides(fill = FALSE) +
-  # facet_wrap(~reaction_description,labeller = labeller(reaction_description = label_wrap_gen(10)),
-             # scales = "free") +
-  scale_fill_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 10, name = "RdYlBu")), limits=c(-10.5,10.5)
-                       ) +
-  # scale_color_gradientn(colours = RColorBrewer::brewer.pal(n = 10, name = "RdYlBu"), breaks=c(-6, 6)
-                       # )
-  
-  theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
-  labs(fill="logFC", title="      Msn2/4∆∆ Response to Ethanol")
-
-
-
-
-WT.graph + msn24.graph +
-  patchwork::plot_annotation(tag_levels = 'A')# & 
-  # theme(plot.tag = element_text(size = 8))
-
-```
-
+4. Can you find the KEGG organism for the organism that you are interested in?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 
 System information for reproducibility:
-```{r}
+```{r session-info}
 pander::pander(sessionInfo())
 ```

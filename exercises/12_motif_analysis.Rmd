@@ -40,7 +40,38 @@ p_load("tidyverse", "knitr", "readr",
 #        "igraph", "tidygraph", "ggfx")
 
 p_load("biomaRt")
+
+p_load("memes")
+
+library(biomaRt)
+library(memes)
 ```
+
+### We need to install MEME software on your computer if you don't already have it.
+
+This code only downloads & installs the software if not on your computer. The output when installing is VERY long, you can close the output by clicking the small x in the top right corner of the output box.
+```{bash}
+# latest version as of 20 Oct 2023, 
+# change to newer version as needed
+version=5.5.4
+
+if ! command -v $HOME/meme/bin/meme &> /dev/null; then
+  curl -o meme-$version.tar.gz https://meme-suite.org/meme/meme-software/$version/meme-$version.tar.gz
+  tar zxf meme-$version.tar.gz
+  cd meme-$version
+  ./configure --prefix=$HOME/meme --with-url=http://meme-suite.org/ --enable-build-libxml2 --enable-build-libxslt
+  make
+  make test
+  make install
+fi
+```
+
+Ensure that your download worked:
+```{r}
+meme_is_installed()
+```
+
+If install didn't work, troubleshooting is needed.
 
 # Description
 
@@ -56,24 +87,13 @@ At the end of this exercise, you should be able to:
 
 # Loading in the `DE_yeast_TF_stress.txt` gene file we used in clustering.
 
-```{r load-res}
-
-
-# if (!exists("res", envir = .GlobalEnv)) {
-#   # If variable doesn't exist, load from
-#   url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
-#   res <- read_rds(url)
-#   # assign("res", data, envir = .GlobalEnv)
-#   cat(paste("Loaded res from", url, "\n"))
-#   rm("url", envir = .GlobalEnv)
-# } else {
-#   url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
-#   cat(paste("res object is already loaded. Skipping loading from", url, "\n"))
-#   rm("url", envir = .GlobalEnv)
-# }
-
-# let's also get the res object for all of the contrasts at once, (from GitHub)
-res_all <- readr::read_tsv("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz")
+```{r load-FClist}
+FC_list <-
+  readr::read_tsv(
+    "~/Documents/GitHub/GenomicDataAnalysis_Fa23/data/DE_yeast_TF_stress.txt.gz",
+    # make those names less painful to type:
+    name_repair = "universal"
+  ) 
 ```
 
 # Loading in genome database
@@ -111,13 +131,36 @@ ensembl <- useEnsembl(biomart = "genes",
 ```
 
 ```{r}
-ORFs_in_analysis = 
-example <- getSequence(id = ORFs_in_analysis,
+ORFs_in_analysis = FC_list$ID
+seq <- getSequence(id = ORFs_in_analysis,
                  type="ensembl_gene_id",
                  seqType="coding_gene_flank",
                  upstream=500, 
-                 mart=ensembl)
+                 mart=ensembl,
+                 useCache = TRUE)
+
+# filter out "sequence unavailable" rows
+seq <- seq |> filter(coding_gene_flank != "Sequence unavailable")
 ```
+
+Now we have the 500bp upstream sequences for all of the genes in the genome.
+Note that for yeast, this isn't too much data for our computers. If you're working with a larger genome, you might need to subset the gene list down just to the genes in your gene list.
+
+
+# Get lists of genes that we want to run motif analysis on.
+
+
+What gene list do you think has the most interesting biological meaning for motif analysis? One comparison to consider is the genes that are most different in the EtOH response between WT and Msn2/4∆∆ samples. Let's get that list of genes now:
+```{r}
+msn24_EtOH_down <- FC_list |>
+  filter(logFC..WT.v.msn24.mutant..EtOH.response < -2) |>
+  filter(FDR..WT.v.msn24.mutant..EtOH.response<0.01) |>
+  select(ID) %>%
+  # add the upstream seqs as a new column
+  left_join(seq, by=c("ID" = "ensembl_gene_id"))
+```
+
+
 
 thoughts on the exercise: Example 1 EtOH MSN2/4 that Jeff had in slack
 is best one

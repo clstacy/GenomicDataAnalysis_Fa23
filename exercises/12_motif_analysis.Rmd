@@ -44,93 +44,92 @@ p_load("biomaRt")
 
 # Description
 
-In this class exercise, we will explore the use of KEGG pathways in
-genomic data analysis. KEGG is a valuable resource for understanding
-biological pathways and functions associated with genomic data.
+In this class exercise, we will explore the use of the MEME suite for motif analysis.
 
 # Learning outcomes
 
 At the end of this exercise, you should be able to:
 
--   Understand the basics of KEGG pathways.
--   Learn how to retrieve and analyze pathway information using R.
--   Apply KEGG analysis to genomic data.
--   Identify paralog differences within KEGG pathways
+-  Retrieve upstream sequences for desired genes in organisms present in the Ensembl database.
+-  
 
-```{r load-libraries}
-library(org.Sc.sgd.db)
-# for ease of use, set max number of digits after decimal
-options(digits=3)
-```
 
-# Loading in the edgeR DE gene file output.
+# Loading in the `DE_yeast_TF_stress.txt` gene file we used in clustering.
 
 ```{r load-res}
-# Choose topTags destination
-dir_output_edgeR <-
-  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
 
-# for this, let's load the res objects as an R data object.
-res <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
 
-# the below code downloads the file from the internet if you don't have in on your computer
-# comment out the above line of code if it gives an error.
-if (!exists("res", envir = .GlobalEnv)) {
-  # If variable doesn't exist, load from
-  url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
-  res <- read_rds(url)
-  # assign("res", data, envir = .GlobalEnv)
-  cat(paste("Loaded res from", url, "\n"))
-  rm("url", envir = .GlobalEnv)
-} else {
-  url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
-  cat(paste("res object is already loaded. Skipping loading from", url, "\n"))
-  rm("url", envir = .GlobalEnv)
-}
+# if (!exists("res", envir = .GlobalEnv)) {
+#   # If variable doesn't exist, load from
+#   url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
+#   res <- read_rds(url)
+#   # assign("res", data, envir = .GlobalEnv)
+#   cat(paste("Loaded res from", url, "\n"))
+#   rm("url", envir = .GlobalEnv)
+# } else {
+#   url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
+#   cat(paste("res object is already loaded. Skipping loading from", url, "\n"))
+#   rm("url", envir = .GlobalEnv)
+# }
 
 # let's also get the res object for all of the contrasts at once, (from GitHub)
-res_all <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds")
+res_all <- readr::read_tsv("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz")
 ```
-
 
 # Loading in genome database
 
-First, let's make sure the library is loaded and print the version for reproducibility: 
+First, let's make sure the library is loaded and print the version for
+reproducibility:
+
 ```{r}
 library(biomaRt)
 packageVersion("biomaRt")
 ```
+
 ## Selecting an Ensembl BioMart database and dataset
 
 ```{r}
-ensembl_all <- useEnsembl(biomart = "genes")
-
-ensembl_all
-
+ensembl <- useEnsembl(biomart = "genes")
+ensembl
 ```
 
-Not we have loaded the "gene" database, but haven't selected any dataset yet. Let's find the one we want:
+Not we have loaded the "gene" database, but haven't selected any dataset
+yet. Let's find the one we want:
 
 ```{r}
-searchDatasets(mart = ensembl_all, 
+searchDatasets(mart = ensembl, 
                pattern = "scerevisiae")
 ```
-So the dataset needs to be "scerevisiae_gene_ensembl" for yeast. Can you find it for your organism?
+
+So the dataset needs to be "scerevisiae_gene_ensembl" for yeast. Can you
+find it for your organism?
 
 ```{r}
-ensembl <- useEnsembl(biomart = "genes", dataset = "scerevisiae_gene_ensembl")
-
+# re-assign ensembl with the dataset we want.
+ensembl <- useEnsembl(biomart = "genes", 
+                      dataset = "scerevisiae_gene_ensembl")
 ```
 
-
 ```{r}
-entrez = c("240327", "60440")
-a <- getSequence(id = entrez,
-                 type="entrezgene_id",
+ORFs_in_analysis = 
+example <- getSequence(id = ORFs_in_analysis,
+                 type="ensembl_gene_id",
                  seqType="coding_gene_flank",
                  upstream=500, 
                  mart=ensembl)
 ```
+
+thoughts on the exercise: Example 1 EtOH MSN2/4 that Jeff had in slack
+is best one
+
+Example 2 for salt, skn7 is the top one.
+
+I should do an edgeR treat with strict cutoffs (fdr\<0.01, logFC\>2)
+
+for Eukaryotic memes, change motif lengths minimum to 5. (for msn),
+change length max to 20. importance of combinatorial & probabilistic
+binding in eukaryotic systems. I will put the default numbers in, and
+let Jeff change it during his explanation
 
 
 # Questions
@@ -155,4 +154,3 @@ System information for reproducibility:
 pander::pander(sessionInfo())
 ```
 
-@clusterProfiler

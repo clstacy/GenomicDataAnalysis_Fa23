@@ -1,0 +1,158 @@
+---
+title: "Motif Analysis"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output:
+  html_document:
+    code_folding: show
+    embed-resources: true
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Getting Things Ready
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "purrr", # for working with lists (beautify column names)
+       "reactable" # for pretty tables.
+       ) 
+
+# We also need these Bioconductor packages today.
+# p_load("edgeR",
+#        "AnnotationDbi", "org.Sc.sgd.db",
+#        "pathview","clusterProfiler", "ggupset",
+#        "KEGGgraph", "ggkegg", "patchwork",
+#        "igraph", "tidygraph", "ggfx")
+
+p_load("biomaRt")
+```
+
+# Description
+
+In this class exercise, we will explore the use of KEGG pathways in
+genomic data analysis. KEGG is a valuable resource for understanding
+biological pathways and functions associated with genomic data.
+
+# Learning outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Understand the basics of KEGG pathways.
+-   Learn how to retrieve and analyze pathway information using R.
+-   Apply KEGG analysis to genomic data.
+-   Identify paralog differences within KEGG pathways
+
+```{r load-libraries}
+library(org.Sc.sgd.db)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+# Loading in the edgeR DE gene file output.
+
+```{r load-res}
+# Choose topTags destination
+dir_output_edgeR <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/")
+
+# for this, let's load the res objects as an R data object.
+res <- read_rds(file = paste0(dir_output_edgeR, "yeast_res_edgeR.Rds"))
+
+# the below code downloads the file from the internet if you don't have in on your computer
+# comment out the above line of code if it gives an error.
+if (!exists("res", envir = .GlobalEnv)) {
+  # If variable doesn't exist, load from
+  url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
+  res <- read_rds(url)
+  # assign("res", data, envir = .GlobalEnv)
+  cat(paste("Loaded res from", url, "\n"))
+  rm("url", envir = .GlobalEnv)
+} else {
+  url <- "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds"
+  cat(paste("res object is already loaded. Skipping loading from", url, "\n"))
+  rm("url", envir = .GlobalEnv)
+}
+
+# let's also get the res object for all of the contrasts at once, (from GitHub)
+res_all <- read_rds("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/yeast_res_all_edgeR.Rds")
+```
+
+
+# Loading in genome database
+
+First, let's make sure the library is loaded and print the version for reproducibility: 
+```{r}
+library(biomaRt)
+packageVersion("biomaRt")
+```
+## Selecting an Ensembl BioMart database and dataset
+
+```{r}
+ensembl_all <- useEnsembl(biomart = "genes")
+
+ensembl_all
+
+```
+
+Not we have loaded the "gene" database, but haven't selected any dataset yet. Let's find the one we want:
+
+```{r}
+searchDatasets(mart = ensembl_all, 
+               pattern = "scerevisiae")
+```
+So the dataset needs to be "scerevisiae_gene_ensembl" for yeast. Can you find it for your organism?
+
+```{r}
+ensembl <- useEnsembl(biomart = "genes", dataset = "scerevisiae_gene_ensembl")
+
+```
+
+
+```{r}
+entrez = c("240327", "60440")
+a <- getSequence(id = entrez,
+                 type="entrezgene_id",
+                 seqType="coding_gene_flank",
+                 upstream=500, 
+                 mart=ensembl)
+```
+
+
+# Questions
+
+1.  Can you explain the concept of gene set enrichment analysis and its
+    relevance in functional genomics?
+
+2.  How would you interpret the results obtained from clusterProfiler,
+    specifically focusing on enriched terms and associated p-values?
+
+3.  Compare and contrast KEGG enrichment with other tools or methods
+    used for functional enrichment analysis.
+
+4.  Can you find the KEGG organism for the organism that you are
+    interested in?
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+
+```{r session-info}
+pander::pander(sessionInfo())
+```
+
+@clusterProfiler

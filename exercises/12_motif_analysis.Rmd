@@ -42,6 +42,7 @@ p_load("tidyverse", "knitr", "readr",
 p_load("biomaRt")
 
 p_load("memes")
+p_load("Biostrings")
 
 library(biomaRt)
 library(memes)
@@ -50,6 +51,13 @@ library(memes)
 ### We need to install MEME software on your computer if you don't already have it.
 
 This code only downloads & installs the software if not on your computer. The output when installing is VERY long, you can close the output by clicking the small x in the top right corner of the output box.
+
+IF YOU ARE USING LAB MAC for this exercise, or if you don't have XCode on your computer, you'll need to download XCode for mac `xcode-select --install`
+```{bash}
+xcode-select --install
+```
+
+
 ```{bash}
 # latest version as of 20 Oct 2023, 
 # change to newer version as needed
@@ -68,6 +76,9 @@ fi
 
 Ensure that your download worked:
 ```{r}
+# quick TRUE/FALSE
+check_meme_install()
+# More details of the install
 meme_is_installed()
 ```
 
@@ -90,7 +101,7 @@ At the end of this exercise, you should be able to:
 ```{r load-FClist}
 FC_list <-
   readr::read_tsv(
-    "~/Documents/GitHub/GenomicDataAnalysis_Fa23/data/DE_yeast_TF_stress.txt.gz",
+    "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz",
     # make those names less painful to type:
     name_repair = "universal"
   ) 
@@ -155,10 +166,106 @@ What gene list do you think has the most interesting biological meaning for moti
 msn24_EtOH_down <- FC_list |>
   filter(logFC..WT.v.msn24.mutant..EtOH.response < -2) |>
   filter(FDR..WT.v.msn24.mutant..EtOH.response<0.01) |>
-  select(ID) %>%
+  dplyr::select(ID) %>%
   # add the upstream seqs as a new column
-  left_join(seq, by=c("ID" = "ensembl_gene_id"))
+  left_join(seq, by=c("ID" = "ensembl_gene_id")) |>
+  drop_na("coding_gene_flank")
+
+# let's take a quick look at the genes identified.
+glimpse(msn24_EtOH_down)
 ```
+Perfect, but we need the data to be formatted like a fasta file. Like this:
+```{r}
+# create Biostrings object
+msn24_EtOH_down_fa <- DNAStringSet(msn24_EtOH_down$coding_gene_flank)
+# add gene names
+names(msn24_EtOH_down_fa) <- msn24_EtOH_down$ID
+```
+
+
+## Run MEME enrichment on those sequences.
+```{r}
+meme_msn24_EtOH_down <- runMeme(msn24_EtOH_down_fa, 
+        minw = 8, # default is 8
+        maxw= 50, #default is 50
+        parse_genomic_coord=FALSE,
+        silent=F
+        )
+
+meme_msn24_EtOH_down
+```
+
+
+## Run streme
+
+A newer alternative function, part of the MEME suite, that is better suited to looking for shorter motifs which are common in eukaryotes. 
+
+
+We can use the promoter sequences from the entire genome as a background to model the null distribution, let's create a background sequences object too for control.
+```{r}
+# create a DNAStringSet object from our FC_list we created above.
+background_fa <- DNAStringSet(left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
+                                       drop_na("coding_gene_flank") |> pull(coding_gene_flank))
+# add gene names
+names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
+                                       drop_na("coding_gene_flank") |> pull(ID)
+```
+
+```{r}
+streme_msn24_EtOH_down <- runStreme(msn24_EtOH_down_fa, 
+        control= background_fa,
+        # control= "shuffle",
+        minw = 5, # default is 8
+        maxw= 15, #default is 15
+        parse_genomic_coord=FALSE,
+        silent=TRUE
+        )
+
+streme_msn24_EtOH_down
+
+dreme_msn24_EtOH_down <- runDreme(msn24_EtOH_down_fa, 
+        control= background_fa,
+        # outdir = "auto"#, 
+        parse_genomic_coord=FALSE,
+        silent=TRUE#,
+        # maxk=9
+        # meme_path = NULL, 
+        # silent = TRUE, ...
+        )
+
+dreme_msn24_EtOH_down
+```
+
+  
+
+YEAST/YEASTRACT_20130918.meme
+
+```{r}
+meme_tomtom <- runTomTom(input=meme_msn24_EtOH_down,
+          database= "~/Downloads/motif_databases/YEAST/YEASTRACT_20130918.meme")
+
+view_motifs(meme_tomtom$best_match_motif)
+```
+```{r fig.height=8, fig.width=4}
+streme_tomtom_msn24_EtOH_down <- runTomTom(input=streme_msn24_EtOH_down,
+                 # evalue = FALSE,
+                 norc=TRUE,
+                 thresh=0.5,
+                 # internal=TRUE,
+                 motif_pseudo=1,
+          database= "~/Downloads/motif_databases/YEAST/YEASTRACT_20130918.meme") #|>
+  # pull(tomtom) |>
+  # View()
+
+view_motifs(streme_tomtom_msn24_EtOH_down$best_match_motif,relative_entropy=F, normalise.scores = T, 
+            use.type = "ICM", 
+            method="WPCC",
+            tryRC=F) # Don't show reverse complement matches
+```
+```{r}
+view_tomtom_hits(streme_tomtom_msn24_EtOH_down, top_n = 3)
+```
+
 
 
 

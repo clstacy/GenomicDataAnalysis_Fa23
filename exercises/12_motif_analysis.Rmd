@@ -161,7 +161,7 @@ Note that for yeast, this isn't too much data for our computers. If you're worki
 # Get lists of genes that we want to run motif analysis on.
 
 
-What gene list do you think has the most interesting biological meaning for motif analysis? One comparison to consider is the genes that are most different in the EtOH response between WT and Msn2/4∆∆ samples. Let's get that list of genes now:
+What gene list do you think has the most interesting biological meaning for motif analysis? One comparison to consider is the genes that are most different in the EtOH response between WT and Msn2/4∆∆ samples. Let's get that list of genes with very negative FCs now:
 ```{r}
 msn24_EtOH_down <- FC_list |>
   filter(logFC..WT.v.msn24.mutant..EtOH.response < -2) |>
@@ -247,25 +247,76 @@ meme_tomtom <- runTomTom(input=meme_msn24_EtOH_down,
 view_motifs(meme_tomtom$best_match_motif)
 ```
 ```{r fig.height=8, fig.width=4}
+# assign a directory where we can see the output files saved
+out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/streme_msn24_EtOH_down")
+
+# run TomTom analysis
 streme_tomtom_msn24_EtOH_down <- runTomTom(input=streme_msn24_EtOH_down,
                  # evalue = FALSE,
                  norc=TRUE,
                  thresh=0.5,
-                 # internal=TRUE,
                  motif_pseudo=1,
-          database= "~/Downloads/motif_databases/YEAST/YEASTRACT_20130918.meme") #|>
+                 database= "~/Downloads/motif_databases/YEAST/YEASTRACT_20130918.meme",
+                 outdir = out_dir) #|>
   # pull(tomtom) |>
   # View()
+```
 
+Now, the path where you had the file save to & let's see our results. Open tomtom.html that was saved.
+
+```{r}
 view_motifs(streme_tomtom_msn24_EtOH_down$best_match_motif,relative_entropy=F, normalise.scores = T, 
             use.type = "ICM", 
             method="WPCC",
             tryRC=F) # Don't show reverse complement matches
 ```
+It can sometimes be helpful to manually look at the alignments to see if there's anything unexpected going on. We can use the command `view_tomtom_hits()` to do this. The figures aren't publication quality, but are useful for us to see.
 ```{r}
 view_tomtom_hits(streme_tomtom_msn24_EtOH_down, top_n = 3)
 ```
 
+Cool! We see Msn2/4 promoter sequence motif is strongly enriched in the promoter sequences of the genes that are lower in Msn2/4∆∆ vs WT response to EtOH.
+
+Let's do a sanity check, and do the exact same thing but for genes that were *higher* in the same contrast, and see what enrichments if any are found. We can put just the code we need:
+```{r}
+# create gene list
+msn24_EtOH_up <- FC_list |>
+  # I want more than 8 genes, so I lowered the FC cutoff
+  filter(logFC..WT.v.msn24.mutant..EtOH.response >2) |>
+  filter(FDR..WT.v.msn24.mutant..EtOH.response<0.01) |>
+  dplyr::select(ID) %>%
+  # add the upstream seqs as a new column
+  left_join(seq, by=c("ID" = "ensembl_gene_id")) |>
+  drop_na("coding_gene_flank")
+
+# create Biostrings object
+msn24_EtOH_up_fa <- DNAStringSet(msn24_EtOH_up$coding_gene_flank)
+# add gene names
+names(msn24_EtOH_up_fa) <- msn24_EtOH_up$ID
+
+# we already have background genes, so don't need to put that code again
+
+streme_msn24_EtOH_up <- runStreme(msn24_EtOH_up_fa, 
+        control= background_fa,
+        # control= "shuffle",
+        minw = 5, # default is 8
+        maxw= 15, #default is 15
+        parse_genomic_coord=FALSE,
+        silent=TRUE
+        )
+
+# assign a directory where we can see the output files saved
+out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/streme_msn24_EtOH_up")
+
+# run TomTom analysis
+streme_tomtom_msn24_EtOH_up <- runTomTom(input=streme_msn24_EtOH_up,
+                 # evalue = FALSE,
+                 norc=TRUE,
+                 thresh=0.5,
+                 motif_pseudo=1,
+                 database= "~/Downloads/motif_databases/YEAST/YEASTRACT_20130918.meme",
+                 outdir = out_dir)
+```
 
 
 
@@ -284,17 +335,7 @@ let Jeff change it during his explanation
 
 # Questions
 
-1.  Can you explain the concept of gene set enrichment analysis and its
-    relevance in functional genomics?
-
-2.  How would you interpret the results obtained from clusterProfiler,
-    specifically focusing on enriched terms and associated p-values?
-
-3.  Compare and contrast KEGG enrichment with other tools or methods
-    used for functional enrichment analysis.
-
-4.  Can you find the KEGG organism for the organism that you are
-    interested in?
+1.  
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

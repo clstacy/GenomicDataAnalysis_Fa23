@@ -298,6 +298,7 @@ curl::curl_download(
 # Choose output directory for the output files to be saved
 out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/")
 
+# Create out_dir directory if doesn't already exist
 if (!dir.exists(out_dir)) {
   dir.create(out_dir, recursive = TRUE)
 }

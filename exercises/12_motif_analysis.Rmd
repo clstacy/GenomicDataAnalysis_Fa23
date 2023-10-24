@@ -71,27 +71,27 @@ your computer. The output when installing is VERY long, you can close
 the output by clicking the small x in the top right corner of the output
 box.
 
-The MEME suite does not currently support windows, although it can be
+The MEME suite does not currently support Windows OS, although it can be
 done with WSL. We will be using Mac for this analysis.
 
-```{bash}
+```{bash, eval=FALSE}
 # Check for XCode on Mac or prompt installation
 xcode-select --install
 
 # Define MEME version
 # Latest version as of 23 Oct 2023, 
-version = "5.5.4"
+version="5.5.4"
 
 # Install MEME if not already installed
-if (!command -v $HOME/meme/bin/meme &> /dev/null) {
-  curl -o meme-$version.tar.gz https://meme-suite.org/meme/meme-software/$version/meme-$version.tar.gz
+if ! command -v $HOME/meme/bin/meme &> /dev/null; then
+  curl -o $HOME/meme-$version.tar.gz https://meme-suite.org/meme/meme-software/$version/meme-$version.tar.gz
   tar zxf meme-$version.tar.gz
   cd meme-$version
   ./configure --prefix=$HOME/meme --with-url=http://meme-suite.org/ --enable-build-libxml2 --enable-build-libxslt
   make
   make test
   make install
-}
+fi
 ```
 
 ## Verify MEME Installation
@@ -107,7 +107,8 @@ If install didn't work, troubleshooting is needed.
 
 ## Retrieve LogFC and FDR values
 
-Let's load in the `DE_yeast_TF_stress.txt` file containing logFC and FDR values for a variety of yeast strains and stress conditions.
+Let's load in the `DE_yeast_TF_stress.txt` file containing logFC and FDR
+values for a variety of yeast strains and stress conditions.
 
 ```{r load-FClist}
 # Load gene file used in clustering
@@ -162,10 +163,10 @@ seq <- seq |> filter(coding_gene_flank != "Sequence unavailable")
 glimpse(seq)
 ```
 
-Now we have the 500bp upstream sequences for (almost) all of the genes in the
-genome. Note that for yeast, this isn't too much data for a laptop.
-If you're working with a larger genome, you might need to subset the
-gene list down just to the genes in your gene list.
+Now we have the 500bp upstream sequences for (almost) all of the genes
+in the genome. Note that for yeast, this isn't too much data for a
+laptop. If you're working with a larger genome, you might need to subset
+the gene list down just to the genes in your gene list.
 
 # Motif Analysis for Genes Downregulated in EtOH Response
 
@@ -174,7 +175,8 @@ In order to continue, we need a list of genes.
 What gene list do you think has the most interesting biological meaning
 for motif analysis? One comparison to consider is the genes that are
 most different in the EtOH response between WT and Msn2/4∆∆ samples.
-Let's get that list of genes with large magnitude and statistically significant negative logFC values now:
+Let's get that list of genes with large magnitude and statistically
+significant negative logFC values now:
 
 ```{r}
 # Create gene list for downregulated genes
@@ -190,7 +192,8 @@ msn24_EtOH_down <- FC_list |>
 glimpse(msn24_EtOH_down)
 ```
 
-For MEME analysis, the gene list needs to be formatted like a fasta file. Here is how we can do that:
+For MEME analysis, the gene list needs to be formatted like a fasta
+file. Here is how we can do that:
 
 ```{r}
 # create Biostrings object
@@ -201,8 +204,13 @@ names(msn24_EtOH_down_fa) <- msn24_EtOH_down$ID
 
 ## Run Meme enrichment
 
-This was the first algorithm developed in the MEME-suite, and is still widely used. However, it is not always the best approach. Unlike many bioinformatic software, the default parameter settings are usually **not** the best options for motif analysis. 
-We can adjust these settings in class to parameters better suited to our data (based on biological domain knowledge). See all of the parameter options at: https://meme-suite.org/meme/doc/meme.html
+This was the first algorithm developed in the MEME-suite, and is still
+widely used. However, it is not always the best approach. Unlike many
+bioinformatic software, the default parameter settings are usually
+**not** the best options for motif analysis. We can adjust these
+settings in class to parameters better suited to our data (based on
+biological domain knowledge). See all of the parameter options at:
+<https://meme-suite.org/meme/doc/meme.html>
 
 ```{r}
 # Run Meme
@@ -222,10 +230,16 @@ meme_msn24_EtOH_down
 A newer alternative function, part of the MEME suite, that is better
 suited to looking for shorter motifs which are common in Eukaryotes.
 
-For `runStreme`, properly setting the `control` parameter is key to discovering biologically relevant motifs. Often, using `control = "shuffle"` will produce a suboptimal set of motifs; however, some discriminative analysis designs don't have proper "control" regions other than to shuffle.
+For `runStreme`, properly setting the `control` parameter is key to
+discovering biologically relevant motifs. Often, using
+`control = "shuffle"` will produce a suboptimal set of motifs; however,
+some discriminative analysis designs don't have proper "control" regions
+other than to shuffle.
 
-For our analysis, we can use the promoter sequences from the entire genome as a background
-to model the null distribution, let's create an object in R with all of the 500bp upstream sequences from `seq` to use as a control
+For our analysis, we can use the promoter sequences from the entire
+genome as a background to model the null distribution, let's create an
+object in R with all of the 500bp upstream sequences from `seq` to use
+as a control
 
 ```{r}
 # create a DNAStringSet object from our FC_list we created above.
@@ -250,13 +264,15 @@ streme_msn24_EtOH_down <- runStreme(msn24_EtOH_down_fa,
 streme_msn24_EtOH_down
 ```
 
-
 ## Run TomTom analysis
 
 Now, we can see if any of those identified motifs correspond to known
-motifs in databases. The TomTom algorithm, part of the MEME-suite, allows us to just that, comparing our identified motifs to known motifs in annotation databases.
+motifs in databases. The TomTom algorithm, part of the MEME-suite,
+allows us to just that, comparing our identified motifs to known motifs
+in annotation databases.
 
-First, we need to download the YEASTRACT database file called (YEASTRACT_20130918.meme). We will pull this file from Github, but you
+First, we need to download the YEASTRACT database file called
+(YEASTRACT_20130918.meme). We will pull this file from Github, but you
 can see and download all of the available databases at:
 <https://meme-suite.org/meme/doc/download.html>.
 
@@ -283,7 +299,6 @@ curl::curl_download(
 out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/")
 ```
 
-
 ```{r}
 # Run TomTom on motifs found by runMeme()
 meme_tomtom_msn24_EtOH_down <-
@@ -300,10 +315,12 @@ meme_tomtom_msn24_EtOH_down <-
 view_motifs(meme_tomtom_msn24_EtOH_down$best_match_motif)
 ```
 
-Go to the `out_dir` directory on your computer, and open the tomtom.html file. How convincing are those matches? With the default options, I'm not impressed. 
+Go to the `out_dir` directory on your computer, and open the tomtom.html
+file. How convincing are those matches? With the default options, I'm
+not impressed.
 
-
-Let's run TomTom on the output of the `runStreme()` command above, and see what we find.
+Let's run TomTom on the output of the `runStreme()` command above, and
+see what we find.
 
 ```{r}
 # Run TomTom on motifs found by runStreme()
@@ -383,18 +400,19 @@ streme_tomtom_msn24_EtOH_up <- runTomTom(
   )
 ```
 
-Are Msn2/4 motifs enriched here? What biological meaning can we take away from this?
-
+Are Msn2/4 motifs enriched here? What biological meaning can we take
+away from this?
 
 # Skn7∆ exposed to salt.
 
-Now, let's take a look another mutant from this study exposed to a different stressor. 
+Now, let's take a look another mutant from this study exposed to a
+different stressor.
 
 ```{r motif-skn7NaCl}
 # create gene list
 skn7_NaCl_down <- FC_list |>
-  filter(logFC..WT.v.skn7.mutant..NaCl.response < -1.5) |>
-  filter(FDR..WT.v.skn7.mutant.NaCl.response<0.01) |>
+  filter(logFC..WT.v.skn7.mutant..NaCl.response < -2) |>
+  filter(FDR..WT.v.skn7.mutant.NaCl.response<0.00001) |>
   dplyr::select(ID) %>%
   # add the upstream seqs as a new column
   left_join(seq, by=c("ID" = "ensembl_gene_id")) |>
@@ -421,26 +439,44 @@ streme_skn7_NaCl_down <- runStreme(skn7_NaCl_down_fa,
 # Run TomTom analysis
 streme_tomtom_skn7_NaCl_down <- runTomTom(
   input = streme_skn7_NaCl_down,
-  norc = TRUE,
+  # norc = TRUE,
   thresh = 20,
-  motif_pseudo = 1,
+  motif_pseudo = 0.1,
   database = db_destination,
   outdir = path.expand(paste0(out_dir, "streme_skn7_NaCl_down"))
   )
+
 ```
 
+Notice we have fewer genes this time, let's try meme instead
 
+```{r}
+# Run Meme
+meme_skn7_NaCl_down <- runMeme(
+  skn7_NaCl_down_fa,
+  # control= "shuffle", #background_fa,
+  # objfun="de",
+  parse_genomic_coord = FALSE,
+  minw = 5,
+  maxw = 15,
+  markov_order = 2,
+  seed = 0,
+  dna = T,
+  revcomp = T,
+  evt = 0.1
+)
 
-
-
-thoughts on the exercise: Example 1 EtOH MSN2/4 that Jeff had in slack
-is best one
-
-Example 2 for salt, skn7 is the top one.
-
-# Questions
-
-1.  
+# Run TomTom analysis
+meme_tomtom_skn7_NaCl_down <- runTomTom(
+  input = meme_skn7_NaCl_down,
+  # norc = TRUE,
+  thresh = 10,
+  motif_pseudo = 0.1,
+  min_overlap = 5,
+  database = db_destination,
+  outdir = path.expand(paste0(out_dir, "meme_skn7_NaCl_down"))
+  )
+```
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

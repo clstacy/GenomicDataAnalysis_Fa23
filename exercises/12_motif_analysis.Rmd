@@ -202,6 +202,18 @@ msn24_EtOH_down_fa <- Biostrings::DNAStringSet(msn24_EtOH_down$coding_gene_flank
 names(msn24_EtOH_down_fa) <- msn24_EtOH_down$ID
 ```
 
+Let's create a folder to which we can save output files. 
+```{r}
+# Choose output directory for the output files to be saved
+out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/")
+
+# Create out_dir directory if doesn't already exist
+if (!dir.exists(out_dir)) {
+  dir.create(out_dir, recursive = TRUE)
+}
+```
+
+
 ## Run Meme enrichment
 
 This was the first algorithm developed in the MEME-suite, and is still
@@ -218,7 +230,8 @@ meme_msn24_EtOH_down <- runMeme(msn24_EtOH_down_fa,
         minw = 8, # default is 8
         maxw= 50, #default is 50
         parse_genomic_coord=FALSE,
-        silent=F
+        silent=F,
+        outdir = path.expand(paste0(out_dir, "meme_msn24_EtOH_down"))
         )
 
 # Display Meme results
@@ -257,7 +270,8 @@ streme_msn24_EtOH_down <- runStreme(msn24_EtOH_down_fa,
         minw = 8, # default is 8
         maxw= 15, #default is 15
         parse_genomic_coord=FALSE,
-        silent=TRUE
+        silent=TRUE,
+        outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_down"))
         )
 
 # Display Streme results
@@ -294,14 +308,6 @@ curl::curl_download(
   quiet = FALSE,
   mode = "wb"
 )
-
-# Choose output directory for the output files to be saved
-out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/")
-
-# Create out_dir directory if doesn't already exist
-if (!dir.exists(out_dir)) {
-  dir.create(out_dir, recursive = TRUE)
-}
 ```
 
 ```{r}
@@ -313,7 +319,7 @@ meme_tomtom_msn24_EtOH_down <-
     thresh = 10,
     motif_pseudo = 0.1,
     database = db_destination,
-    outdir = path.expand(paste0(out_dir, "meme_msn24_EtOH_down"))
+    outdir = path.expand(paste0(out_dir, "tomtom_meme_msn24_EtOH_down"))
   )
 
 # View Meme TomTom results
@@ -336,7 +342,7 @@ streme_tomtom_msn24_EtOH_down <-
     thresh = 10,
     motif_pseudo = 0.1,
     database = db_destination,
-    outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_down"))
+    outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_EtOH_down"))
   )
 
 # View Streme TomTom results
@@ -391,7 +397,8 @@ streme_msn24_EtOH_up <- runStreme(msn24_EtOH_up_fa,
         minw = 5, # default is 8
         maxw= 15, #default is 15
         parse_genomic_coord=FALSE,
-        silent=TRUE
+        silent=TRUE,
+        outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_up"))
         )
 
 # Run TomTom analysis
@@ -401,7 +408,7 @@ streme_tomtom_msn24_EtOH_up <- runTomTom(
   thresh = 10,
   motif_pseudo = 0.1,
   database = db_destination,
-  outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_up"))
+  outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_EtOH_up"))
   )
 ```
 
@@ -438,7 +445,8 @@ streme_skn7_NaCl_down <- runStreme(skn7_NaCl_down_fa,
         maxw= 15, #default is 15
         evalue=TRUE,
         parse_genomic_coord=FALSE,
-        silent=TRUE
+        silent=TRUE,
+        outdir = path.expand(paste0(out_dir, "streme_skn7_NaCl_down"))
         )
 
 # Run TomTom analysis
@@ -448,7 +456,7 @@ streme_tomtom_skn7_NaCl_down <- runTomTom(
   thresh = 20,
   motif_pseudo = 0.1,
   database = db_destination,
-  outdir = path.expand(paste0(out_dir, "streme_skn7_NaCl_down"))
+  outdir = path.expand(paste0(out_dir, "tomtom_streme_skn7_NaCl_down"))
   )
 
 ```
@@ -468,7 +476,8 @@ meme_skn7_NaCl_down <- runMeme(
   seed = 0,
   dna = T,
   revcomp = T,
-  evt = 0.1
+  evt = 0.1,
+  outdir = path.expand(paste0(out_dir, "meme_skn7_NaCl_down"))
 )
 
 # Run TomTom analysis
@@ -479,7 +488,7 @@ meme_tomtom_skn7_NaCl_down <- runTomTom(
   motif_pseudo = 0.1,
   min_overlap = 5,
   database = db_destination,
-  outdir = path.expand(paste0(out_dir, "meme_skn7_NaCl_down"))
+  outdir = path.expand(paste0(out_dir, "tomtom_meme_skn7_NaCl_down"))
   )
 ```
 

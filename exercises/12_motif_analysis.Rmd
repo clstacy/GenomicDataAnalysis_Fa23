@@ -103,7 +103,7 @@ check_meme_install()
 
 If install didn't work, troubleshooting is needed.
 
-# Analysis: Motif Discovery for Msn2/4∆∆ vs WT Response to EtOH
+# Analysis: Motif Discovery for *msn2/4*∆∆ vs WT Response to EtOH
 
 ## Retrieve LogFC and FDR values
 
@@ -174,7 +174,7 @@ In order to continue, we need a list of genes.
 
 What gene list do you think has the most interesting biological meaning
 for motif analysis? One comparison to consider is the genes that are
-most different in the EtOH response between WT and Msn2/4∆∆ samples.
+most different in the EtOH response between WT and *msn2/4*∆∆ samples.
 Let's get that list of genes with large magnitude and statistically
 significant negative logFC values now:
 
@@ -217,18 +217,21 @@ if (!dir.exists(out_dir)) {
 ## Run Meme enrichment
 
 This was the first algorithm developed in the MEME-suite, and is still
-widely used. However, it is not always the best approach. Unlike many
-bioinformatic software, the default parameter settings are usually
-**not** the best options for motif analysis. We can adjust these
-settings in class to parameters better suited to our data (based on
-biological domain knowledge). See all of the parameter options at:
+widely used. However, it is not always the best approach. MEME is
+recommended when you have fewer than 50 sequences, while STREME is
+recommended when you have more. Also, the default parameter settings are
+often **not** the best options depending on your organism (e.g, bacteria
+tend to have longer motifs). We can adjust these settings in class to
+parameters better suited to our data (based on biological domain
+knowledge). See all of the parameter options at:
 <https://meme-suite.org/meme/doc/meme.html>
 
 ```{r}
 # Run Meme
 meme_msn24_EtOH_down <- runMeme(msn24_EtOH_down_fa, 
-        minw = 8, # default is 8
-        maxw= 50, #default is 50
+        minw = 8, # default is 8, for yeast I use 5
+        maxw= 50, #default is 50, for yeast I use 20
+        mod= "zoops", #zero or one occurence per sequence
         parse_genomic_coord=FALSE,
         silent=F,
         outdir = path.expand(paste0(out_dir, "meme_msn24_EtOH_down"))
@@ -238,10 +241,10 @@ meme_msn24_EtOH_down <- runMeme(msn24_EtOH_down_fa,
 meme_msn24_EtOH_down
 ```
 
-## Run Streme enrichment
+## Run STEME enrichment
 
-A newer alternative function, part of the MEME suite, that is better
-suited to looking for shorter motifs which are common in Eukaryotes.
+STEME is a newer MEME suite tool, that is better suited to looking for
+shorter motifs which are common in Eukaryotes.
 
 For `runStreme`, properly setting the `control` parameter is key to
 discovering biologically relevant motifs. Often, using
@@ -252,7 +255,7 @@ other than to shuffle.
 For our analysis, we can use the promoter sequences from the entire
 genome as a background to model the null distribution, let's create an
 object in R with all of the 500bp upstream sequences from `seq` to use
-as a control
+as a control.
 
 ```{r}
 # create a DNAStringSet object from our FC_list we created above.
@@ -267,8 +270,8 @@ names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |
 # Run Streme
 streme_msn24_EtOH_down <- runStreme(msn24_EtOH_down_fa, 
         control= background_fa,
-        minw = 8, # default is 8
-        maxw= 15, #default is 15
+        minw = 8, # default is 8, for yeast I use 5
+        maxw= 15, #default is 15, for yeast i use 20
         parse_genomic_coord=FALSE,
         silent=TRUE,
         outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_down"))
@@ -394,11 +397,11 @@ names(msn24_EtOH_up_fa) <- msn24_EtOH_up$ID
 streme_msn24_EtOH_up <- runStreme(msn24_EtOH_up_fa, 
         control= background_fa,
         # control= "shuffle",
-        minw = 5, # default is 8
-        maxw= 15, #default is 15
+        minw = 5, # default is 8, for yeast I use 5
+        maxw= 20, #default is 15, for yeast I use 20
         parse_genomic_coord=FALSE,
         silent=TRUE,
-        outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_up"))
+  outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_up"))
         )
 
 # Run TomTom analysis
@@ -415,7 +418,7 @@ streme_tomtom_msn24_EtOH_up <- runTomTom(
 Are Msn2/4 motifs enriched here? What biological meaning can we take
 away from this?
 
-# Skn7∆ exposed to salt.
+# *skn7*∆ exposed to salt.
 
 Now, let's take a look another mutant from this study exposed to a
 different stressor.
@@ -441,8 +444,8 @@ names(skn7_NaCl_down_fa) <- skn7_NaCl_down$ID
 streme_skn7_NaCl_down <- runStreme(skn7_NaCl_down_fa, 
         control= background_fa,
         # control= "shuffle",
-        minw = 5, # default is 8
-        maxw= 15, #default is 15
+        minw = 8, # default is 8, for yeast I use 5
+        maxw= 15, #default is 15, for yeast I use 20
         evalue=TRUE,
         parse_genomic_coord=FALSE,
         silent=TRUE,
@@ -471,8 +474,9 @@ meme_skn7_NaCl_down <- runMeme(
   # objfun="de",
   parse_genomic_coord = FALSE,
   minw = 5,
-  maxw = 15,
+  maxw = 20,
   markov_order = 2,
+  mod= "zoops", #zero or one occurence per sequence
   seed = 0,
   dna = T,
   revcomp = T,
@@ -491,6 +495,18 @@ meme_tomtom_skn7_NaCl_down <- runTomTom(
   outdir = path.expand(paste0(out_dir, "tomtom_meme_skn7_NaCl_down"))
   )
 ```
+
+# Questions
+
+1.  What is the difference in motifs when you change the settings for
+    analyzing the msn2/4 mutant vs wild-type ethanol response using
+    "zoops" or "anr" as the setting?
+
+2.  Perform MEME and STREME on the wild-type salt response and wild-type
+    ethanol response (using a log2 FC of 3 and FDR \< 0.01) to identify
+    motifs in genes that are strongly induced for each stress, and then
+    follow that analysis with TOMTOM. What TFs may be shared and what
+    TFs may be different between the two stress responses?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

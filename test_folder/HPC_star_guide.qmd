@@ -1,0 +1,381 @@
+---
+title: "Running STAR on the UARK AHPCC"
+author: "Carson Stacy & Jeffrey Lewis"
+format:
+  html:
+    embed-resources: true
+    code-background: true
+    code-copy: true
+    code-link: true
+date: "`r Sys.Date()`"
+editor: visual
+execute:
+  eval: false
+  freeze: auto
+engine: knitr
+code-fold: "show"
+link-external-newwindow: true
+bibliography: references.bib
+---
+
+This is a tutorial for using the provided code to run STAR by [@Dobin2013] on the [UARK HPC](https://hpc.uark.edu/). All possible flags that can be used are accessible via the [STAR manual](https://github.com/alexdobin/STAR/blob/master/doc/STARmanual.pdf). You can modify this code to analyze your own data. First, let's start by recalling how to log on to the HPC.
+
+```{bash login}
+#| eval: false
+#| code-fold: false
+ssh youruarkusername@hpc-portal2.hpc.uark.edu
+```
+
+To log on, we:
+
+1.  Open a terminal window
+
+    a.  Windows: use either [Git Bash](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) terminal. There's also [PuTTy](https://www.putty.org/) but that's not used much anymore
+
+    b.  MacOS/Linux: Use your usual terminal. While you can run STAR on Mac on Linux, it needs large amounts of memory and CPU, which makes it best to use the HPC.
+
+2.  Run the code above, being sure to change `youruarkusername` to your uark username. It will ask you to enter your uark password to log in.
+
+::: {.callout-tip collapse="true"}
+## Logging in when off-campus
+
+If you're not on campus wifi, you'll either need to use the GlobalProtect VPN that the campus provides, or run the same code above with -p2022 at the end. It'll ask for your password, make sure you're you, and then kick. you out. then run the usual log in code again and you'll be able to log in. This resets about every 48 hours, last I checked.
+:::
+
+3.  Now that you're logged on to the HPC, you will be located in your home folder. This code assumes you haven't done a lot of work on the HPC before, so it should work regardless of how you've set up your system. We can save a script to a file and submit our job on the HPC from where you arrive when you log in.
+
+4.  We need to create a script that submits the code to the HPC system to run when a computing node is available. A script for doing so is below. We need to put this code into as a new file on the HPC. Instructions for doing this are below.
+
+::: callout-tip
+## Copying a code chunk
+
+You'll need to copy the code chunk below, which you can easily do by clicking the clipboard icon in the top-right corner of the code chunk.
+
+Once you've copied the code, you can collapse this long code chunk by clicking the `▼ Code` below to keep reading.
+:::
+
+```{bash launch_star.slurm}
+#| eval: false
+#!/bin/bash
+#SBATCH --job-name=star_run_template
+#SBATCH --partition=comp01  # Replace with the appropriate partition
+#SBATCH --nodes=1                 # Number of CPU machines to allocate
+#SBATCH --cpus-per-task=32         # Number of CPU cores to allocate
+#SBATCH --time=01:00:00           # Maximum runtime (hours:minutes:seconds)
+#SBATCH --output=out.star_%j    # Output file
+#SBATCH --error=err.star_%j     # Error file
+
+# Define variables
+NCORES=32
+FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"
+STAR_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/STAR"
+REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"
+# Note I did not include the .gz in the name
+GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+GTF="Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
+INDEX=index_star_Saccharomyces_cerevisiae.R64-1-1 # replace with desired name of your star index
+EXPERIMENTNAME="yeast" # name you'd like the output file to include
+STRANDEDNESS=2 #(2 for unstranded, 3 for forward, 4 for reverse)
+TEMP_FOLDER="/storage/$USER/tmp" # Choose your own temporary folder
+CLASS_EXERCISE=true
+# if CLASS_EXERCISE=true, this script downloads the subsampled fastq files from github.
+# NOTE: make sure you have put your trimmed fastq.gz files into $FQ_DATA_DIR if not using class files.
+
+# Load any necessary modules or activate your virtual environment if needed
+module purge
+module load STAR/2.7.10a
+
+# increase ulimit for mapping
+ulimit -n 4096
+
+# Create the reference genome dir if it doesn't already exist
+mkdir -p $REFERENCE_DIR
+
+# Create the output directory if it doesn't exist
+mkdir -p $STAR_OUT_DIR
+
+# Make the stated fastq file dir if doesn't already exist.
+mkdir -p $FQ_DATA_DIR
+
+# Make the temporary folder for intermediate files
+mkdir -p $TEMP_FOLDER
+
+# Navigate to the input directory
+cd $FQ_DATA_DIR
+
+# if using this for class, download data files into FQ_DIR
+if [ "$CLASS_EXERCISE" = true ] ; then
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_MOCK_REP4_R1.fastq.gz
+	# WT EtOH
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_WT_ETOH_REP4_R1.fastq.gz
+	# msn2/4dd unstressed (mock)
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_MOCK_REP4_R1.fastq.gz
+	# msn2/4dd EtOH
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP1_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP2_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP3_R1.fastq.gz
+	curl -L -O https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/fastq_trimmed/YPS606_MSN24_ETOH_REP4_R1.fastq.gz
+fi
+
+# return to where we were
+cd -
+
+## Download the reference genome if not already in ref dir
+
+# Define the URL of reference genome (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/$GENOME"
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" ]; then
+    echo "Reference genome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" "$url"
+    echo "Downloading finished"
+else
+    echo "Genome file already exists at $REFERENCE_DIR. Skipping download."
+fi
+
+## Download annotation file 
+
+# Define the URL of reference genome annotation (gtf)
+# (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz"
+
+# Check if the annotation file already exists at the destination location
+if [ ! -f "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz" ]; then
+    echo "Reference genome annotation not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REFERENCE_DIR/Saccharomyces_cerevisiae.R64-1-1.110.gtf.gz" "$url"
+    echo "Downloading finished"
+else
+    echo "File already exists at $REFERENCE_DIR Skipping download."
+fi
+
+# move to our reference folder
+cd $REFERENCE_DIR
+
+mkdir -p "${REFERENCE_DIR}/${INDEX}"
+
+# STAR requires unzipped .fa and .gtf files, so
+zcat "$REFERENCE_DIR/$GTF" > "$REFERENCE_DIR/${GTF::-3}"
+zcat "$REFERENCE_DIR/$GENOME" > "$REFERENCE_DIR/${GENOME::-3}"
+
+# Create STAR index
+STAR --runThreadN 20 --runMode genomeGenerate --genomeDir $REFERENCE_DIR/$INDEX --genomeFastaFiles $REFERENCE_DIR/${GENOME::-3} --sjdbGTFfile $REFERENCE_DIR/${GTF::-3} -sjdbOverhang 49 --genomeSAindexNbases 10 #--outFileNamePrefix $EXPERIMENTNAME
+
+
+echo "STAR index generation complete"
+
+# move to the folder with our trimmed fastq files
+cd $FQ_DATA_DIR
+
+# Detect if both "_R1" and "_R2" files exist for the same sample to identify paired-end data
+echo "Initiating star counting..."
+
+for sampname_R1 in *_R1.fastq.gz; do
+    sampname="${sampname_R1%%_R1*}"
+    r1="$sampname_R1"
+    r2="${sampname}_R2.fastq.gz"
+
+    if [ -f "$r2" ]; then
+        # Paired-end data
+       echo "Processing paired-end sample $sampname"
+	     STAR \
+            --outSAMattributes All \
+            --outSAMtype BAM SortedByCoordinate \
+            --quantMode GeneCounts \
+            --readFilesCommand zcat \
+            --runThreadN $NCORES \
+            --sjdbGTFfile $REFERENCE_DIR/${GTF::-3} \
+            --outReadsUnmapped Fastx \
+            --outMultimapperOrder Random \
+            --outWigType wiggle \
+            --genomeDir $REFERENCE_DIR/$INDEX \
+            --readFilesIn ${sampname}_R1.fastq.gz ${sampname}_R2.fastq.gz \
+            --outFileNamePrefix ${STAR_OUT_DIR}/${sampname}.
+    else
+        # Single-end data
+	echo "Processing single-end sample $sampname"
+        STAR \
+            --outSAMattributes All \
+            --outSAMtype BAM SortedByCoordinate \
+            --quantMode GeneCounts \
+            --readFilesCommand zcat \
+            --runThreadN $NCORES \
+            --sjdbGTFfile $REFERENCE_DIR/${GTF::-3} \
+            --outReadsUnmapped Fastx \
+            --outMultimapperOrder Random \
+            --outWigType wiggle \
+            --genomeDir $REFERENCE_DIR/$INDEX \
+            --readFilesIn ${sampname}_R1.fastq.gz \
+            --outFileNamePrefix ${STAR_OUT_DIR}/${sampname}.
+    fi
+done
+
+
+# Now, let's merge all of the count files: 
+
+
+# Use find to get a list of matching files
+files=$(find $STAR_OUT_DIR/ -name "*ReadsPerGene.out.tab" -type f)
+
+
+# Validate the strand option
+if [[ $STRANDEDNESS != 2 && $STRANDEDNESS != 3 && $STRANDEDNESS != 4 ]]; then
+    echo "Invalid strand option. Please enter 2 for unstranded, 3 for forward, or 4 for reverse."
+    exit 1
+fi
+
+# Use find to get a list of matching files
+files=$(find $STAR_OUT_DIR/ -name "*ReadsPerGene.out.tab" -type f)
+
+# Check if any files are found
+if [ -z "$files" ]; then
+    echo "No matching files found."
+    exit 1
+fi
+
+# Flag to determine whether it's the first file
+first_file=true
+
+# Command to extract the desired columns
+extract_columns=""
+
+# gene name column ID for the output file
+header="gene_id"
+
+# Iterate over each file and build the command to extract columns
+for file in $files; do
+    if [ "$first_file" = true ]; then
+        # For the first file, add the basename as a header
+        header+="\t$(basename "$file" | sed 's/.ReadsPerGene.out.tab//')"
+        # For the first file, store the command to extract the first and specified columns
+        extract_columns+="awk '{print \$1, \$$STRANDEDNESS}' $file"
+        first_file=false
+    else
+        # For subsequent files, add the basename as a header and append the command
+        # extract_columns+=" | paste -d'\t' - <(awk '{print \$$STRANDEDNESS}' $file)"
+        header+="\t$(basename "$file" | sed 's/.ReadsPerGene.out.tab//')"
+        extract_columns+=" | paste -d'\t' - <(cut -f"$STRANDEDNESS" $file)"
+    fi
+done
+
+# Execute the combined command to extract columns and add headers
+(eval "echo -e '$header' && $extract_columns") > $STAR_OUT_DIR/tmp.tsv
+
+# remove rows 2-5 that contain 2 summary statistics for the counts.
+awk 'NR==1; NR>1 && NR<=5 {next} NR>5 {print}' "$STAR_OUT_DIR/tmp.tsv" > $STAR_OUT_DIR/star.gene_count.merged.${EXPERIMENTNAME}.tsv
+
+# remove temporary file
+rm "$STAR_OUT_DIR/tmp.tsv"
+
+# remove the unzipped genome and gtf files
+rm "$REFERENCE_DIR/${GENOME::-3}"
+rm "$REFERENCE_DIR/${GTF::-3}"
+
+echo "STAR job completed."
+```
+
+::: {.callout-warning collapse="true"}
+## Tips for modifying this script to use with your own data
+
+You won't need this information for the class example, but you might if you're using it for your own data.
+
+### Changing partition:
+
+If your job doesn't finish after an hour when running your own samples, you can change the line of code that is `#SBATCH --partition=comp01` so that the partition is instead `comp06` or `comp72`, depending on your needs. You'll also need to adjust the time you're requesting a max of 06:00:00 on comp06 or a maximum of 72:00:00 on comp72. Note these queues usually have more jobs waiting, so it will take longer for your job to start.
+
+### Assigning variables
+
+You'll see a list of variables at the top of the script. You'll want to modify these to make sure they are what you need. **Be sure to change `CLASS_EXERCISE` to be `false`, otherwise the script downloads example files you won't need**. Otherwise, here are the variables and what you should know:
+
+-   `NCORES=32`
+    -   Number of cores to use, as long as you're on a comp partition, don't change this.
+-   `FQ_DATA_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Trimmed_fastq_files"`
+    -   This is where on the HPC you have saved your trimmed fastq files.
+    -   Good etiquette on the HPC is to store them in your storage folder (`/storage/$USER/`)
+-   `STAR_OUT_DIR="/storage/$USER/home/Genomic_Data_Analysis/Data/Counts/STAR"`
+    -   This is the directory where you'd like the STAR output to be saved
+    -   The script will create this folder if it doesn't already exist.
+    -   You shouldn't put this in your home folder, since memory there is limited. But if you have smaller file sizes, it is easier to use the HPC GUI to move files from your home folder.
+-   `REFERENCE_DIR="/storage/$USER/home/Genomic_Data_Analysis/Reference"`
+    -   This is where the script looks for your reference files
+    -   If using this for your own data, you'll need to make this folder yourself & put the reference files inside.
+-   `TRANSCRIPTOME="Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz"`
+    -   This is the name of your transcriptome file (STAR does NOT accept the gzipped form, so we unzip it in the script)
+    -   For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/
+    -   You can peruse through that website to find what you need.
+    -   IF NOT USING YEAST, be sure to replace the url within the script as well.
+    -   You'll need to copy the link that you find like I showed above, but replace the beginning `https:` with `ftp:`
+-   `GENOME="Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"`
+    -   This is the name of your genome file (STAR does not accept the gzipped form, so we unzip it in the script)
+    -   For yeast, here is where I found this file: https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/
+    -   Again, be sure to replace the url within the actual code with the proper URL for your analysis.
+-   `INDEX=index_star_Saccharomyces_cerevisiae.R64-1-1`
+    -   This is the name that the script will save your indexed genome as.
+    -   It is a good idea to use a descriptive name
+-   `EXPERIMENTNAME="yeast"`
+-   This let's you pick the output count file's name, e.g.: star.gene_counts.merged.EXPERIMENTNAME.tsv
+
+### Working with paired-end data
+
+-   In class, we used single-end read data.
+-   This script checks for paired end samples and runs them accordingly with no changes needed.
+
+### Modifying STAR flag settings
+
+-   If you want to change any settings in your STAR run, you can change them just like normal
+-   Be sure to adjust the code for the single-end STAR command or the paired-end command, depending on your data.
+-   `--quantMode GeneCounts` - this is an incredibly useful flag, and tells STAR to count the reads mapping to genes we provide in the annotation file.
+    -   This is how we will get a count table for our data. The output file will have counts to genes as if our data was unstranded, \"positively\" and \"negatively\" stranded. If the data was generated using a strand-retaining protocol, one of these will be the appropriate parameter to use, while the other will provide an indication of the level of \"antisense\" transcription, usually a measure of how well the strand-selection protocol worked. If the number of reads mapping to genes in each of the count tables was similar, AND a stranded protocol was used, this may indicate that the stand selection did not work very well, and it may be more appropriate to treat the data as if it were *unstranded*!
+
+    -   Previously, before STAR incorporated this functionality, tools like [htseq-count](https://htseq.readthedocs.io/en/release_0.11.1/count.html) and [featureCounts](http://bioinf.wehi.edu.au/featureCounts/) were used to quantitate reads to genes, and some researchers prefer to use them to this day. However, for most users, STAR\'s quantification works just as well, and doesn\'t require installing/using/debugging additional tools.
+-   `--outWigType wiggle` - this will also tell STAR to output a normalised, strand-specific wiggle file (if you want unnormalised or non-strand-specific, there are flags for this). This file can be converted to bigWig, and used to visualise the data in UCSC genome browser.
+-   `--outSAMattributes All` - output all flags in the last field of the sam file. Not essential for differential gene expression analysis, but very helfpul for mapping quality control (currently beyond the scope of this course).
+-   `--outSAMtype BAM SortedByCoordinate` - this will produce a mapping file in which reads are sorted by coordinate, NOT read name. This is helpful as we can directly index the bam file using samtools, and proceed to visualise it in IGV, without needing to run samtools sort.
+-   `--outReadsUnmapped Fastx` - will generate a fastq file of reads that STAR failed to map
+-   `--outMultimapperOrder Random`
+-   `--outSAMtype BAM SortedByCoordinate` - will output a compressed, coordinate-sorted bam, instead of a much larger unsorted sam file
+-   `--outSAMattributes All` - will output all attributes in the last field of the sam file
+:::
+
+5.  Once you've copied all of the code,
+
+    a.  Go into your terminal window connected to the HPC and type `cd ~` and press enter. This makes sure you are in your home directory
+
+    b.  Type `nano launch_star.slurm` and press enter. This opens a text editor in command line, creating a new empty file called `launch_star.slurm`.
+
+    c.  Right-click inside the terminal window, and click "paste". This should paste all of your code into this new file.
+
+    d.  Simultaneously press `Ctrl+O` to save the file, and then type `Ctrl+X` to exit this text editor
+
+    e.  Type `cat launch_star.slurm` and press enter, you should see a couple hundred lines of code appear in your terminal. This should be the same code we see above.
+
+6.  Great, your script for running STAR on the HPC is ready to go. To submit this script to the queue to be run, we type `sbatch launch_star.slurm` and press enter.
+
+::: {.callout-tip collapse="true"}
+## Checking the status of your job
+
+Depending on how busy the HPC is, it might take some time before it is your job's turn to run. To see if your job has started yet, you can run `squeue -u $USER`, which let's us know it's status. You'll see a column with either `R` for running (and how long), or `PD` for pending (in the queue behind other jobs).
+
+If you run this command and don't see a job, that means your job is done, either it finished or an error occurred and the job stopped.
+:::
+
+7.  What does this script create? You'll see the job itself creates output files called out.STAR###### and err.STAR\_###### where the numbers are your submitted computing job's number. You don't need any information in these files for this script, but they are very useful for troubleshooting. You'll also see a new folder has been created in your home directory called `Genomic_Data_Analysis`. Inside that folder, you'll see `Reference` and `Data` folders. The Reference folder has files the script has downloaded to map to. The Data folder has the raw subsampled fastq files we used in class for an input to map, and the final outputs are in the `Data/Counts/STAR` folder, labeled as `star.gene_counts.merged.yeast.tsv` and `sart.gene_tpm.merged.yeast.tsv` . These are the files we can use for subsequent differential expression analysis.
+
+8.  When you're done with your session on the HPC, you can log out typing `exit` in the terminal, and you're all good.
+
+9.  If you want to move those files to your computer, you can use the HPC gui by going in your browser to `hpc-portal2.hpc.uark.edu` and clicking Files in the top left corner. Then you can find the file in the given folder. You should then be able to download them to your computer through that web portal. It's also possible to move them with code using the `scp` command. If you know how to do that, great! Otherwise, it might be easier to use the GUI.
+
+The script is commented with what all it does. If you have questions, reach out!
+
+## References

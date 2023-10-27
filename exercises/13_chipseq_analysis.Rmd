@@ -17,18 +17,29 @@ last updated: `r Sys.Date()`
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Description
+## Description
 
 In this class exercise, we will practice analyzing ChIP-seq data.
 
-
-### Learning outcomes
+## Learning Outcomes
 
 At the end of this exercise, you should be able to:
 
 -   
 
-**Package Install**
+## Exercise Background
+
+In this exercise, we will look at the only published ChIP-seq data for
+Msn2/4 mutants under EtOH stress conditions similar to those we have
+been exploring throughout this course. The data comes from []. We will
+go through this analysis together, starting from the raw fastq files.
+
+## Prepare Software
+
+We will need to prepare our computing environment for this analysis.
+This analysis will use both R and terminal based commands.
+
+### R packages
 
 ```{r ready-packages}
 # Ensure required packages are installed
@@ -44,6 +55,7 @@ if (!require("pacman")) install.packages("pacman"); library(pacman)
 # library(curl)
 # library(universalmotif)
 library(tidyverse)
+library(ShortRead) # added by me, using rockerfeller approach.
 library(ChIPQC)
 library(ChIPseeker)
 library(DiffBind)
@@ -51,45 +63,81 @@ library(clusterProfiler)
 library(AnnotationDbi)
 ```
 
-You will need to install MEME software on your computer if you don't
-already have it.
+### Conda environments
 
-The code below downloads & installs the software for MacOS, if it not on
-your computer. The output when installing is VERY long, you can close
-the output by clicking the small x in the top right corner of the output
-box.
+Similar to exercise 03_Working_with_Sequences.Rmd, we need to use
+softwares that aren't available in R. One way to do that is the way
+shown here, creating and activating conda environments. If you haven't
+done set-up of conda on your system as described in exercise 03, this
+code likely won't run for you.
 
-The MEME suite does not currently support Windows OS, although it can be
-done with WSL. We will be using Mac for this analysis.
+#### FastQC
 
-```{bash, eval=FALSE}
-# Check for XCode on Mac or prompt installation
-xcode-select --install
-cd ~
-# Define MEME version
-# Latest version as of 23 Oct 2023, 
-version="5.5.4"
+```{bash create-QCcondaEnvironment, engine.opts='-l'}
+# create an enviornment for our QC packages
+if conda info --envs | grep -q QC; then echo "environment 'QC' already exists"; else conda create -y -n QC fastqc multiqc; fi
 
-# Install MEME if not already installed
-if ! command -v $HOME/meme/bin/meme &> /dev/null; then
-  curl -o $HOME/meme-$version.tar.gz https://meme-suite.org/meme/meme-software/$version/meme-$version.tar.gz
-  tar zxf meme-$version.tar.gz
-  cd meme-$version
-  ./configure --prefix=$HOME/meme --with-url=http://meme-suite.org/ --enable-build-libxml2 --enable-build-libxslt
-  make
-  make test
-  make install
-fi
+# see available conda environments
+conda env list
+
+# activate our QC environment
+conda activate QC
+
+# make sure desired packages are working
+which fastqc
+which multiqc
+
+# get the versions of each software
+fastqc -v
+multiqc --version
+
+# it's always good coding practice to deactivate a conda environment at the end of a chunk
+conda deactivate
 ```
 
-## Verify MEME Installation
+#### MACS2
 
-```{r}
-# Check MEME installation
-check_meme_install()
+A popular software for peak-calling ChIP-seq data is
+[MACS2](https://pypi.org/project/MACS2/). It uses a Poisson distribution-based model to background identify significant peaks in ChIP-seq data.
+
+```{bash create-MACS2condaEnvironment, engine.opts='-l'}
+# create an enviornment for our QC packages
+if conda info --envs | grep -q MACS; then echo "environment 'MACS' already exists"; else conda create -y -n MACS macs2 -c bioconda; fi
+
+# see available conda environments
+conda env list
+
+# activate our QC environment
+conda activate MACS
+
+# make sure desired packages are working
+which fastqc
+which multiqc
+
+# get the versions of each software
+fastqc -v
+multiqc --version
+
+# it's always good coding practice to deactivate a conda environment at the end of a chunk
+conda deactivate
 ```
 
-If install didn't work, troubleshooting is needed.
+
+
+## Data Retreival
+
+### fastq files
+
+### Reference genome
+
+## fastQC
+
+## trimming
+
+## create BAM files
+
+
+
 
 # Analysis: Motif Discovery for *msn2/4*∆∆ vs WT Response to EtOH
 
@@ -190,7 +238,8 @@ msn24_EtOH_down_fa <- Biostrings::DNAStringSet(msn24_EtOH_down$coding_gene_flank
 names(msn24_EtOH_down_fa) <- msn24_EtOH_down$ID
 ```
 
-Let's create a folder to which we can save output files. 
+Let's create a folder to which we can save output files.
+
 ```{r}
 # Choose output directory for the output files to be saved
 out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/")
@@ -200,7 +249,6 @@ if (!dir.exists(out_dir)) {
   dir.create(out_dir, recursive = TRUE)
 }
 ```
-
 
 ## Run Meme enrichment
 

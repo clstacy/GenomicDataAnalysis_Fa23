@@ -77,7 +77,7 @@ done with WSL. We will be using Mac for this analysis.
 ```{bash, eval=FALSE}
 # Check for XCode on Mac or prompt installation
 xcode-select --install
-
+cd ~
 # Define MEME version
 # Latest version as of 23 Oct 2023, 
 version="5.5.4"

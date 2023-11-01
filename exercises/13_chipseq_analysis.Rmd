@@ -49,6 +49,11 @@ This analysis will use both R and terminal based commands.
 # Ensure required packages are installed
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
+if (!require("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", quietly = TRUE))
+  p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+if (!require("ChIPseeker", quietly = TRUE))
+  p_install("ChIPseeker")
+
 # Load necessary packages
 # p_load("tidyverse", "knitr", "readr", "pander", "BiocManager", 
 #        "dplyr", "stringr", #"purrr", "reactable",
@@ -60,17 +65,20 @@ if (!require("pacman")) install.packages("pacman"); library(pacman)
 # library(universalmotif)
 library(tidyverse)
 library(ShortRead) # added by me, using rockerfeller approach.
-p_install("ChIPQC")
-p_install("ChIPseeker")
-library(ChIPQC)
+# p_install("ChIPQC")
+# p_install("ChIPseeker")
+# library(ChIPQC)
 library(ChIPseeker)
 # library(DiffBind)
 library(clusterProfiler)
 library(AnnotationDbi)
 p_load("Rfastp", "Rsubread")
 p_load("memes", "universalmotif")
+p_load("plyranges", "biomaRt")
 library(Rsubread)
 library(Rfastp)
+library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
+library(GenomicRanges)
 ```
 
 #### Conda environments
@@ -217,14 +225,6 @@ fi
 ls -lah
 ```
 
-This process can take awhile, and analyzing the full size files takes more
-time that we have in class.
-
-We'll be using subsets of these files for our in-class exercise.
-Subsampling reads can be problematic for ChIP-seq data, so we'll use
-results of mapping the full data sets for our analysis. You are welcome
-to try running this exercise with the full size files (available in
-OneDrive folder) after class.
 
 #### Reference files
 
@@ -256,17 +256,17 @@ fi
 
 \#####**blacklist**
 
-I couldn't find an extensive blacklist/exclusion list for S. cerevesiae.
-Will check and see if we find one..
+ChIPseq will often show the presence of common artifacts, such as ultra-high signal regions. Such regions can confound peak calling, fragment length estimation and QC metrics. Anshul Kundaje created the DAC blacklist as a reference to help deal with these regions. These are available for dm3, dm6, ce10, ce11, mm10, hg19, and hg38. (https://zenodo.org/records/1491733).
 
-### Quality Control
+*Saccharomyces cerevesiae* doesn't have an official blacklist, so we won't be using this today.
 
-We can use **FastQC** to do quality control for fastq files generated in
-ChIP-seq experiments.
 
-### Trimming & create BAM files
 
-Get paths to all of our read files
+### QC & Trimming
+
+We can use **FastQC** to do quality control for fastq files generated in ChIP-seq experiments. For the sake of time in class, we will skip using  FastQC on the reads today. We can look at the rfastp QC reports in 
+
+Get paths to all of our read files, split by read 1 and read 2.
 ```{r}
 # assign directory with the raw fastq files
 fq_file_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Raw/ChIP")
@@ -277,6 +277,8 @@ fq_read2_files <- list.files(fq_file_dir, full.names = TRUE, pattern = "*_2.fast
 ```
 
 #### Trim with rfastp
+
+We can use rfastp to trim and QC all of our files, by slightly modifying the original rfastp command we used for rnaseq data. The only major modification is including the read2 in rfastp. QC reports and trimmed fastq files will appear in the dir_trimmed.fq_files folder.
 
 ```{r}
 # create a directory for the output to go into if not already present
@@ -314,7 +316,9 @@ for (i in 1:length(fq_read1_files)) {
 }
 ```
 
-#### Map to Reference
+### Map to Reference
+
+Assign the read1 trimmed fastq files to a list in R called trimmed_fastq_files_R1, and we'll do the same for read2 fastq files.
 
 ```{r}
 # find our trimmed fastq files
@@ -333,7 +337,9 @@ trimmed_fastq_files_R2
 
 ```
 
-Build RSubread Index Genome
+#### Build Genome Index for Rsubread
+
+We have already done this in the Read_mapping.Rmd exercise. If you've already created this, we can skip this step.
 ```{r}
 # Set path of the reference fasta file
 reference_genome = path.expand("~/Desktop/Genomic_Data_Analysis/Reference/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz")
@@ -345,8 +351,7 @@ buildindex(basename=index_reference_genome, reference=reference_genome)
 ```
 
 
-Run alignment
-
+#### Align trimmed files to the reference genome.
 ```{r}
 # run the alignment on all of the trimmed_fastq_files
 align(index=index_reference_genome, 
@@ -361,17 +366,6 @@ align(index=index_reference_genome,
       nthreads=6
       )
 
-# align(index=index_reference_genome, 
-#       readfile1=trimmed_fastq_files_R2,
-#       type = "dna",
-#       input_format = "gzFASTQ",
-#       output_format = "BAM",
-#       unique = FALSE,
-#       nBestLocations = 1,
-#       sortReadsByCoordinates = TRUE,
-#       nthreads=6
-#       )
-
 # Create new directory to store mapping .bam files
 dir_bam_files <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP")
 if (!dir.exists(dir_bam_files)) {dir.create(dir_bam_files, recursive = TRUE)}
@@ -384,7 +378,7 @@ bam_dir=~/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/
 mv $trim_fq_dir/*.BAM* $bam_dir
 ```
 
-Get paths to our bam files
+Save the paths to our bam files as an object.
 ```{r}
 bam_files <- list.files(path = dir_bam_files, pattern = ".BAM$", full.names = TRUE)
 bam_files
@@ -403,7 +397,19 @@ To run MACS2 to we need to supply:
     4. Optionally, but highly recommended, we can identify a control to compare to (specified after –c).
 
 
-Let's first try running macs2 for each sample with no control
+In this analysis, we only need to do a single call to macs2 because we only have one treatment sample and one control sample. If we had more samples, we'd want to run macs2 for every sample.
+
+For the purpose of demonstration, we will run macs2 on each sample with no control. THIS IS NOT RECOMMENDED. For this analysis, we should just use the third call to macs2 below. We are running the noControl's so we can look at the peaks that would be called for each alone, so we can compare them to the peaks of the treatment vs control.
+
+flags for MACS2:
+    - `-n` output file name prefix
+    - `--outdir` path to where output files should be saved
+    - `f` type of files being input. Usually `BAM` (or `BAMPE` for paired-end.)
+    - `g` is the genome size. this has been set for yeast genome
+    - `B` output bedgraph files
+    - `--nomodel` MACS will bypass building the shifting model.
+    - `extsize` While --nomodel is set, MACS uses this parameter to extend reads in 5'->3' direction to fix-sized fragments.
+    
 ```{bash run-MACS2-chip, engine.opts='-l'}
 # activate our MACS environment
 conda activate MACS
@@ -411,7 +417,7 @@ conda activate MACS
 macs_outdir=/Users/$USER/Desktop/Genomic_Data_Analysis/Analysis/ChIP/
 
 # run macs on the 0 minutes sample, no control
-macs2 callpeak -t /Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181480_R1.fastq.gz.subread.BAM \
+macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181480_R1.fastq.gz.subread.BAM" \
   -n MSN24_ESR_t0_noControl \
   --outdir $macs_outdir \
   -f BAMPE \
@@ -431,136 +437,43 @@ macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1
                --nomodel \
                --extsize 50
 
+
 # run macs with 20 min as treatment and 0 min as control
 macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181481_R1.fastq.gz.subread.BAM" \
                -n MSN24_ESR_t20vst0 \
                -c "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181480_R1.fastq.gz.subread.BAM" \
                --outdir $macs_outdir \
                -B \
-               -f BAMPE 
-               -g 1.2e7 #--nomodel --extsize 50 -w -S
+               -f BAMPE \
+               -g 1.2e7
                
 
-# Rename all *.bdg to *.bedgraph for IGV 
+
+# Rename all *.bdg to *.bedgraph for IGV visualization
 for file in ${macs_outdir}*.bdg; do
    mv -- "$file" "${file%.bdg}.bedgraph"
 done
 
 ```
 
-### OPTIONAL: Assess Peak call quality using ChIPQC
 
-Today, we will be using ChIPQC, a Bioconductor package that takes as
-input BAM files and peak calls to automatically compute a number of
-quality metrics and generates a ChIPseq experiment quality report. We
-are going to use this package to generate a report for our Msn2/4
-samples for 0 minutes and 20 minutes.
+## Working with Peaks in R
 
-```{r}
-# Load libraries
-# library(ChIPQC)
-# 
-# # Generate sample data
-# samples <- tribble(
-#   ~SampleID, ~Tissue, ~Factor,~Condition,~Replicate,~bamReads,~ControlID,~bamControl,~Peaks,~PeakCaller,~Spikein,
-#   "MSN24_ESR_t20vst0",  NA, NA, "ESR", 1, paste0(dir_bam_files,"/SRR1181481_R1.fastq.gz.subread.BAM"), "MSN24_ESR_t0", paste0(dir_bam_files,"/SRR1181480_R1.fastq.gz.subread.BAM"), "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", "macs", NA
-# )
-# View(samples)
-```
-
-for later: "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls"
-
-The sample sheet contains metadata information for the dataset. Each row
-represents a peak set (which in most cases is one ChIP sample) and
-several columns of required information, which allows us to easily load
-the associated data in one single command. NOTE: The column headers have
-specific names that are expected by ChIPQC!!.
-
-1.  SampleID: Identifier string for sample
-
-2.  Tissue, Factor, Condition: Identifier strings for up to three
-    different factors (You will need to have all columns listed. If you
-    don't have infomation, then set values to NA)
-
-3.  Replicate: Replicate number of sample
-
-4.  bamReads: file path for BAM file containing aligned reads for ChIP
-    sample
-
-5.  ControlID: an identifier string for the control sample
-
-6.  bamControl: file path for bam file containing aligned reads for
-    control sample
-
-7.  Peaks: path for file containing peaks for sample
-
-8.  PeakCaller: Identifier string for peak caller used. Possible values
-    include "raw", "bed", "narrow", "macs"
-
-Next we will create a ChIPQC object which might take a few minutes to
-run. ChIPQC will use the samplesheet read in the data for each sample
-(BAMs and narrowPeak files) and compute quality metrics. The results
-will be stored into the object.
-
-```{r}
-p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
-# BiocManager::install("ChIPpeakAnno")
-# set up custom anno for QC results
-# library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
-# library(GenomicRanges)
-# library(ChIPpeakAnno)
-# yGR <- toGRanges(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
-
-# customAnno <- list(version="sacCer3", Test=yGR)
-
-# QCresult <- ChIPQCsample(reads = paste0(dir_bam_files,"/SRR1181480_R1.fastq.gz.subread.BAM"),
-#                          peaks = "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls",
-#                          annotation = customAnno)
-
-# QCresult |> fragmentlength()
-
-# QCresult
-
-# ChIPQCreport(QCresult)
-
-# plotCC(QCresult)
-# plotRegi(QCresult)
-
-## Create ChIPQC object
-# chipObj <- ChIPQC(samples)#,# annotation="hg19") 
-
-# Create ChIPQC report
-# ChIPQCreport(chipObj, reportName="ChIP QC report: Msn2/4", reportFolder="ChIPQCreport")
-```
-
-## Working with Peaks
-
-```{r}
-library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
-library(GenomicRanges)
-# macsPeaks <- "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls"
-# macsPeaks_DF <- read.delim(macsPeaks,comment.char="#")
-# macsPeaks_GR <- GRanges(seqnames=macsPeaks_DF[,"chr"],
-#                         IRanges(macsPeaks_DF[,"start"],macsPeaks_DF[,"end"]))
-# mcols(macsPeaks_GR) <- macsPeaks_DF[,c("abs_summit", "fold_enrichment", "X.log10.pvalue.")]
-# macsPeaks_GR
-```
-```{r}
-library(ChIPseeker)
-# peakAnno <- annotatePeak(macsPeaks_GR, tssRegion=c(-1000, 1000), 
-#                          TxDb=TxDb.Scerevisiae.UCSC.sacCer3.sgdGene, 
-#                          annoDb="org.Sc.sgd.db")
-```
-
+We can use R to analyze the peaks generated by macs2. There are many approaches for doing this. We will use the `ChIPSeeker` package, followed by tools we've previously used for downstream analysis.
 
 ### Importing Peaks
 
 MACS peak calls can be found in our specified output directory with the suffix and extension "_peaks.xls".
-MACS peaks come as a tab separated file thinly disguised as a “.xls”.
+MACS peaks come as a tab separated file (thinly disguised as a “.xls”).
 In addition to the genomic coordinates of peaks, these files contain useful information on the samples, parameters and version used for peak calling at the top.
 
 ```{r}
-MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#")
+MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#") |>
+  # only take highest confidence peaks
+  filter(X.log10.pvalue. > 5) |>
+  # filter(length > 800)
+  # filter(X.log10.pvalue. > 5)
+  filter(fold_enrichment > 4)
 ```
 
 
@@ -569,8 +482,8 @@ MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/
 no peaks were detected in the blacklisted region, so none are filtered out.
 
 ```{r}
-MSN24_ESR_t20vst0_peaks_filtered <- MSN24_ESR_t20vst0_peaks %>%
-  filter(chr != "XII" | end <= 451787 | start >= 468932)
+# MSN24_ESR_t20vst0_peaks_filtered <- MSN24_ESR_t20vst0_peaks %>%
+#   filter(chr != "XII" | end <= 451787 | start >= 468932)
 ```
 
 
@@ -597,7 +510,6 @@ appear in t20 minutes but not t0 minutes.
 ### Gene Set Enrichment
 
 ```{r}
-p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
 # BiocManager::install("ChIPpeakAnno")
 # set up custom anno for QC results
 library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
@@ -623,35 +535,13 @@ upsetplot(peakAnno, vennpie=TRUE)
 plotDistToTSS(peakAnno,
               title="Distribution of transcription factor-binding loci\nrelative to TSS")
 ```
-```{r}
+```{r eval = FALSE}
 promoter <- getPromoters(TxDb=txdb, upstream=500, downstream=500)
 tagMatrix <- getTagMatrix(MSN24_ESR_t20vst0_peaks_GR, windows=promoter)
 tagHeatmap(tagMatrix)
 ```
 
 
-
-```{r}
-# Load in MACS peaks
-# library(GenomicRanges)
-# macsPeaks <- "data/peaks/Mel_1_peaks.xls"
-# macsPeaks_DF <- read.delim(macsPeaks,comment.char="#")
-# macsPeaks_GR <- GRanges(seqnames=macsPeaks_DF[,"chr"],
-#                         IRanges(macsPeaks_DF[,"start"],macsPeaks_DF[,"end"]))
-# mcols(macsPeaks_GR) <- macsPeaks_DF[,c("abs_summit", "fold_enrichment")]
-# macsPeaks_GR[1:5,]
-# 
-# # Annotate peaks to genes
-# # library(TxDb.Mmusculus.UCSC.mm10.knownGene)
-# library(ChIPseeker)
-# peakAnno <- annotatePeak(macsPeaks_GR, tssRegion=c(-1000, 1000), 
-#                          TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, 
-#                          annoDb="org.Mm.eg.db")
-# 
-# annotatedPeaksGR <- as.GRanges(peakAnno)
-# annotatedPeaksDF <- as.data.frame(peakAnno)
-# annotatedPeaksDF[1:2, ]
-```
 
 We can extract the unique names of genes with peaks in their TSS by
 subsetting the annotated GRanges and retrieving gene names from the
@@ -666,19 +556,10 @@ peak_genes <- peakAnno |>
 Now, let's extract all genes which are included in the TxDb object to
 use as our universe of genes for pathway enrichment.
 
-```{r}
-# allGeneGR <- genes(TxDb.Mmusculus.UCSC.mm10.knownGene)
-# allGeneGR[1:2, ]
-# 
-# # save all of those gene_id's as a character object.
-# allGeneIDs <- allGeneGR$gene_id
-```
 
 #### Gene Ontology
 
 ```{r}
-library(clusterProfiler)
-
 
 library(clusterProfiler)
 # Run our GO enrichment
@@ -695,7 +576,7 @@ go_results <- enrichGO(
 head(go_results)
 
 # create a table for the html file
-data.frame(go_results) %>% reactable()
+data.frame(go_results) %>% View()
 
 
 dotplot(go_results, showCategory = 10)
@@ -714,7 +595,7 @@ ggplot(go_results,
   scale_size_continuous(range = c(2, 10)) +
   xlab("Rich Factor") +
   ylab(NULL) +
-  ggtitle("Biological Processes") +
+  ggtitle("Enriched GO Categories") +
   theme_bw()
 
 ```
@@ -739,15 +620,16 @@ data.frame(kegg_results) %>% reactable::reactable()
 kegg_results@result$Description <- kegg_results@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
 
 
-browseKEGG(kegg_results, 'sce04213')  # longevity
+# browseKEGG(kegg_results, 'sce04213')  # longevity
+# browseKEGG(kegg_results, 'sce00500')  # Starch and sucrose metabolism 
 
 
-dotplot(kegg_results, showCategory = 10)
+dotplot(kegg_results, showCategory = 10) 
 
 ```
 
 
-## Motif Analysis
+### Motif Analysis
 
 The MEME-suite that we used in a previous motif analysis exercise has a
 specific algorithm for ChIP-seq analysis, called MEME-ChIP
@@ -766,6 +648,19 @@ sacCer3.genome <- BSgenome.Scerevisiae.UCSC.sacCer3::BSgenome.Scerevisiae.UCSC.s
 peak_seqs <- memes::get_sequence(MSN24_ESR_t20vst0_peaks_GR,sacCer3.genome)
 
 
+
+# Get sequences in a 100bp window around the peak summit
+summit_flank <- MSN24_ESR_t20vst0_peaks_GR %>%
+  # this ensures we take 100bp up & downstream of the summit for a total width of 200bp
+  plyranges::anchor_center() %>%
+  # plyranges::anchor_start() %>%
+  plyranges::mutate(width = 800) #%>%
+  # plyranges::mutate(start= max(start,0))
+
+summit_flank@ranges@start[summit_flank@ranges@start < 0] <- 1L
+
+# get the sequences
+peak_seqs_flanks <- memes::get_sequence(summit_flank,sacCer3.genome)
 ```
 
 We can use Meme to analyze the promoters of those genes corresponding to
@@ -785,41 +680,78 @@ if (!dir.exists(out_dir)) {
 
 
 ```{r make-background-genes-motif}
-# create a DNAStringSet object from our FC_list we created above.
-# background_fa <- DNAStringSet(left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
-#                                        drop_na("coding_gene_flank") |> pull(coding_gene_flank))
-
-# background_fa <- memes::get_sequence(GRanges(seqinfo(sacCer3.genome)), sacCer3.genome)
-
-
-promoter <- getPromoters(TxDb=txdb, upstream=50, downstream=200)
-background_fa <- memes::get_sequence(promoter, sacCer3.genome)
-
-
-# add gene names
-# names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
-#                                        drop_na("coding_gene_flank") |> pull(ID)
+# # create a DNAStringSet object from our FC_list we created above.
+# # background_fa <- DNAStringSet(left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
+# #                                        drop_na("coding_gene_flank") |> pull(coding_gene_flank))
+# 
+# # background_fa <- memes::get_sequence(GRanges(seqinfo(sacCer3.genome)), sacCer3.genome)
+# 
+# 
+# promoter <- getPromoters(TxDb=txdb, upstream=50, downstream=200)
+# # background_fa <- memes::get_sequence(promoter, sacCer3.genome)
+# 
+# 
+# # add gene names
+# # names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
+# #                                        drop_na("coding_gene_flank") |> pull(ID)
+# 
+# txdb <- TxDb.Scerevisiae.UCSC.sacCer3.sgdGene
+# 
+# # get 500 random genes from yeast genome
+# set.seed(123)
+# random_500_yeast_genes <- genes(txdb) |> data.frame() |> pull(gene_id) |>
+#   sample(500)
+# 
+# 
+# ensembl <- biomaRt::useEnsembl(biomart = "genes",
+#                       dataset = "scerevisiae_gene_ensembl")
+# 
+# 
+# # grab their promoter sequences 200bp upstream
+# 
+# background_genes_fa <- getSequence(id = random_500_yeast_genes,
+#                  type="ensembl_gene_id",
+#                  seqType="coding_gene_flank",
+#                  downstream=200,
+#                  mart=ensembl,
+#                  useCache = TRUE) |>
+#   drop_na() |>
+#   dplyr::filter(coding_gene_flank != "Sequence unavailable") |>
+#   pull(coding_gene_flank,name = ensembl_gene_id) |>
+#   DNAStringSet()
+# 
+# 
+# test_using_promoter_seqs_from_ensembl <- getSequence(id = peak_genes,
+#                  type="ensembl_gene_id",
+#                  seqType="coding_gene_flank",
+#                  upstream=1000,
+#                  mart=ensembl,
+#                  useCache = TRUE) |>
+#   drop_na() |>
+#   dplyr::filter(coding_gene_flank != "Sequence unavailable") |>
+#   pull(coding_gene_flank,name = ensembl_gene_id) |>
+#   DNAStringSet()
 ```
 
 ```{r run-streme-motif}
 # Run Streme
-streme_msn24_ChIP <- runStreme(peak_seqs, 
-        # control= background_fa,
+streme_msn24_ChIP <- runStreme(peak_seqs, #_flanks
+        # control= background_genes_fa,
         control="shuffle",
         minw = 5, # default is 8, for yeast I use 5
-        maxw= 15, #default is 15, for yeast I use 20
+        maxw= 10, #default is 15, for yeast I use 20
         parse_genomic_coord=FALSE,
         silent=TRUE,
         outdir = path.expand(paste0(out_dir, "streme_msn24_ChIP_diauxic"))
         )
 
 # Display Streme results
-streme_msn24_ChIP |> View()
+streme_msn24_ChIP |> View() 
 
 # Run Meme-Chip
 ```
 
-#### TomTom
+### TomTom
 
 ```{r fig.height=12, fig.width=5}
 # path to yeastract
@@ -830,431 +762,29 @@ db_destination <-
 streme_tomtom_msn24_ChIP <-
   runTomTom(
     input = streme_msn24_ChIP,
-    # norc = FALSE,
-    # evalue = FALSE,
-    # thresh = 0.0,
-    # motif_pseudo = 0.1,
+    motif_pseudo = 0.1,
     database = db_destination,
     outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_ChIP"))
   )
 
 # View Streme TomTom results
-universalmotif::view_motifs(streme_tomtom_msn24_ChIP$best_match_motif,
-            # relative_entropy = FALSE, 
-            normalise.scores = TRUE#, 
-            # use.type = "ICM", 
-            # method = "WPCC",
-            # tryRC = FALSE
-            )
+# universalmotif::view_motifs(streme_tomtom_msn24_ChIP$best_match_motif,
+#             # relative_entropy = FALSE, 
+#             normalise.scores = TRUE#, 
+#             # use.type = "ICM", 
+#             # method = "WPCC",
+#             # tryRC = FALSE
+#             )
 
 ##TODO: use chip-meme tutorial to get just seq surrounding peaks.
 ## also maybe try filtering based on pvalue the peaks to get fewer of them.
+
+## alrigth all the above completed.
+## what i found is weak enrichmetn for msn2 signal in the peak when getting 200bp surrounding peak
+## really interesting is some peaks really wide
+## when just looking at those peaks, we see bonkers enrichment for trehalose genes.
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-# Analysis: Motif Discovery for *msn2/4*∆∆ vs WT Response to EtOH
-
-## Retrieve LogFC and FDR values
-
-Let's load in the `DE_yeast_TF_stress.txt` file containing logFC and FDR
-values for a variety of yeast strains and stress conditions.
-
-```{r load-FClist}
-# Load gene file used in clustering
-FC_list <- readr::read_tsv(
-  "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz",
-  name_repair = "universal"
-) 
-```
-
-## Selecting an Ensembl BioMart database and dataset
-
-```{r}
-ensembl <- useEnsembl(biomart = "genes")
-ensembl
-```
-
-Not we have loaded the "gene" database, but haven't selected a dataset
-yet. Let's find the one we want:
-
-```{r}
-searchDatasets(mart = ensembl, 
-               pattern = "scerevisiae")
-```
-
-So the dataset needs to be "scerevisiae_gene_ensembl" for yeast. Can you
-find it for your organism?
-
-```{r}
-# Assign ensembl with the desired dataset
-ensembl <- useEnsembl(biomart = "genes", 
-                      dataset = "scerevisiae_gene_ensembl")
-```
-
-## Retrieve Upstream Sequences
-
-```{r}
-# Retrieve the ORF IDs included in the dataset
-ORFs_in_analysis = FC_list$ID
-
-# Get the upstream sequences for each gene and save in data.frame
-seq <- getSequence(id = ORFs_in_analysis,
-                 type="ensembl_gene_id",
-                 seqType="coding_gene_flank",
-                 upstream=500, 
-                 mart=ensembl,
-                 useCache = TRUE)
-
-# Filter out rows with no sequence found
-seq <- seq |> filter(coding_gene_flank != "Sequence unavailable")
-
-# Display obtained sequences
-glimpse(seq)
-```
-
-Now we have the 500bp upstream sequences for (almost) all of the genes
-in the genome. Note that for yeast, this isn't too much data for a
-laptop. If you're working with a larger genome, you might need to subset
-the gene list down just to the genes in your gene list.
-
-# Motif Analysis for Genes Downregulated in EtOH Response
-
-In order to continue, we need a list of genes.
-
-What gene list do you think has the most interesting biological meaning
-for motif analysis? One comparison to consider is the genes that are
-most different in the EtOH response between WT and *msn2/4*∆∆ samples.
-Let's get that list of genes with large magnitude and statistically
-significant negative logFC values now:
-
-```{r}
-# Create gene list for downregulated genes
-msn24_EtOH_down <- FC_list |>
-  dplyr::filter(logFC..WT.v.msn24.mutant..EtOH.response < -2) |>
-  dplyr::filter(FDR..WT.v.msn24.mutant..EtOH.response<0.01) |>
-  dplyr::select(ID) %>%
-  # add the upstream sequences as a new column
-  left_join(seq, by=c("ID" = "ensembl_gene_id")) |>
-  drop_na("coding_gene_flank")
-
-# Glimpse at the genes identified.
-glimpse(msn24_EtOH_down)
-```
-
-For MEME analysis, the gene list needs to be formatted like a fasta
-file. Here is how we can do that:
-
-```{r}
-# create Biostrings object
-msn24_EtOH_down_fa <- Biostrings::DNAStringSet(msn24_EtOH_down$coding_gene_flank)
-# Add gene names
-names(msn24_EtOH_down_fa) <- msn24_EtOH_down$ID
-```
-
-Let's create a folder to which we can save output files.
-
-```{r}
-# Choose output directory for the output files to be saved
-out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/")
-
-# Create out_dir directory if doesn't already exist
-if (!dir.exists(out_dir)) {
-  dir.create(out_dir, recursive = TRUE)
-}
-```
-
-## Run Meme enrichment
-
-This was the first algorithm developed in the MEME-suite, and is still
-widely used. However, it is not always the best approach. MEME is
-recommended when you have fewer than 50 sequences, while STREME is
-recommended when you have more. Also, the default parameter settings are
-often **not** the best options depending on your organism (e.g, bacteria
-tend to have longer motifs). We can adjust these settings in class to
-parameters better suited to our data (based on biological domain
-knowledge). See all of the parameter options at:
-<https://meme-suite.org/meme/doc/meme.html>
-
-```{r}
-# Run Meme
-meme_msn24_EtOH_down <- runMeme(msn24_EtOH_down_fa, 
-        minw = 8, # default is 8, for yeast I use 5
-        maxw= 50, #default is 50, for yeast I use 20
-        mod= "zoops", #zero or one occurence per sequence
-        parse_genomic_coord=FALSE,
-        silent=F,
-        outdir = path.expand(paste0(out_dir, "meme_msn24_EtOH_down"))
-        )
-
-# Display Meme results
-meme_msn24_EtOH_down
-```
-
-## Run STEME enrichment
-
-STEME is a newer MEME suite tool, that is better suited to looking for
-shorter motifs which are common in Eukaryotes.
-
-For `runStreme`, properly setting the `control` parameter is key to
-discovering biologically relevant motifs. Often, using
-`control = "shuffle"` will produce a suboptimal set of motifs; however,
-some discriminative analysis designs don't have proper "control" regions
-other than to shuffle.
-
-For our analysis, we can use the promoter sequences from the entire
-genome as a background to model the null distribution, let's create an
-object in R with all of the 500bp upstream sequences from `seq` to use
-as a control.
-
-```{r}
-# create a DNAStringSet object from our FC_list we created above.
-background_fa <- DNAStringSet(left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
-                                       drop_na("coding_gene_flank") |> pull(coding_gene_flank))
-# add gene names
-names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
-                                       drop_na("coding_gene_flank") |> pull(ID)
-```
-
-```{r}
-# Run Streme
-streme_msn24_EtOH_down <- runStreme(msn24_EtOH_down_fa, 
-        control= background_fa,
-        minw = 8, # default is 8, for yeast I use 5
-        maxw= 15, #default is 15, for yeast i use 20
-        parse_genomic_coord=FALSE,
-        silent=TRUE,
-        outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_down"))
-        )
-
-# Display Streme results
-streme_msn24_EtOH_down
-```
-
-## Run TomTom analysis
-
-Now, we can see if any of those identified motifs correspond to known
-motifs in databases. The TomTom algorithm, part of the MEME-suite,
-allows us to just that, comparing our identified motifs to known motifs
-in annotation databases.
-
-First, we need to download the YEASTRACT database file called
-(YEASTRACT_20130918.meme). We will pull this file from Github, but you
-can see and download all of the available databases at:
-<https://meme-suite.org/meme/doc/download.html>.
-
-```{r}
-# Download YEASTRACT database .meme
-
-# Define URL where data is located
-URL_to_download <-
-  "https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/reference/YEAST/YEASTRACT_20130918.meme"
-
-# Choose desired destination for the reference database file
-db_destination <-
-  path.expand("~/Desktop/Genomic_Data_Analysis/Reference/YEASTRACT_20130918.meme")
-
-# Download the file and save to db_destination
-curl::curl_download(
-  url = URL_to_download,
-  destfile = db_destination,
-  quiet = FALSE,
-  mode = "wb"
-)
-```
-
-```{r}
-# Run TomTom on motifs found by runMeme()
-meme_tomtom_msn24_EtOH_down <-
-  runTomTom(
-    input = meme_msn24_EtOH_down,
-    norc = TRUE,
-    thresh = 10,
-    motif_pseudo = 0.1,
-    database = db_destination,
-    outdir = path.expand(paste0(out_dir, "tomtom_meme_msn24_EtOH_down"))
-  )
-
-# View Meme TomTom results
-view_motifs(meme_tomtom_msn24_EtOH_down$best_match_motif)
-```
-
-Go to the `out_dir` directory on your computer, and open the tomtom.html
-file. How convincing are those matches? With the default options, I'm
-not impressed.
-
-Let's run TomTom on the output of the `runStreme()` command above, and
-see what we find.
-
-```{r}
-# Run TomTom on motifs found by runStreme()
-streme_tomtom_msn24_EtOH_down <-
-  runTomTom(
-    input = streme_msn24_EtOH_down,
-    norc = TRUE,
-    thresh = 10,
-    motif_pseudo = 0.1,
-    database = db_destination,
-    outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_EtOH_down"))
-  )
-
-# View Streme TomTom results
-view_motifs(streme_tomtom_msn24_EtOH_down$best_match_motif,
-            relative_entropy = FALSE, 
-            normalise.scores = TRUE, 
-            use.type = "ICM", 
-            method = "WPCC",
-            tryRC = FALSE)
-```
-
-It can sometimes be helpful to manually look at the alignments to see if
-there's anything unexpected going on. We can use the command
-`view_tomtom_hits()` to do this. The figures aren't publication quality,
-but can be useful to see.
-
-```{r}
-view_tomtom_hits(streme_tomtom_msn24_EtOH_down, top_n = 3)
-```
-
-Cool! We see Msn2/4 promoter sequence motif is strongly enriched in the
-promoter sequences of the genes that are lower in Msn2/4∆∆ vs WT
-response to EtOH.
-
-Let's do a sanity check, and do the exact same thing but for genes that
-were *higher* in the same contrast, and see what enrichments if any are
-found. We can put just the code we need:
-
-```{r motif-Msn24EtOH_up}
-# Create gene list
-msn24_EtOH_up <- FC_list |>
-  # I want more than 8 genes, so I lowered the FC cutoff
-  filter(logFC..WT.v.msn24.mutant..EtOH.response > 1) |>
-  filter(FDR..WT.v.msn24.mutant..EtOH.response<0.01) |>
-  dplyr::select(ID) %>%
-  # add the upstream seqs as a new column
-  left_join(seq, by=c("ID" = "ensembl_gene_id")) |>
-  drop_na("coding_gene_flank")
-
-# create Biostrings object
-msn24_EtOH_up_fa <- DNAStringSet(msn24_EtOH_up$coding_gene_flank)
-# add gene names
-names(msn24_EtOH_up_fa) <- msn24_EtOH_up$ID
-
-
-# we already have background genes, so don't need to put that code again...
-
-# Run Streme
-streme_msn24_EtOH_up <- runStreme(msn24_EtOH_up_fa, 
-        control= background_fa,
-        # control= "shuffle",
-        minw = 5, # default is 8, for yeast I use 5
-        maxw= 20, #default is 15, for yeast I use 20
-        parse_genomic_coord=FALSE,
-        silent=TRUE,
-  outdir = path.expand(paste0(out_dir, "streme_msn24_EtOH_up"))
-        )
-
-# Run TomTom analysis
-streme_tomtom_msn24_EtOH_up <- runTomTom(
-  input = streme_msn24_EtOH_up,
-  norc = TRUE,
-  thresh = 10,
-  motif_pseudo = 0.1,
-  database = db_destination,
-  outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_EtOH_up"))
-  )
-```
-
-Are Msn2/4 motifs enriched here? What biological meaning can we take
-away from this?
-
-# *skn7*∆ exposed to salt.
-
-Now, let's take a look another mutant from this study exposed to a
-different stressor.
-
-```{r motif-skn7NaCl}
-# create gene list
-skn7_NaCl_down <- FC_list |>
-  filter(logFC..WT.v.skn7.mutant..NaCl.response < -2) |>
-  filter(FDR..WT.v.skn7.mutant.NaCl.response<0.00001) |>
-  dplyr::select(ID) %>%
-  # add the upstream seqs as a new column
-  left_join(seq, by=c("ID" = "ensembl_gene_id")) |>
-  drop_na("coding_gene_flank")
-
-# create Biostrings object
-skn7_NaCl_down_fa <- DNAStringSet(skn7_NaCl_down$coding_gene_flank)
-# add gene names
-names(skn7_NaCl_down_fa) <- skn7_NaCl_down$ID
-
-# we already have background genes, so don't need to put that code again...
-
-# Run Streme
-streme_skn7_NaCl_down <- runStreme(skn7_NaCl_down_fa, 
-        control= background_fa,
-        # control= "shuffle",
-        minw = 8, # default is 8, for yeast I use 5
-        maxw= 15, #default is 15, for yeast I use 20
-        evalue=TRUE,
-        parse_genomic_coord=FALSE,
-        silent=TRUE,
-        outdir = path.expand(paste0(out_dir, "streme_skn7_NaCl_down"))
-        )
-
-# Run TomTom analysis
-streme_tomtom_skn7_NaCl_down <- runTomTom(
-  input = streme_skn7_NaCl_down,
-  # norc = TRUE,
-  thresh = 20,
-  motif_pseudo = 0.1,
-  database = db_destination,
-  outdir = path.expand(paste0(out_dir, "tomtom_streme_skn7_NaCl_down"))
-  )
-
-```
-
-Notice we have fewer genes this time, let's try meme instead
-
-```{r}
-# Run Meme
-meme_skn7_NaCl_down <- runMeme(
-  skn7_NaCl_down_fa,
-  # control= "shuffle", #background_fa,
-  # objfun="de",
-  parse_genomic_coord = FALSE,
-  minw = 5,
-  maxw = 20,
-  markov_order = 2,
-  mod= "zoops", #zero or one occurence per sequence
-  seed = 0,
-  dna = T,
-  revcomp = T,
-  evt = 0.1,
-  outdir = path.expand(paste0(out_dir, "meme_skn7_NaCl_down"))
-)
-
-# Run TomTom analysis
-meme_tomtom_skn7_NaCl_down <- runTomTom(
-  input = meme_skn7_NaCl_down,
-  # norc = TRUE,
-  thresh = 10,
-  motif_pseudo = 0.1,
-  min_overlap = 5,
-  database = db_destination,
-  outdir = path.expand(paste0(out_dir, "tomtom_meme_skn7_NaCl_down"))
-  )
-```
 
 # Questions
 

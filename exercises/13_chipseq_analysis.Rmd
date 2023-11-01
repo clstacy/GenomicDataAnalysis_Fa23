@@ -469,10 +469,8 @@ In addition to the genomic coordinates of peaks, these files contain useful info
 
 ```{r}
 MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#") |>
-  # only take highest confidence peaks
+  # only take highest confidence peaks with large fold_enrichments
   filter(X.log10.pvalue. > 5) |>
-  # filter(length > 800)
-  # filter(X.log10.pvalue. > 5)
   filter(fold_enrichment > 4)
 ```
 
@@ -510,11 +508,7 @@ appear in t20 minutes but not t0 minutes.
 ### Gene Set Enrichment
 
 ```{r}
-# BiocManager::install("ChIPpeakAnno")
-# set up custom anno for QC results
-library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
-library(GenomicRanges)
-# library(ChIPpeakAnno)
+
 txdb <- TxDb.Scerevisiae.UCSC.sacCer3.sgdGene
 MSN24_ESR_t20vst0_peaks_GR <- GRanges(seqnames=MSN24_ESR_t20vst0_peaks %>%
   mutate(chr = paste0("chr", chr)) %>% pull(chr),
@@ -523,8 +517,8 @@ MSN24_ESR_t20vst0_peaks_GR <- GRanges(seqnames=MSN24_ESR_t20vst0_peaks %>%
 
 genes(txdb) |> str()
 
-library(ChIPseeker)
-peakAnno <- annotatePeak(MSN24_ESR_t20vst0_peaks_GR, tssRegion=c(-3000, 3000), level = "gene",
+
+peakAnno <- ChIPseeker::annotatePeak(MSN24_ESR_t20vst0_peaks_GR, tssRegion=c(-3000, 3000), level = "gene",
                          TxDb=txdb)#,# annoDb="org.Sc.sgd.db")
 
 plotAnnoPie(peakAnno)
@@ -766,37 +760,18 @@ streme_tomtom_msn24_ChIP <-
     database = db_destination,
     outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_ChIP"))
   )
-
-# View Streme TomTom results
-# universalmotif::view_motifs(streme_tomtom_msn24_ChIP$best_match_motif,
-#             # relative_entropy = FALSE, 
-#             normalise.scores = TRUE#, 
-#             # use.type = "ICM", 
-#             # method = "WPCC",
-#             # tryRC = FALSE
-#             )
-
-##TODO: use chip-meme tutorial to get just seq surrounding peaks.
-## also maybe try filtering based on pvalue the peaks to get fewer of them.
-
-## alrigth all the above completed.
-## what i found is weak enrichmetn for msn2 signal in the peak when getting 200bp surrounding peak
-## really interesting is some peaks really wide
-## when just looking at those peaks, we see bonkers enrichment for trehalose genes.
 ```
 
 
 # Questions
 
-1.  What is the difference in motifs when you change the settings for
-    analyzing the msn2/4 mutant vs wild-type ethanol response using
-    "zoops" or "anr" as the setting?
+1.  Based on the results obtained from the MACS2 analysis, what can you infer about the genomic regions where Msn2 is binding?
 
-2.  Perform MEME and STREME on the wild-type salt response and wild-type
-    ethanol response (using a log2 FC of 3 and FDR \< 0.01) to identify
-    motifs in genes that are strongly induced for each stress, and then
-    follow that analysis with TOMTOM. What TFs may be shared and what
-    TFs may be different between the two stress responses?
+2.  If you were designing a ChIP-seq experiment to study Msn2 binding under different conditions, what factors would you consider in your experimental design
+
+3.  What can ChIP-seq tell us about Msn2 that our previous analyses cannot?
+
+
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

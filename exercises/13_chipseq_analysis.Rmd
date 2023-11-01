@@ -68,6 +68,7 @@ library(ChIPseeker)
 library(clusterProfiler)
 library(AnnotationDbi)
 p_load("Rfastp", "Rsubread")
+p_load("memes", "universalmotif")
 library(Rsubread)
 library(Rfastp)
 ```
@@ -415,6 +416,7 @@ macs2 callpeak -t /Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR11
   --outdir $macs_outdir \
   -f BAMPE \
   -g 1.2e7 \
+  -B \
   --nomodel \
   --extsize 50
 
@@ -432,10 +434,11 @@ macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1
 # run macs with 20 min as treatment and 0 min as control
 macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181481_R1.fastq.gz.subread.BAM" \
                -n MSN24_ESR_t20vst0 \
-               -c "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181481_R1.fastq.gz.subread.BAM" \
+               -c "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181480_R1.fastq.gz.subread.BAM" \
                --outdir $macs_outdir \
                -B \
-               -f BAMPE -g 1.2e7 #--nomodel --extsize 50 -w -S
+               -f BAMPE 
+               -g 1.2e7 #--nomodel --extsize 50 -w -S
                
 
 # Rename all *.bdg to *.bedgraph for IGV 
@@ -455,14 +458,14 @@ samples for 0 minutes and 20 minutes.
 
 ```{r}
 # Load libraries
-library(ChIPQC)
-
-# Generate sample data
-samples <- tribble(
-  ~SampleID, ~Tissue, ~Factor,~Condition,~Replicate,~bamReads,~ControlID,~bamControl,~Peaks,~PeakCaller,~Spikein,
-  "MSN24_ESR_t20vst0",  NA, NA, "ESR", 1, paste0(dir_bam_files,"/SRR1181481_R1.fastq.gz.subread.BAM"), "MSN24_ESR_t0", paste0(dir_bam_files,"/SRR1181480_R1.fastq.gz.subread.BAM"), "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", "macs", NA
-)
-View(samples)
+# library(ChIPQC)
+# 
+# # Generate sample data
+# samples <- tribble(
+#   ~SampleID, ~Tissue, ~Factor,~Condition,~Replicate,~bamReads,~ControlID,~bamControl,~Peaks,~PeakCaller,~Spikein,
+#   "MSN24_ESR_t20vst0",  NA, NA, "ESR", 1, paste0(dir_bam_files,"/SRR1181481_R1.fastq.gz.subread.BAM"), "MSN24_ESR_t0", paste0(dir_bam_files,"/SRR1181480_R1.fastq.gz.subread.BAM"), "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", "macs", NA
+# )
+# View(samples)
 ```
 
 for later: "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls"
@@ -501,61 +504,75 @@ will be stored into the object.
 
 ```{r}
 p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
-BiocManager::install("ChIPpeakAnno")
+# BiocManager::install("ChIPpeakAnno")
 # set up custom anno for QC results
-library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
-library(GenomicRanges)
-library(ChIPpeakAnno)
-yGR <- toGRanges(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
+# library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
+# library(GenomicRanges)
+# library(ChIPpeakAnno)
+# yGR <- toGRanges(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
 
-customAnno <- list(version="sacCer3", Test=yGR)
+# customAnno <- list(version="sacCer3", Test=yGR)
 
-QCresult <- ChIPQCsample(reads = paste0(dir_bam_files,"/SRR1181480_R1.fastq.gz.subread.BAM"),
-                         peaks = "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls",
-                         annotation = customAnno)
+# QCresult <- ChIPQCsample(reads = paste0(dir_bam_files,"/SRR1181480_R1.fastq.gz.subread.BAM"),
+#                          peaks = "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls",
+#                          annotation = customAnno)
 
-QCresult |> fragmentlength()
+# QCresult |> fragmentlength()
 
-QCresult
+# QCresult
 
-ChIPQCreport(QCresult)
+# ChIPQCreport(QCresult)
 
-plotCC(QCresult)
-plotRegi(QCresult)
+# plotCC(QCresult)
+# plotRegi(QCresult)
 
 ## Create ChIPQC object
-chipObj <- ChIPQC(samples)#,# annotation="hg19") 
+# chipObj <- ChIPQC(samples)#,# annotation="hg19") 
 
 # Create ChIPQC report
-ChIPQCreport(chipObj, reportName="ChIP QC report: Msn2/4", reportFolder="ChIPQCreport")
+# ChIPQCreport(chipObj, reportName="ChIP QC report: Msn2/4", reportFolder="ChIPQCreport")
 ```
 
 ## Working with Peaks
 
 ```{r}
+library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
 library(GenomicRanges)
-macsPeaks <- "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls"
-macsPeaks_DF <- read.delim(macsPeaks,comment.char="#")
-macsPeaks_GR <- GRanges(seqnames=macsPeaks_DF[,"chr"],
-                        IRanges(macsPeaks_DF[,"start"],macsPeaks_DF[,"end"]))
-mcols(macsPeaks_GR) <- macsPeaks_DF[,c("abs_summit", "fold_enrichment")]
-macsPeaks_GR
+# macsPeaks <- "~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls"
+# macsPeaks_DF <- read.delim(macsPeaks,comment.char="#")
+# macsPeaks_GR <- GRanges(seqnames=macsPeaks_DF[,"chr"],
+#                         IRanges(macsPeaks_DF[,"start"],macsPeaks_DF[,"end"]))
+# mcols(macsPeaks_GR) <- macsPeaks_DF[,c("abs_summit", "fold_enrichment", "X.log10.pvalue.")]
+# macsPeaks_GR
 ```
 ```{r}
 library(ChIPseeker)
-peakAnno <- annotatePeak(macsPeaks_GR, tssRegion=c(-1000, 1000), 
-                         TxDb=TxDb.Scerevisiae.UCSC.sacCer3.sgdGene, 
-                         annoDb="org.Sc.sgd.db")
+# peakAnno <- annotatePeak(macsPeaks_GR, tssRegion=c(-1000, 1000), 
+#                          TxDb=TxDb.Scerevisiae.UCSC.sacCer3.sgdGene, 
+#                          annoDb="org.Sc.sgd.db")
 ```
 
 
 ### Importing Peaks
 
-MACS peak calls can be found in our specied output directory with the suffix and extension "_peaks.xls".
+MACS peak calls can be found in our specified output directory with the suffix and extension "_peaks.xls".
 MACS peaks come as a tab separated file thinly disguised as a “.xls”.
 In addition to the genomic coordinates of peaks, these files contain useful information on the samples, parameters and version used for peak calling at the top.
 
+```{r}
+MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#")
+```
+
+
 ### Filtering **blacklisted** regions
+
+no peaks were detected in the blacklisted region, so none are filtered out.
+
+```{r}
+MSN24_ESR_t20vst0_peaks_filtered <- MSN24_ESR_t20vst0_peaks %>%
+  filter(chr != "XII" | end <= 451787 | start >= 468932)
+```
+
 
 ### Peak annotation
 
@@ -580,25 +597,60 @@ appear in t20 minutes but not t0 minutes.
 ### Gene Set Enrichment
 
 ```{r}
-# Load in MACS peaks
+p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+# BiocManager::install("ChIPpeakAnno")
+# set up custom anno for QC results
+library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
 library(GenomicRanges)
-macsPeaks <- "data/peaks/Mel_1_peaks.xls"
-macsPeaks_DF <- read.delim(macsPeaks,comment.char="#")
-macsPeaks_GR <- GRanges(seqnames=macsPeaks_DF[,"chr"],
-                        IRanges(macsPeaks_DF[,"start"],macsPeaks_DF[,"end"]))
-mcols(macsPeaks_GR) <- macsPeaks_DF[,c("abs_summit", "fold_enrichment")]
-macsPeaks_GR[1:5,]
+# library(ChIPpeakAnno)
+txdb <- TxDb.Scerevisiae.UCSC.sacCer3.sgdGene
+MSN24_ESR_t20vst0_peaks_GR <- GRanges(seqnames=MSN24_ESR_t20vst0_peaks %>%
+  mutate(chr = paste0("chr", chr)) %>% pull(chr),
+                        IRanges(MSN24_ESR_t20vst0_peaks[,"start"],MSN24_ESR_t20vst0_peaks[,"end"]))
 
-# Annotate peaks to genes
-# library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+
+genes(txdb) |> str()
+
 library(ChIPseeker)
-peakAnno <- annotatePeak(macsPeaks_GR, tssRegion=c(-1000, 1000), 
-                         TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, 
-                         annoDb="org.Mm.eg.db")
+peakAnno <- annotatePeak(MSN24_ESR_t20vst0_peaks_GR, tssRegion=c(-3000, 3000), level = "gene",
+                         TxDb=txdb)#,# annoDb="org.Sc.sgd.db")
 
-annotatedPeaksGR <- as.GRanges(peakAnno)
-annotatedPeaksDF <- as.data.frame(peakAnno)
-annotatedPeaksDF[1:2, ]
+plotAnnoPie(peakAnno)
+vennpie(peakAnno)
+p_load(ggimage)
+upsetplot(peakAnno, vennpie=TRUE)
+
+plotDistToTSS(peakAnno,
+              title="Distribution of transcription factor-binding loci\nrelative to TSS")
+```
+```{r}
+promoter <- getPromoters(TxDb=txdb, upstream=500, downstream=500)
+tagMatrix <- getTagMatrix(MSN24_ESR_t20vst0_peaks_GR, windows=promoter)
+tagHeatmap(tagMatrix)
+```
+
+
+
+```{r}
+# Load in MACS peaks
+# library(GenomicRanges)
+# macsPeaks <- "data/peaks/Mel_1_peaks.xls"
+# macsPeaks_DF <- read.delim(macsPeaks,comment.char="#")
+# macsPeaks_GR <- GRanges(seqnames=macsPeaks_DF[,"chr"],
+#                         IRanges(macsPeaks_DF[,"start"],macsPeaks_DF[,"end"]))
+# mcols(macsPeaks_GR) <- macsPeaks_DF[,c("abs_summit", "fold_enrichment")]
+# macsPeaks_GR[1:5,]
+# 
+# # Annotate peaks to genes
+# # library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+# library(ChIPseeker)
+# peakAnno <- annotatePeak(macsPeaks_GR, tssRegion=c(-1000, 1000), 
+#                          TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, 
+#                          annoDb="org.Mm.eg.db")
+# 
+# annotatedPeaksGR <- as.GRanges(peakAnno)
+# annotatedPeaksDF <- as.data.frame(peakAnno)
+# annotatedPeaksDF[1:2, ]
 ```
 
 We can extract the unique names of genes with peaks in their TSS by
@@ -606,46 +658,94 @@ subsetting the annotated GRanges and retrieving gene names from the
 geneId column.
 
 ```{r}
-
-annotatedPeaksGR_TSS <- annotatedPeaksGR[annotatedPeaksGR$annotation == "Promoter",
-    ]
-genesWithPeakInTSS <- unique(annotatedPeaksGR_TSS$geneId)
-genesWithPeakInTSS[1:2]
+peak_genes <- peakAnno |>
+  as.data.frame() |>
+  pull(geneId)
 ```
 
 Now, let's extract all genes which are included in the TxDb object to
 use as our universe of genes for pathway enrichment.
 
 ```{r}
-allGeneGR <- genes(TxDb.Mmusculus.UCSC.mm10.knownGene)
-allGeneGR[1:2, ]
-
-# save all of those gene_id's as a character object.
-allGeneIDs <- allGeneGR$gene_id
+# allGeneGR <- genes(TxDb.Mmusculus.UCSC.mm10.knownGene)
+# allGeneGR[1:2, ]
+# 
+# # save all of those gene_id's as a character object.
+# allGeneIDs <- allGeneGR$gene_id
 ```
 
 #### Gene Ontology
 
 ```{r}
 library(clusterProfiler)
-library(org.Mm.eg.db)
-GO_result <- enrichGO(gene = genesWithPeakInTSS, universe = allGeneIDs, OrgDb = org.Mm.eg.db,
-    ont = "BP")
 
-# convert to dataframe and print results
-GO_result_df <- data.frame(GO_result)
-GO_result_df[1:5, ]
+
+library(clusterProfiler)
+# Run our GO enrichment
+go_results <- enrichGO(
+  gene = peak_genes,
+  OrgDb = "org.Sc.sgd.db",
+  keyType = "ORF",
+  ont = "ALL"
+) |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+# take a peak at the results
+head(go_results)
+
+# create a table for the html file
+data.frame(go_results) %>% reactable()
+
+
+dotplot(go_results, showCategory = 10)
+
+# visualize top GO terms
+ggplot(go_results,
+       showCategory = 15,
+       aes(richFactor, fct_reorder(Description, richFactor))) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_gradientn(
+    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+    trans = "log10",
+    guide = guide_colorbar(reverse = TRUE, order = 1)
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  xlab("Rich Factor") +
+  ylab(NULL) +
+  ggtitle("Biological Processes") +
+  theme_bw()
+
 ```
 
 #### KEGG
 
-```{r}
-KEGG_result <- enrichKEGG(gene = genesWithPeakInTSS, universe = allGeneIDs, OrgDb = org.Mm.eg.db)
+```{r enrich-KEGG-chip}
+library(clusterProfiler)
+# Run our KEGG enrichment
+kegg_results <- enrichKEGG(gene = peak_genes,
+                           organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
+                           )
 
-# convert to dataframe and print results
-KEGG_result_df <- data.frame(KEGG_result)
-KEGG_result_df[1:5, ]
+# take a peak at the results
+head(kegg_results)
+
+# create a table for the html file
+data.frame(kegg_results) %>% reactable::reactable()
+
+
+# Remove " - Saccharomyces cerevesiae" from each description entry
+kegg_results@result$Description <- kegg_results@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
+
+
+browseKEGG(kegg_results, 'sce04213')  # longevity
+
+
+dotplot(kegg_results, showCategory = 10)
+
 ```
+
 
 ## Motif Analysis
 
@@ -654,10 +754,114 @@ specific algorithm for ChIP-seq analysis, called MEME-ChIP
 
 ```{r}
 # MEME-ChIP
+
+if (!require("BSgenome.Scerevisiae.UCSC.sacCer3", quietly = TRUE))
+    install.packages("BSgenome.Scerevisiae.UCSC.sacCer3")
+
+library(BSgenome.Scerevisiae.UCSC.sacCer3)
+
+sacCer3.genome <- BSgenome.Scerevisiae.UCSC.sacCer3::BSgenome.Scerevisiae.UCSC.sacCer3
+
+# use memes to grab sequences
+peak_seqs <- memes::get_sequence(MSN24_ESR_t20vst0_peaks_GR,sacCer3.genome)
+
+
 ```
 
 We can use Meme to analyze the promoters of those genes corresponding to
 enrichment peaks.
+
+
+Let's create a folder to which we can save output files. 
+```{r create-outdir-motif-chip}
+# Choose output directory for the output files to be saved
+out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/ChIP_msn24/")
+
+# Create out_dir directory if doesn't already exist
+if (!dir.exists(out_dir)) {
+  dir.create(out_dir, recursive = TRUE)
+}
+```
+
+
+```{r make-background-genes-motif}
+# create a DNAStringSet object from our FC_list we created above.
+# background_fa <- DNAStringSet(left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
+#                                        drop_na("coding_gene_flank") |> pull(coding_gene_flank))
+
+# background_fa <- memes::get_sequence(GRanges(seqinfo(sacCer3.genome)), sacCer3.genome)
+
+
+promoter <- getPromoters(TxDb=txdb, upstream=50, downstream=200)
+background_fa <- memes::get_sequence(promoter, sacCer3.genome)
+
+
+# add gene names
+# names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
+#                                        drop_na("coding_gene_flank") |> pull(ID)
+```
+
+```{r run-streme-motif}
+# Run Streme
+streme_msn24_ChIP <- runStreme(peak_seqs, 
+        # control= background_fa,
+        control="shuffle",
+        minw = 5, # default is 8, for yeast I use 5
+        maxw= 15, #default is 15, for yeast I use 20
+        parse_genomic_coord=FALSE,
+        silent=TRUE,
+        outdir = path.expand(paste0(out_dir, "streme_msn24_ChIP_diauxic"))
+        )
+
+# Display Streme results
+streme_msn24_ChIP |> View()
+
+# Run Meme-Chip
+```
+
+#### TomTom
+
+```{r fig.height=12, fig.width=5}
+# path to yeastract
+db_destination <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Reference/YEASTRACT_20130918.meme")
+
+# Run TomTom on motifs found by runStreme()
+streme_tomtom_msn24_ChIP <-
+  runTomTom(
+    input = streme_msn24_ChIP,
+    # norc = FALSE,
+    # evalue = FALSE,
+    # thresh = 0.0,
+    # motif_pseudo = 0.1,
+    database = db_destination,
+    outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_ChIP"))
+  )
+
+# View Streme TomTom results
+universalmotif::view_motifs(streme_tomtom_msn24_ChIP$best_match_motif,
+            # relative_entropy = FALSE, 
+            normalise.scores = TRUE#, 
+            # use.type = "ICM", 
+            # method = "WPCC",
+            # tryRC = FALSE
+            )
+
+##TODO: use chip-meme tutorial to get just seq surrounding peaks.
+## also maybe try filtering based on pvalue the peaks to get fewer of them.
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Analysis: Motif Discovery for *msn2/4*∆∆ vs WT Response to EtOH
 

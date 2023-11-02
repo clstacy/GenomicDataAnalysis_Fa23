@@ -110,6 +110,9 @@ distribution-based model to background identify significant peaks in
 ChIP-seq data.
 
 ```{bash create-MACS2condaEnvironment, engine.opts='-l'}
+# update conda if needed
+conda update --all
+
 # create an enviornment for our QC packages
 if conda info --envs | grep -q MACS; then echo "environment 'MACS' already exists"; else conda create -y -n MACS macs2 -c bioconda; fi
 
@@ -174,7 +177,7 @@ pwd
 if [ ! -f "$RAW_DATA_DIR/SRR1181480_1.fastq.gz" ]; then
     echo "fastq file SRR1181480_1.fastq.gz not found, downloading..."
     # If the file does not exist, download it using curl
-    wget -nc ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/000/SRR1181480/SRR1181480_1.fastq.gz
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/000/SRR1181480/SRR1181480_1.fastq.gz
     echo "Downloading finished"
 else
     echo "File SRR1181480_1.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
@@ -184,7 +187,7 @@ fi
 if [ ! -f "$RAW_DATA_DIR/SRR1181480_2.fastq.gz" ]; then
     echo "fastq file SRR1181480_2.fastq.gz not found, downloading..."
     # If the file does not exist, download it using curl
-    wget -nc ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/000/SRR1181480/SRR1181480_2.fastq.gz
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/000/SRR1181480/SRR1181480_2.fastq.gz
     echo "Downloading finished"
 else
     echo "File SRR1181480_2.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
@@ -194,7 +197,7 @@ fi
 if [ ! -f "$RAW_DATA_DIR/SRR1181481_1.fastq.gz" ]; then
     echo "fastq file SRR1181481_1.fastq.gz not found, downloading..."
     # If the file does not exist, download it using curl
-    wget -nc ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/001/SRR1181481/SRR1181481_1.fastq.gz
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/001/SRR1181481/SRR1181481_1.fastq.gz
     echo "Downloading finished"
 else
     echo "File SRR1181481_1.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
@@ -204,7 +207,7 @@ fi
 if [ ! -f "$RAW_DATA_DIR/SRR1181481_2.fastq.gz" ]; then
     echo "fastq file SRR1181481_2.fastq.gz not found, downloading..."
     # If the file does not exist, download it using curl
-    wget -nc ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/001/SRR1181481/SRR1181481_2.fastq.gz
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/001/SRR1181481/SRR1181481_2.fastq.gz
     echo "Downloading finished"
 else
     echo "File SRR1181481_2.fastq.gz already exists at $RAW_DATA_DIR Skipping download."

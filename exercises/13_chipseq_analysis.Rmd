@@ -63,6 +63,8 @@ if (!require("ChIPseeker", quietly = TRUE))
 # library(memes)
 # library(curl)
 # library(universalmotif)
+p_load("reactable")
+p_load(ggimage)
 library(tidyverse)
 library(ShortRead) # added by me, using rockerfeller approach.
 # p_install("ChIPQC")
@@ -75,6 +77,7 @@ library(AnnotationDbi)
 p_load("Rfastp", "Rsubread")
 p_load("memes", "universalmotif")
 p_load("plyranges", "biomaRt")
+library(dplyr)
 library(Rsubread)
 library(Rfastp)
 library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
@@ -86,32 +89,8 @@ library(GenomicRanges)
 Similar to exercise 03_Working_with_Sequences.Rmd, we need to use
 software that aren't available in R. One way to do that is the way shown
 here, creating and activating conda environments. If you haven't done
-set-up of conda on your system as described in exercise 03, this code
+set-up of conda on your system as described in Exercise 03, this code
 likely won't run for you.
-
-##### FastQC
-
-```{bash create-QCcondaEnvironment, engine.opts='-l'}
-# create an enviornment for our QC packages
-if conda info --envs | grep -q QC; then echo "environment 'QC' already exists"; else conda create -y -n QC fastqc multiqc; fi
-
-# see available conda environments
-conda env list
-
-# activate our QC environment
-conda activate QC
-
-# make sure desired packages are working
-which fastqc
-which multiqc
-
-# get the versions of each software
-fastqc -v
-multiqc --version
-
-# it's always good coding practice to deactivate a conda environment at the end of a chunk
-conda deactivate
-```
 
 ##### MACS2
 
@@ -258,8 +237,7 @@ fi
 
 ChIPseq will often show the presence of common artifacts, such as ultra-high signal regions. Such regions can confound peak calling, fragment length estimation and QC metrics. Anshul Kundaje created the DAC blacklist as a reference to help deal with these regions. These are available for dm3, dm6, ce10, ce11, mm10, hg19, and hg38. (https://zenodo.org/records/1491733).
 
-*Saccharomyces cerevesiae* doesn't have an official blacklist, so we won't be using this today.
-
+*Saccharomyces cerevisiae* doesn't have an official blacklist, so we won't be using this today.
 
 
 ### QC & Trimming
@@ -399,9 +377,10 @@ To run MACS2 to we need to supply:
 
 In this analysis, we only need to do a single call to macs2 because we only have one treatment sample and one control sample. If we had more samples, we'd want to run macs2 for every sample.
 
-For the purpose of demonstration, we will run macs2 on each sample with no control. THIS IS NOT RECOMMENDED. For this analysis, we should just use the third call to macs2 below. We are running the noControl's so we can look at the peaks that would be called for each alone, so we can compare them to the peaks of the treatment vs control.
+For the purpose of demonstration, we will run macs2 on each sample with no control. THIS IS NOT RECOMMENDED. For this analysis, we should just use the third call to macs2 below. We are running the calling without controls so we can look at the peaks that would be called for each alone, so we can compare them to the peaks of the treatment vs control.
 
-flags for MACS2:
+Flags we've used for MACS2:
+
     - `-n` output file name prefix
     - `--outdir` path to where output files should be saved
     - `f` type of files being input. Usually `BAM` (or `BAMPE` for paired-end.)
@@ -467,17 +446,19 @@ MACS peak calls can be found in our specified output directory with the suffix a
 MACS peaks come as a tab separated file (thinly disguised as a “.xls”).
 In addition to the genomic coordinates of peaks, these files contain useful information on the samples, parameters and version used for peak calling at the top.
 
+
 ```{r}
 MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#") |>
-  # only take highest confidence peaks with large fold_enrichments
+  # filter on significance of peaks
   filter(X.log10.pvalue. > 5) |>
+  # filter on magnitude of enrichment
   filter(fold_enrichment > 4)
 ```
 
 
 ### Filtering **blacklisted** regions
 
-no peaks were detected in the blacklisted region, so none are filtered out.
+No peaks were detected in the blacklisted region, so none are filtered out. If you have blacklist regions in your genome, you can remove them now. A variety of software tools are available for excluding them automatically, including bedtools intersect. 
 
 ```{r}
 # MSN24_ESR_t20vst0_peaks_filtered <- MSN24_ESR_t20vst0_peaks %>%
@@ -487,53 +468,86 @@ no peaks were detected in the blacklisted region, so none are filtered out.
 
 ### Peak annotation
 
-## Visualization
+Currently, we have peaks loaded in as a data.frame object `MSN24_ESR_t20vst0_peaks`. Note that none of the columns in that file tell us which gene(s) each peak corresponds to. In order to do annotate the peaks, we first need to convert out data frame to a GRanges object from the GenomicRanges package. 
 
-### Assess Alignment with IGV
-
-Another method for assessing the quality of your alignment is to
-visualize the alignment using a genome browser. For this workshop we
-will be using the Integrative Genomics Viewer (IGV) from the Broad
-Institute. You should already have this downloaded on your laptop. IGV
-is an interactive tool which allows exploration of large, integrated
-genomic datasets. It supports a wide variety of data types, including
-array-based and next-generation sequence data, and genomic annotations,
-which facilitates invaluable comparisons.
-
-## Downstream Analysis
-
-ChIP peaks in R: Let's generate a gene list corresponding to peaks that
-appear in t20 minutes but not t0 minutes.
-
-### Gene Set Enrichment
 
 ```{r}
+# Convert dataframe to GRanges object
+MSN24_ESR_t20vst0_peaks_GR <-
+  GenomicRanges::GRanges(
+    seqnames = MSN24_ESR_t20vst0_peaks %>%
+      # for this data, need to convert chromosome format to match, done below:
+      mutate(chr = paste0("chr", chr)) %>% pull(chr), 
+    IRanges(MSN24_ESR_t20vst0_peaks[, "start"], MSN24_ESR_t20vst0_peaks[, "end"])
+  )
+```
 
+Next, we need to load the TxDb for *S. cerevisiae*. The `GenomicFeatures` package uses TxDb objects to store transcript metadata. This contains information about the 5’ and 3’ untranslated regions (UTRs), protein coding sequences (CDSs) and exons for a set of mRNA transcripts to their associated genome. TxDb objects have numerous accessors functions to allow such features to be retrieved individually or grouped together in a way that reflects the underlying biology.
+
+A list of currently available TxDb's is available at https://bioconductor.org/packages/release/BiocViews.html#___TxDb 
+
+```{r}
+# The way we installed this was from BioConductor, with the install code copied below
+# BiocManager::install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
 txdb <- TxDb.Scerevisiae.UCSC.sacCer3.sgdGene
-MSN24_ESR_t20vst0_peaks_GR <- GRanges(seqnames=MSN24_ESR_t20vst0_peaks %>%
-  mutate(chr = paste0("chr", chr)) %>% pull(chr),
-                        IRanges(MSN24_ESR_t20vst0_peaks[,"start"],MSN24_ESR_t20vst0_peaks[,"end"]))
+```
 
+Now that we have a GRanges object and our TxDb object, we can use the `annotatePeak` function from the `ChIPseeker` package to create an object containing the annotated peaks
 
-genes(txdb) |> str()
-
-
+```{r}
 peakAnno <- ChIPseeker::annotatePeak(MSN24_ESR_t20vst0_peaks_GR, tssRegion=c(-3000, 3000), level = "gene",
-                         TxDb=txdb)#,# annoDb="org.Sc.sgd.db")
+                         TxDb=txdb)
 
+# See the information this object contains
+peakAnno |> data.frame() |> glimpse()
+```
+## Visualization
+
+The `ChIPSeeker` package in R contains some functions for visualizing the annotated peaks. We can look at some here.
+
+We see from this pie chart that most of the peaks occurred within 1kb of the TSS for the corresponding gene, with less than 3% of peaks further away.
+```{r}
 plotAnnoPie(peakAnno)
-vennpie(peakAnno)
-p_load(ggimage)
-upsetplot(peakAnno, vennpie=TRUE)
+```
 
+However, we know many features overlap, so we can use a vennpie instead. This shows us that of our peaks extend into regions that contain genes.
+```{r}
+vennpie(peakAnno)
+```
+
+```{r}
+upsetplot(peakAnno, vennpie=TRUE)
+```
+
+```{r}
 plotDistToTSS(peakAnno,
               title="Distribution of transcription factor-binding loci\nrelative to TSS")
 ```
+
+This last visualization takes a while to run, so you don't need to run it. It allows you to create a heatmap of the peak locations within the promoters.
+
 ```{r eval = FALSE}
 promoter <- getPromoters(TxDb=txdb, upstream=500, downstream=500)
 tagMatrix <- getTagMatrix(MSN24_ESR_t20vst0_peaks_GR, windows=promoter)
 tagHeatmap(tagMatrix)
 ```
+
+### Assess Alignment with IGV
+
+Another method for assessing the quality of your alignment is to visualize the alignment using a genome browser. For this workshop we will be using the Integrative Genomics Viewer (IGV) from the Broad Institute. You may already have this downloaded on your laptop. Alternatively, we can use the web-based IGV to visualize the data.
+
+Go to https://igv.org/app/, select genome as sacCer3, and upload file via Tracks > local file..., and select the MSN24_ESR_t20vst0_treat_pileup.bedgraph (by default in ~/Desktop/Genomic_Data_Analysis/Analysis/ChIP). You can also upload the .bed file in the same folder.
+
+## Downstream Analysis
+
+ChIP peaks in R: Let's generate a gene list corresponding to peaks that appear in t20 minutes but not t0 minutes. We already have the peaks annotated to genes, so we just need to get a 
+
+### Gene Set Enrichment
+
+```{r}
+
+```
+
 
 
 
@@ -615,7 +629,7 @@ kegg_results@result$Description <- kegg_results@result$Description %>% print() %
 
 
 # browseKEGG(kegg_results, 'sce04213')  # longevity
-# browseKEGG(kegg_results, 'sce00500')  # Starch and sucrose metabolism 
+# browseKEGG(kegg_results, 'sce00500')  # Starch and sucrose metabolism
 
 
 dotplot(kegg_results, showCategory = 10) 
@@ -674,66 +688,15 @@ if (!dir.exists(out_dir)) {
 
 
 ```{r make-background-genes-motif}
-# # create a DNAStringSet object from our FC_list we created above.
-# # background_fa <- DNAStringSet(left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
-# #                                        drop_na("coding_gene_flank") |> pull(coding_gene_flank))
-# 
-# # background_fa <- memes::get_sequence(GRanges(seqinfo(sacCer3.genome)), sacCer3.genome)
-# 
-# 
-# promoter <- getPromoters(TxDb=txdb, upstream=50, downstream=200)
-# # background_fa <- memes::get_sequence(promoter, sacCer3.genome)
-# 
-# 
-# # add gene names
-# # names(background_fa) <- left_join(FC_list,seq, by=c("ID" = "ensembl_gene_id")) |>
-# #                                        drop_na("coding_gene_flank") |> pull(ID)
-# 
-# txdb <- TxDb.Scerevisiae.UCSC.sacCer3.sgdGene
-# 
-# # get 500 random genes from yeast genome
-# set.seed(123)
-# random_500_yeast_genes <- genes(txdb) |> data.frame() |> pull(gene_id) |>
-#   sample(500)
-# 
-# 
-# ensembl <- biomaRt::useEnsembl(biomart = "genes",
-#                       dataset = "scerevisiae_gene_ensembl")
-# 
-# 
-# # grab their promoter sequences 200bp upstream
-# 
-# background_genes_fa <- getSequence(id = random_500_yeast_genes,
-#                  type="ensembl_gene_id",
-#                  seqType="coding_gene_flank",
-#                  downstream=200,
-#                  mart=ensembl,
-#                  useCache = TRUE) |>
-#   drop_na() |>
-#   dplyr::filter(coding_gene_flank != "Sequence unavailable") |>
-#   pull(coding_gene_flank,name = ensembl_gene_id) |>
-#   DNAStringSet()
-# 
-# 
-# test_using_promoter_seqs_from_ensembl <- getSequence(id = peak_genes,
-#                  type="ensembl_gene_id",
-#                  seqType="coding_gene_flank",
-#                  upstream=1000,
-#                  mart=ensembl,
-#                  useCache = TRUE) |>
-#   drop_na() |>
-#   dplyr::filter(coding_gene_flank != "Sequence unavailable") |>
-#   pull(coding_gene_flank,name = ensembl_gene_id) |>
-#   DNAStringSet()
+
 ```
 
 ```{r run-streme-motif}
 # Run Streme
-streme_msn24_ChIP <- runStreme(peak_seqs, #_flanks
-        # control= background_genes_fa,
+streme_msn24_ChIP <- runStreme(peak_seqs,
         control="shuffle",
         minw = 5, # default is 8, for yeast I use 5
-        maxw= 10, #default is 15, for yeast I use 20
+        maxw= 20, #default is 15, for yeast I use 20
         parse_genomic_coord=FALSE,
         silent=TRUE,
         outdir = path.expand(paste0(out_dir, "streme_msn24_ChIP_diauxic"))
@@ -756,7 +719,7 @@ db_destination <-
 streme_tomtom_msn24_ChIP <-
   runTomTom(
     input = streme_msn24_ChIP,
-    motif_pseudo = 0.1,
+    # motif_pseudo = 0.1,
     database = db_destination,
     outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_ChIP"))
   )

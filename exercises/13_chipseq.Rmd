@@ -158,11 +158,12 @@ download the files today.
 ```{bash fetch-fastq-chipseq}
 # Be sure to change this file path to the path you want your data to go
 RAW_DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw/ChIP"
+#RAW_DATA_DIR="/mnt/c/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw"
 # if you're using Windows 10,
 # in RStudio, go to Tools>Global Options... > Terminal > New Terminals open with...
 # and choose WSL bash or git bash
 # next, use: (be sure to put in the correct username)
-#RAW_DATA_DIR="/mnt/c/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw"
+
 
 # create the destination directory if it doesn't already exist
 mkdir -p $RAW_DATA_DIR

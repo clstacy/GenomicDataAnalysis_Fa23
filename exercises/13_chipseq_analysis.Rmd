@@ -217,7 +217,7 @@ ls -lah
 
 #### Reference files
 
-\#####**Genome**
+##### **Genome**
 
 ```{bash fetch-genome-chipseq}
 # Define the destination file path
@@ -243,7 +243,7 @@ else
 fi
 ```
 
-\#####**blacklist**
+##### **Blacklisted regions**
 
 ChIPseq will often show the presence of common artifacts, such as ultra-high signal regions. Such regions can confound peak calling, fragment length estimation and QC metrics. Anshul Kundaje created the DAC blacklist as a reference to help deal with these regions. These are available for dm3, dm6, ce10, ce11, mm10, hg19, and hg38. (https://zenodo.org/records/1491733).
 
@@ -579,7 +579,7 @@ go_results <- clusterProfiler::enrichGO(
 head(go_results)
 
 # create a table for the html file
-data.frame(go_results) %>% reactable::reactable()
+data.frame(go_results) %>% View()
 
 
 dotplot(go_results, showCategory = 10)
@@ -617,7 +617,7 @@ kegg_results <- clusterProfiler::enrichKEGG(gene = peak_genes,
 head(kegg_results)
 
 # create a table for the html file
-data.frame(kegg_results) %>% reactable::reactable()
+data.frame(kegg_results) %>% View()
 
 
 # Remove " - Saccharomyces cerevesiae" from each description entry
@@ -675,7 +675,7 @@ streme_msn24_ChIP <- runStreme(peak_seqs,
         )
 
 # Display Streme results
-streme_msn24_ChIP |> reactable::reactable() 
+streme_msn24_ChIP |> View() 
 ```
 
 #### TomTom

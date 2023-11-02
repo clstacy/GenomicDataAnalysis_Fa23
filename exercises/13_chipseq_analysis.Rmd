@@ -25,7 +25,10 @@ In this class exercise, we will practice analyzing ChIP-seq data.
 
 At the end of this exercise, you should be able to:
 
--   
+-   Understand the workflow for a ChIP-seq experiment
+-   Be able to call peaks using macs2 peak caller
+-   Identify genes with TSS nearest to peaks found in ChIP-seq analysis
+-   Conduct and interpret enrichment analyses of putative target gene lists.
 
 ## Exercise Background
 
@@ -49,8 +52,11 @@ This analysis will use both R and terminal based commands.
 # Ensure required packages are installed
 if (!require("pacman")) install.packages("pacman"); library(pacman)
 
+# install if not already installed
 if (!require("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", quietly = TRUE))
   p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+if (!require("BSgenome.Scerevisiae.UCSC.sacCer3", quietly = TRUE))
+  p_install("BSgenome.Scerevisiae.UCSC.sacCer3")
 if (!require("ChIPseeker", quietly = TRUE))
   p_install("ChIPseeker")
 
@@ -59,29 +65,33 @@ if (!require("ChIPseeker", quietly = TRUE))
 #        "dplyr", "stringr", #"purrr", "reactable",
 #        "biomaRt", "memes", "Biostrings", "curl", "universalmotif")
 
-# library(biomaRt)
-# library(memes)
-# library(curl)
-# library(universalmotif)
-p_load("reactable")
-p_load(ggimage)
-library(tidyverse)
-library(ShortRead) # added by me, using rockerfeller approach.
-# p_install("ChIPQC")
-# p_install("ChIPseeker")
-# library(ChIPQC)
-library(ChIPseeker)
-# library(DiffBind)
-library(clusterProfiler)
-library(AnnotationDbi)
-p_load("Rfastp", "Rsubread")
-p_load("memes", "universalmotif")
-p_load("plyranges", "biomaRt")
-library(dplyr)
-library(Rsubread)
-library(Rfastp)
-library(TxDb.Scerevisiae.UCSC.sacCer3.sgdGene)
-library(GenomicRanges)
+
+p_load("tidyverse", "knitr",
+       "Rfastp", "Rsubread",
+       "ChIPseeker", "BSgenome.Scerevisiae.UCSC.sacCer3",
+       "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "curl",
+       "AnnotationDbi", "biomaRt",
+       "memes", "universalmotif",
+       "clusterProfiler", "GenomicRanges",
+       "ggimage", "reactable"
+       )
+
+# make sure all packages install and load correctly.
+library("tidyverse")
+library("dplyr")
+library("Rfastp")
+library("Rsubread")
+library("ChIPseeker")
+library("memes")
+library("universalmotif")
+library("reactable")
+library("BSgenome.Scerevisiae.UCSC.sacCer3")
+library("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+library("clusterProfiler")
+library("curl")
+library("AnnotationDbi")
+library("biomaRt")
+library("GenomicRanges")
 ```
 
 #### Conda environments
@@ -524,14 +534,6 @@ plotDistToTSS(peakAnno,
               title="Distribution of transcription factor-binding loci\nrelative to TSS")
 ```
 
-This last visualization takes a while to run, so you don't need to run it. It allows you to create a heatmap of the peak locations within the promoters.
-
-```{r eval = FALSE}
-promoter <- getPromoters(TxDb=txdb, upstream=500, downstream=500)
-tagMatrix <- getTagMatrix(MSN24_ESR_t20vst0_peaks_GR, windows=promoter)
-tagHeatmap(tagMatrix)
-```
-
 ### Assess Alignment with IGV
 
 Another method for assessing the quality of your alignment is to visualize the alignment using a genome browser. For this workshop we will be using the Integrative Genomics Viewer (IGV) from the Broad Institute. You may already have this downloaded on your laptop. Alternatively, we can use the web-based IGV to visualize the data.
@@ -540,16 +542,7 @@ Go to https://igv.org/app/, select genome as sacCer3, and upload file via Tracks
 
 ## Downstream Analysis
 
-ChIP peaks in R: Let's generate a gene list corresponding to peaks that appear in t20 minutes but not t0 minutes. We already have the peaks annotated to genes, so we just need to get a 
-
-### Gene Set Enrichment
-
-```{r}
-
-```
-
-
-
+ChIP peaks in R: Let's generate a gene list corresponding to peaks that appear in t20 minutes but not t0 minutes. We already have the peaks annotated to genes, so we just need to get a list of genes.
 
 We can extract the unique names of genes with peaks in their TSS by
 subsetting the annotated GRanges and retrieving gene names from the
@@ -559,19 +552,21 @@ geneId column.
 peak_genes <- peakAnno |>
   as.data.frame() |>
   pull(geneId)
+
+glimpse(peak_genes)
 ```
 
-Now, let's extract all genes which are included in the TxDb object to
-use as our universe of genes for pathway enrichment.
+### Gene Set Enrichment
 
+Now we have a list of genes that correspond to the peaks seen in treatment but not control. Let's see if there are any enrichments in this gene list, using techniques we have used already in class.
 
 #### Gene Ontology
 
-```{r}
+We'll use `enrichGO` from `clusterProfiler` just as we did in the gene ontology lesson.
 
-library(clusterProfiler)
-# Run our GO enrichment
-go_results <- enrichGO(
+```{r}
+# Run GO enrichment
+go_results <- clusterProfiler::enrichGO(
   gene = peak_genes,
   OrgDb = "org.Sc.sgd.db",
   keyType = "ORF",
@@ -584,7 +579,7 @@ go_results <- enrichGO(
 head(go_results)
 
 # create a table for the html file
-data.frame(go_results) %>% View()
+data.frame(go_results) %>% reactable::reactable()
 
 
 dotplot(go_results, showCategory = 10)
@@ -610,10 +605,11 @@ ggplot(go_results,
 
 #### KEGG
 
+Run KEGG enrichment on the same gene list.
+
 ```{r enrich-KEGG-chip}
-library(clusterProfiler)
 # Run our KEGG enrichment
-kegg_results <- enrichKEGG(gene = peak_genes,
+kegg_results <- clusterProfiler::enrichKEGG(gene = peak_genes,
                            organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
                            )
 
@@ -633,47 +629,23 @@ kegg_results@result$Description <- kegg_results@result$Description %>% print() %
 
 
 dotplot(kegg_results, showCategory = 10) 
-
 ```
 
 
 ### Motif Analysis
 
 The MEME-suite that we used in a previous motif analysis exercise has a
-specific algorithm for ChIP-seq analysis, called MEME-ChIP
+specific algorithm for ChIP-seq analysis, called MEME-ChIP. This workflow hasn't been implemented in the `memes` package in R yet, but can be done in the website at https://meme-suite.org/meme/tools/meme-chip. You can upload a fasta file of the peak summits to be analyzed.
 
+
+First, let's extract the sequences corresponding to the annotated peak ranges. We will use the `get_sequence` function from the `memes` package for this. This function requires a BSgenome database to pull sequences from, so it has been loaded in.
 ```{r}
-# MEME-ChIP
-
-if (!require("BSgenome.Scerevisiae.UCSC.sacCer3", quietly = TRUE))
-    install.packages("BSgenome.Scerevisiae.UCSC.sacCer3")
-
-library(BSgenome.Scerevisiae.UCSC.sacCer3)
-
+# load in sacCer3 genome
 sacCer3.genome <- BSgenome.Scerevisiae.UCSC.sacCer3::BSgenome.Scerevisiae.UCSC.sacCer3
 
-# use memes to grab sequences
-peak_seqs <- memes::get_sequence(MSN24_ESR_t20vst0_peaks_GR,sacCer3.genome)
-
-
-
-# Get sequences in a 100bp window around the peak summit
-summit_flank <- MSN24_ESR_t20vst0_peaks_GR %>%
-  # this ensures we take 100bp up & downstream of the summit for a total width of 200bp
-  plyranges::anchor_center() %>%
-  # plyranges::anchor_start() %>%
-  plyranges::mutate(width = 800) #%>%
-  # plyranges::mutate(start= max(start,0))
-
-summit_flank@ranges@start[summit_flank@ranges@start < 0] <- 1L
-
-# get the sequences
-peak_seqs_flanks <- memes::get_sequence(summit_flank,sacCer3.genome)
+# use memes to retrieve sequences of peaks
+peak_seqs <- memes::get_sequence(MSN24_ESR_t20vst0_peaks_GR, sacCer3.genome)
 ```
-
-We can use Meme to analyze the promoters of those genes corresponding to
-enrichment peaks.
-
 
 Let's create a folder to which we can save output files. 
 ```{r create-outdir-motif-chip}
@@ -686,10 +658,10 @@ if (!dir.exists(out_dir)) {
 }
 ```
 
+#### Streme
 
-```{r make-background-genes-motif}
-
-```
+We can use Streme to look for enriched motifs in the promoters of those genes corresponding to
+enrichment peaks. Once Streme finishes, we can check out the .html output file in the output folder.
 
 ```{r run-streme-motif}
 # Run Streme
@@ -703,12 +675,12 @@ streme_msn24_ChIP <- runStreme(peak_seqs,
         )
 
 # Display Streme results
-streme_msn24_ChIP |> View() 
-
-# Run Meme-Chip
+streme_msn24_ChIP |> reactable::reactable() 
 ```
 
-### TomTom
+#### TomTom
+
+Finally, use TomTom to see which TFs those motifs might correspond to. We can check the .html output file for TomTom as well.
 
 ```{r fig.height=12, fig.width=5}
 # path to yeastract
@@ -719,7 +691,6 @@ db_destination <-
 streme_tomtom_msn24_ChIP <-
   runTomTom(
     input = streme_msn24_ChIP,
-    # motif_pseudo = 0.1,
     database = db_destination,
     outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_ChIP"))
   )
@@ -733,7 +704,6 @@ streme_tomtom_msn24_ChIP <-
 2.  If you were designing a ChIP-seq experiment to study Msn2 binding under different conditions, what factors would you consider in your experimental design
 
 3.  What can ChIP-seq tell us about Msn2 that our previous analyses cannot?
-
 
 
 Be sure to knit this file into a pdf or html file once you're finished.

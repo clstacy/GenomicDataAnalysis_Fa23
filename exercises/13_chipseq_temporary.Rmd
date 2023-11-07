@@ -1,0 +1,735 @@
+---
+title: "ChIP-seq Analysis"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output:
+  html_document:
+    code_folding: show
+    embed-resources: true
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+last updated: `r Sys.Date()`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Description
+
+In this class exercise, we will practice analyzing ChIP-seq data.
+
+## Learning Outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Understand the workflow for a ChIP-seq experiment
+-   Be able to call peaks using macs2 peak caller
+-   Identify genes with TSS nearest to peaks found in ChIP-seq analysis
+-   Conduct and interpret enrichment analyses of putative target gene lists.
+
+## Exercise Background
+
+In this exercise, we will look at the only published ChIP-seq data for
+Msn2/4 mutants under EtOH stress conditions similar to those we have
+been exploring throughout this course. The data comes from []. We will
+go through this analysis together, starting from the raw fastq files.
+
+## Pre-Analysis Preparations
+
+Before analyzing our ChIP-seq results, we need to prepare our computing
+environment for this analysis.
+
+### Prepare Software
+
+This analysis will use both R and terminal based commands.
+
+#### R packages
+
+```{r ready-packages}
+# Ensure required packages are installed
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# install if not already installed
+if (!require("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", quietly = TRUE))
+  p_install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+if (!require("BSgenome.Scerevisiae.UCSC.sacCer3", quietly = TRUE))
+  p_install("BSgenome.Scerevisiae.UCSC.sacCer3")
+if (!require("ChIPseeker", quietly = TRUE))
+  p_install("ChIPseeker")
+
+# Load necessary packages
+# p_load("tidyverse", "knitr", "readr", "pander", "BiocManager", 
+#        "dplyr", "stringr", #"purrr", "reactable",
+#        "biomaRt", "memes", "Biostrings", "curl", "universalmotif")
+
+
+p_load("tidyverse", "knitr",
+       "Rfastp", "Rsubread",
+       "ChIPseeker", "BSgenome.Scerevisiae.UCSC.sacCer3",
+       "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "curl",
+       "AnnotationDbi", "biomaRt",
+       "memes", "universalmotif",
+       "clusterProfiler", "GenomicRanges",
+       "ggimage", "reactable"
+       )
+
+# make sure all packages install and load correctly.
+library("tidyverse")
+library("dplyr")
+library("Rfastp")
+library("Rsubread")
+library("ChIPseeker")
+library("memes")
+library("universalmotif")
+library("reactable")
+library("BSgenome.Scerevisiae.UCSC.sacCer3")
+library("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+library("clusterProfiler")
+library("curl")
+library("AnnotationDbi")
+library("biomaRt")
+library("GenomicRanges")
+```
+
+#### Conda environments
+
+Similar to exercise 03_Working_with_Sequences.Rmd, we need to use
+software that aren't available in R. One way to do that is the way shown
+here, creating and activating conda environments. If you haven't done
+set-up of conda on your system as described in Exercise 03, this code
+likely won't run for you.
+
+##### MACS2
+
+A popular software for peak-calling ChIP-seq data is
+[MACS2](https://pypi.org/project/MACS2/). It uses a Poisson
+distribution-based model to background identify significant peaks in
+ChIP-seq data.
+
+```{bash create-MACS2condaEnvironment, engine.opts='-l'}
+# update conda if needed
+# conda update --all
+
+# create an enviornment for our QC packages
+if conda info --envs | grep -q MACS; then echo "environment 'MACS' already exists"; else conda create -y -n MACS macs2 -c bioconda; fi
+
+# see available conda environments
+conda env list
+
+# activate our MACS environment
+conda activate MACS
+
+# make sure desired package is working
+which macs2
+
+# get the versions of each software
+macs2 --version
+
+# it's always good coding practice to deactivate a conda environment at the end of a chunk
+conda deactivate
+```
+
+### Data Retreival
+
+For today's exercise, the software Model-based Analysis of ChIP-seq (MACS) will be doing the ChIP-seq specific part of our analysis. MACS needs .bam files as input, which we can generate in the same way as we did in the 04_Read_Mapping.Rmd exercise. However, we get .fastq files from sequencing, so we have to align the fastq files to the genome. A supplement 
+
+#### fastq files
+
+We will be using paired-end fastq files from the publication
+<https://academic.oup.com/nar/article/42/9/5468/1246885>, with
+experiment SRA accession SRP033438. Specifically, we will be getting
+time 0 minutes and time 20 minutes post glucose to glycerol shift, which
+induces the ESR. These samples have the names SRR1181480 and SRR1181481
+respectively.
+
+We could use the SRA toolkit to download these files (tutorial
+[here](https://erilu.github.io/python-fastq-downloader/#automating-downloads-using-python)).
+
+An alternative approach we can use to download these files is going to
+<https://www.ebi.ac.uk/ena/browser/view/SRR1181480> and
+<https://www.ebi.ac.uk/ena/browser/view/SRR1181481> to either download
+the files manually, or download the bash script that we can use to
+download the files. We will use a modified version of that code to
+download the files today.
+
+```{bash fetch-fastq-chipseq}
+# Be sure to change this file path to the path you want your data to go
+RAW_DATA_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw/ChIP"
+#RAW_DATA_DIR="/mnt/c/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Raw"
+# if you're using Windows 10,
+# in RStudio, go to Tools>Global Options... > Terminal > New Terminals open with...
+# and choose WSL bash or git bash
+# next, use: (be sure to put in the correct username)
+
+
+# create the destination directory if it doesn't already exist
+mkdir -p $RAW_DATA_DIR
+
+# change to that directory (for this code chunk only)
+cd $RAW_DATA_DIR
+pwd
+# Download the files.
+# WARNING: curl doesn't work with relative paths
+
+# T=0 read 1
+if [ ! -f "$RAW_DATA_DIR/SRR1181480_1.fastq.gz" ]; then
+    echo "fastq file SRR1181480_1.fastq.gz not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/000/SRR1181480/SRR1181480_1.fastq.gz
+    echo "Downloading finished"
+else
+    echo "File SRR1181480_1.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
+fi
+
+#T=0 read 2
+if [ ! -f "$RAW_DATA_DIR/SRR1181480_2.fastq.gz" ]; then
+    echo "fastq file SRR1181480_2.fastq.gz not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/000/SRR1181480/SRR1181480_2.fastq.gz
+    echo "Downloading finished"
+else
+    echo "File SRR1181480_2.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
+fi
+
+# T=20 read 1
+if [ ! -f "$RAW_DATA_DIR/SRR1181481_1.fastq.gz" ]; then
+    echo "fastq file SRR1181481_1.fastq.gz not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/001/SRR1181481/SRR1181481_1.fastq.gz
+    echo "Downloading finished"
+else
+    echo "File SRR1181481_1.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
+fi
+
+#T=20 read 2
+if [ ! -f "$RAW_DATA_DIR/SRR1181481_2.fastq.gz" ]; then
+    echo "fastq file SRR1181481_2.fastq.gz not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR118/001/SRR1181481/SRR1181481_2.fastq.gz
+    echo "Downloading finished"
+else
+    echo "File SRR1181481_2.fastq.gz already exists at $RAW_DATA_DIR Skipping download."
+fi
+
+# see all downloaded files
+ls -lah
+```
+
+
+#### Reference files
+
+##### **Genome**
+
+```{bash fetch-genome-chipseq}
+# Define the destination file path
+# You can change this file path to the path you want your data to go, or leave it.
+REF_DIR="/Users/$USER/Desktop/Genomic_Data_Analysis/Reference"
+
+# make that directory if it doesn't already
+mkdir -p $REF_DIR
+
+# Define the URL of reference genome
+# (latest from ensembl)
+url="ftp://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+
+
+# Check if the file already exists at the destination location
+if [ ! -f "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" ]; then
+    echo "Reference genome not found, downloading..."
+    # If the file does not exist, download it using curl
+    curl -o "$REF_DIR/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz" "$url"
+    echo "Downloading finished"
+else
+    echo "File already exists at $REF_DIR Skipping download."
+fi
+```
+
+##### **Blacklisted regions**
+
+ChIPseq will often show the presence of common artifacts, such as ultra-high signal regions. Such regions can confound peak calling, fragment length estimation and QC metrics. Anshul Kundaje created the DAC blacklist as a reference to help deal with these regions. These are available for dm3, dm6, ce10, ce11, mm10, hg19, and hg38. (https://zenodo.org/records/1491733).
+
+*Saccharomyces cerevisiae* doesn't have an official blacklist, so we won't be using this today.
+
+
+### QC & Trimming
+
+We can use **FastQC** to do quality control for fastq files generated in ChIP-seq experiments. For the sake of time in class, we will skip using  FastQC on the reads today. We can look at the rfastp QC reports in 
+
+Get paths to all of our read files, split by read 1 and read 2.
+```{r}
+# assign directory with the raw fastq files
+fq_file_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Raw/ChIP")
+
+# assign read 1 and read 2 paths into objects
+fq_read1_files <- list.files(fq_file_dir, full.names = TRUE, pattern = "*_1.fastq.gz")
+fq_read2_files <- list.files(fq_file_dir, full.names = TRUE, pattern = "*_2.fastq.gz")
+```
+
+#### Trim with rfastp
+
+We can use rfastp to trim and QC all of our files, by slightly modifying the original rfastp command we used for rnaseq data. The only major modification is including the read2 in rfastp. QC reports and trimmed fastq files will appear in the dir_trimmed.fq_files folder.
+
+```{r}
+# create a directory for the output to go into if not already present
+dir_trimmed.fq_files <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Trimmed/ChIP")
+if (!dir.exists(dir_trimmed.fq_files)) {dir.create(dir_trimmed.fq_files, recursive = TRUE)}
+
+# run rfastp on all fastq files
+for (i in 1:length(fq_read1_files)) {
+  # file path to each file for paired end reads
+  read1 <- fq_read1_files[i]
+  read2 <- fq_read2_files[i]
+  # assign output file (putting it inside of dir_trimmed.fq_files folder)
+  output_name <- paste0(dir_trimmed.fq_files,
+                        "/",
+                        basename(fq_read1_files[i])) |>
+                          str_replace("_1", "")
+  json_report <- rfastp(
+    read1 = read1,
+    read2 = read2,
+    outputFastq = str_split(output_name, fixed("."))[[1]][1],
+    disableTrimPolyG = FALSE,
+    cutLowQualFront = TRUE,
+    cutLowQualTail = TRUE,
+    minReadLength = 15
+  )
+  
+  # Print the output file link in the R Markdown document
+  cat(paste0(
+    "[Processing Complete - ",
+    basename(output_name),
+    "](",
+    output_name,
+    ")\n\n"
+  ))
+}
+```
+
+### Map to Reference
+
+Assign the read1 trimmed fastq files to a list in R called trimmed_fastq_files_R1, and we'll do the same for read2 fastq files.
+
+```{r}
+# find our trimmed fastq files
+trimmed_fastq_files_R1 <- list.files(path = dir_trimmed.fq_files, 
+                                  pattern = "_R1.fastq.gz$", 
+                                  full.names = TRUE)
+
+
+trimmed_fastq_files_R2 <- list.files(path = dir_trimmed.fq_files, 
+                                  pattern = "_R2.fastq.gz$", 
+                                  full.names = TRUE)
+
+# print them out
+trimmed_fastq_files_R1
+trimmed_fastq_files_R2
+
+```
+
+#### Build Genome Index for Rsubread
+
+We have already done this in the Read_mapping.Rmd exercise. If you've already created this, we can skip this step.
+```{r}
+# Set path of the reference fasta file
+reference_genome = path.expand("~/Desktop/Genomic_Data_Analysis/Reference/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz")
+
+index_reference_genome = path.expand("~/Desktop/Genomic_Data_Analysis/Reference/index_rsubread_Saccharomyces_cerevisiae.R64-1-1")
+
+# build the index
+# buildindex(basename=index_reference_genome, reference=reference_genome)
+```
+
+
+#### Align trimmed files to the reference genome.
+
+```{r}
+# run the alignment on all of the trimmed_fastq_files
+align(index=index_reference_genome,
+      readfile1=trimmed_fastq_files_R1,
+      readfile2=trimmed_fastq_files_R2,
+      type = "dna",
+      input_format = "gzFASTQ",
+      output_format = "BAM",
+      unique = TRUE,
+      nBestLocations = 1,
+      sortReadsByCoordinates = TRUE,
+      nthreads=6
+      )
+
+# Create new directory to store mapping .bam files
+dir_bam_files <- path.expand("~/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/testing_curl_files")
+if (!dir.exists(dir_bam_files)) {dir.create(dir_bam_files, recursive = TRUE)}
+```
+
+Move output files into bam file directory
+```{bash}
+trim_fq_dir=~/Desktop/Genomic_Data_Analysis/Data/Trimmed/ChIP
+bam_dir=~/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/testing_curl_files/
+mv $trim_fq_dir/*.BAM* $bam_dir
+```
+
+Save the paths to our bam files as an object.
+```{r}
+bam_files <- list.files(path = dir_bam_files, pattern = ".BAM$", full.names = TRUE)
+bam_files
+```
+
+## Peak Calling
+
+Now, we are able to call peaks with MACS2.
+
+To run MACS2 to we need to supply:
+      
+    1. A BAM file to find enriched regions in. (specified after -t)
+      a. (this is the only REQUIRED parameter for MACS)
+    2. A Name for peak calls (specified after –name).
+    3. An output folder to write peaks into (specified after –outdir).
+    4. Optionally, but highly recommended, we can identify a control to compare to (specified after –c).
+
+
+In this analysis, we only need to do a single call to macs2 because we only have one treatment sample and one control sample. If we had more samples, we'd want to run macs2 for every sample.
+
+For the purpose of demonstration, we will run macs2 on each sample with no control. THIS IS NOT RECOMMENDED. For this analysis, we should just use the third call to macs2 below. We are running the calling without controls so we can look at the peaks that would be called for each alone, so we can compare them to the peaks of the treatment vs control.
+
+Flags we've used for MACS2:
+
+    - `-n` output file name prefix
+    - `--outdir` path to where output files should be saved
+    - `f` type of files being input. Usually `BAM` (or `BAMPE` for paired-end.)
+    - `g` is the genome size. this has been set for yeast genome
+    - `B` output bedgraph files
+    - `--nomodel` MACS will bypass building the shifting model.
+    - `extsize` While --nomodel is set, MACS uses this parameter to extend reads in 5'->3' direction to fix-sized fragments.
+    
+```{bash run-MACS2-chip, engine.opts='-l'}
+# activate our MACS environment
+conda activate MACS
+
+macs_outdir=/Users/$USER/Desktop/Genomic_Data_Analysis/Analysis/ChIP/
+
+# run macs on the 0 minutes sample, no control
+macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181480_R1.fastq.gz.subread.BAM" \
+  -n MSN24_ESR_t0_noControl \
+  --outdir $macs_outdir \
+  -f BAMPE \
+  -g 1.2e7 \
+  -B \
+  --nomodel \
+  --extsize 50
+
+
+# run macs on the 20 minutes sample, no control
+macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181481_R1.fastq.gz.subread.BAM" \
+               -n MSN24_ESR_t20_noControl \
+               --outdir $macs_outdir \
+               -f BAMPE \
+               -g 1.2e7 \
+               -B \
+               --nomodel \
+               --extsize 50
+
+
+# run macs with 20 min as treatment and 0 min as control
+macs2 callpeak -t "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181481_R1.fastq.gz.subread.BAM" \
+               -n MSN24_ESR_t20vst0 \
+               -c "/Users/$USER/Desktop/Genomic_Data_Analysis/Data/Bam/ChIP/SRR1181480_R1.fastq.gz.subread.BAM" \
+               --outdir $macs_outdir \
+               -B \
+               -f BAMPE \
+               -g 1.2e7
+               
+
+
+# Rename all *.bdg to *.bedgraph for IGV visualization
+for file in ${macs_outdir}*.bdg; do
+   mv -- "$file" "${file%.bdg}.bedgraph"
+done
+
+```
+
+
+## Working with Peaks in R
+
+We can use R to analyze the peaks generated by macs2. There are many approaches for doing this. We will use the `ChIPSeeker` package, followed by tools we've previously used for downstream analysis.
+
+### Importing Peaks
+
+MACS peak calls can be found in our specified output directory with the suffix and extension "_peaks.xls".
+MACS peaks come as a tab separated file (thinly disguised as a “.xls”).
+In addition to the genomic coordinates of peaks, these files contain useful information on the samples, parameters and version used for peak calling at the top.
+
+
+```{r}
+MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#") |>
+  # filter on significance of peaks
+  dplyr::filter(X.log10.pvalue. > 5) |>
+  # filter on magnitude of enrichment
+  dplyr::filter(fold_enrichment > 4)
+
+jeffs_MSN24_ESR_t20vst0_peaks <- read.delim("~/Downloads/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#")
+
+carsons_MSN24_ESR_t20vst0_peaks <- read.delim("~/Desktop/Genomic_Data_Analysis/Analysis/ChIP/MSN24_ESR_t20vst0_peaks.xls", header = TRUE, comment.char = "#")
+
+
+# see if using his changes it.
+MSN24_ESR_t20vst0_peaks <- jeffs_MSN24_ESR_t20vst0_peaks |>
+  # filter on significance of peaks
+  dplyr::filter(X.log10.pvalue. > 5) |>
+  # filter on magnitude of enrichment
+  dplyr::filter(fold_enrichment > 4)
+```
+
+
+### Filtering **blacklisted** regions
+
+No peaks were detected in the blacklisted region, so none are filtered out. If you have blacklist regions in your genome, you can remove them now. A variety of software tools are available for excluding them automatically, including bedtools intersect. 
+
+```{r}
+# MSN24_ESR_t20vst0_peaks_filtered <- MSN24_ESR_t20vst0_peaks %>%
+#   filter(chr != "XII" | end <= 451787 | start >= 468932)
+```
+
+
+### Peak annotation
+
+Currently, we have peaks loaded in as a data.frame object `MSN24_ESR_t20vst0_peaks`. Note that none of the columns in that file tell us which gene(s) each peak corresponds to. In order to do annotate the peaks, we first need to convert out data frame to a GRanges object from the GenomicRanges package. 
+
+
+```{r}
+# set.seed(2)
+# Convert dataframe to GRanges object
+MSN24_ESR_t20vst0_peaks_GR <-
+  GenomicRanges::GRanges(
+    seqnames = MSN24_ESR_t20vst0_peaks %>%
+      # for this data, need to convert chromosome format to match, done below:
+      mutate(chr = paste0("chr", chr)) %>% pull(chr), 
+    IRanges::IRanges(MSN24_ESR_t20vst0_peaks[, "start"], MSN24_ESR_t20vst0_peaks[, "end"])
+  )
+```
+
+Next, we need to load the TxDb for *S. cerevisiae*. The `GenomicFeatures` package uses TxDb objects to store transcript metadata. This contains information about the 5’ and 3’ untranslated regions (UTRs), protein coding sequences (CDSs) and exons for a set of mRNA transcripts to their associated genome. TxDb objects have numerous accessors functions to allow such features to be retrieved individually or grouped together in a way that reflects the underlying biology.
+
+A list of currently available TxDb's is available at https://bioconductor.org/packages/release/BiocViews.html#___TxDb 
+
+```{r}
+# The way we installed this was from BioConductor, with the install code copied below
+# BiocManager::install("TxDb.Scerevisiae.UCSC.sacCer3.sgdGene")
+txdb <- TxDb.Scerevisiae.UCSC.sacCer3.sgdGene
+```
+
+Now that we have a GRanges object and our TxDb object, we can use the `annotatePeak` function from the `ChIPseeker` package to create an object containing the annotated peaks
+
+```{r}
+peakAnno <- ChIPseeker::annotatePeak(MSN24_ESR_t20vst0_peaks_GR, tssRegion=c(-3000, 3000), level = "gene",
+                         TxDb=txdb)
+
+# See the information this object contains
+peakAnno |> data.frame() |> glimpse()
+```
+## Visualization
+
+The `ChIPSeeker` package in R contains some functions for visualizing the annotated peaks. We can look at some here.
+
+We see from this pie chart that most of the peaks occurred within 1kb of the TSS for the corresponding gene, with less than 3% of peaks further away.
+```{r}
+plotAnnoPie(peakAnno)
+```
+
+However, we know many features overlap, so we can use a vennpie instead. This shows us that of our peaks extend into regions that contain genes.
+```{r}
+vennpie(peakAnno)
+```
+
+```{r}
+upsetplot(peakAnno, vennpie=TRUE)
+```
+
+```{r}
+plotDistToTSS(peakAnno,
+              title="Distribution of transcription factor-binding loci\nrelative to TSS")
+```
+
+### Assess Alignment with IGV
+
+Another method for assessing the quality of your alignment is to visualize the alignment using a genome browser. For this workshop we will be using the Integrative Genomics Viewer (IGV) from the Broad Institute. You may already have this downloaded on your laptop. Alternatively, we can use the web-based IGV to visualize the data.
+
+Go to https://igv.org/app/, select genome as sacCer3, and upload file via Tracks > local file..., and select the MSN24_ESR_t20vst0_treat_pileup.bedgraph (by default in ~/Desktop/Genomic_Data_Analysis/Analysis/ChIP). You can also upload the .bed file in the same folder.
+
+## Downstream Analysis
+
+ChIP peaks in R: Let's generate a gene list corresponding to peaks that appear in t20 minutes but not t0 minutes. We already have the peaks annotated to genes, so we just need to get a list of genes.
+
+We can extract the unique names of genes with peaks in their TSS by
+subsetting the annotated GRanges and retrieving gene names from the
+geneId column.
+
+```{r}
+peak_genes <- peakAnno |>
+  as.data.frame() |>
+  pull(geneId)
+
+glimpse(peak_genes)
+```
+
+### Gene Set Enrichment
+
+Now we have a list of genes that correspond to the peaks seen in treatment but not control. Let's see if there are any enrichments in this gene list, using techniques we have used already in class.
+
+#### Gene Ontology
+
+We'll use `enrichGO` from `clusterProfiler` just as we did in the gene ontology lesson.
+
+```{r}
+# Run GO enrichment
+go_results <- clusterProfiler::enrichGO(
+  gene = peak_genes,
+  OrgDb = "org.Sc.sgd.db",
+  keyType = "ORF",
+  ont = "ALL"
+) |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+# take a peak at the results
+head(go_results)
+
+# create a table for the html file
+data.frame(go_results) %>% View()
+
+
+dotplot(go_results, showCategory = 10)
+
+# visualize top GO terms
+ggplot(go_results,
+       showCategory = 15,
+       aes(richFactor, fct_reorder(Description, richFactor))) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_gradientn(
+    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+    trans = "log10",
+    guide = guide_colorbar(reverse = TRUE, order = 1)
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  xlab("Rich Factor") +
+  ylab(NULL) +
+  ggtitle("Enriched GO Categories") +
+  theme_bw()
+
+```
+
+#### KEGG
+
+Run KEGG enrichment on the same gene list.
+
+```{r enrich-KEGG-chip}
+# Run our KEGG enrichment
+kegg_results <- clusterProfiler::enrichKEGG(gene = peak_genes,
+                           organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
+                           )
+
+# take a peak at the results
+head(kegg_results)
+
+# create a table for the html file
+data.frame(kegg_results) %>% View()
+
+
+# Remove " - Saccharomyces cerevesiae" from each description entry
+kegg_results@result$Description <- kegg_results@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
+
+
+# browseKEGG(kegg_results, 'sce04213')  # longevity
+# browseKEGG(kegg_results, 'sce00500')  # Starch and sucrose metabolism
+
+
+dotplot(kegg_results, showCategory = 10) 
+```
+
+
+### Motif Analysis
+
+The MEME-suite that we used in a previous motif analysis exercise has a
+specific algorithm for ChIP-seq analysis, called MEME-ChIP. This workflow hasn't been implemented in the `memes` package in R yet, but can be done in the website at https://meme-suite.org/meme/tools/meme-chip. You can upload a fasta file of the peak summits to be analyzed.
+
+
+First, let's extract the sequences corresponding to the annotated peak ranges. We will use the `get_sequence` function from the `memes` package for this. This function requires a BSgenome database to pull sequences from, so it has been loaded in.
+```{r}
+# load in sacCer3 genome
+sacCer3.genome <- BSgenome.Scerevisiae.UCSC.sacCer3::BSgenome.Scerevisiae.UCSC.sacCer3
+
+# use memes to retrieve sequences of peaks
+peak_seqs <- memes::get_sequence(MSN24_ESR_t20vst0_peaks_GR, sacCer3.genome)
+```
+
+Let's create a folder to which we can save output files. 
+```{r create-outdir-motif-chip}
+# Choose output directory for the output files to be saved
+out_dir <- path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/memes/ChIP_msn24/")
+
+# Create out_dir directory if doesn't already exist
+if (!dir.exists(out_dir)) {
+  dir.create(out_dir, recursive = TRUE)
+}
+```
+
+#### Streme
+
+We can use Streme to look for enriched motifs in the promoters of those genes corresponding to
+enrichment peaks. Once Streme finishes, we can check out the .html output file in the output folder.
+
+```{r run-streme-motif}
+# Run Streme
+streme_msn24_ChIP <- runStreme(peak_seqs,
+        control="shuffle",
+        minw = 4, # default is 8, for yeast I use 5
+        maxw= 8, #default is 15, for yeast I use 20
+        parse_genomic_coord=FALSE,
+        thresh=0.2,
+        patience=5,
+        silent=FALSE,
+        outdir = path.expand(paste0(out_dir, "streme_msn24_ChIP_diauxic2"))
+        )
+
+# Display Streme results
+streme_msn24_ChIP |> View()
+```
+
+#### TomTom
+
+Finally, use TomTom to see which TFs those motifs might correspond to. We can check the .html output file for TomTom as well.
+
+```{r fig.height=12, fig.width=5}
+# path to yeastract
+db_destination <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Reference/YEASTRACT_20130918.meme")
+
+# Run TomTom on motifs found by runStreme()
+streme_tomtom_msn24_ChIP <-
+  runTomTom(
+    input = streme_msn24_ChIP,
+    database = db_destination,
+    outdir = path.expand(paste0(out_dir, "tomtom_streme_msn24_ChIP_diauxic2"))
+  )
+```
+
+
+# Questions
+
+1.  Based on the results obtained from the MACS2 analysis, what can you infer about the genomic regions where Msn2 is binding?
+
+2.  If you were designing a ChIP-seq experiment to study Msn2 binding under different conditions, what factors would you consider in your experimental design
+
+3.  What can ChIP-seq tell us about Msn2 that our previous analyses cannot?
+
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+
+```{r session-info}
+pander::pander(sessionInfo())
+```

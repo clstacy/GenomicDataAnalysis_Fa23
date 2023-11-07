@@ -1,0 +1,1406 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Proteomic Analysis with limma
+
+last updated: `r Sys.Date()`
+
+```{r setup-limma, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
+set.seed("1492")
+```
+
+**Install Packages**
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages-limma, cache=FALSE}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "statmod", # required dependency, need to load manually on some macOS versions.
+       "Glimma", # beautifies limma results
+       "purrr", # for working with lists (beautify column names)
+       "reactable") # for pretty tables.
+
+# We also need these Bioconductor packages today.
+p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "ggVennDiagram")
+p_load("janitor")
+p_load("UpSetR")
+p_load("ComplexHeatmap")
+p_load("enrichplot")
+p_load("clusterProfiler")
+#NOTE: edgeR loads limma as a dependency
+```
+
+## Description
+
+Use limma to identify differential patterns of proteomic and
+transcriptomic changes in response to stress.
+
+## Learning Objectives
+
+At the end of this exercise, you should be able to:
+
+-   Generate a table of sample metadata.
+-   Filter low counts and normalize count data.
+-   Utilize the limma package to identify differentially expressed
+    \_\_\_\_\_\_\_.
+
+```{r load-libraries-limma}
+library(limma)
+library(org.Sc.sgd.db)
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+## Loading in the count data file
+
+*We are downloading the counts for the non-subsampled fastq files from a
+Github repository using the code below. Just as in previous exercises,
+assign the data to the variable `counts`. You can change the file path
+if you have saved it to your computer in a different location.*
+
+```{r load-fc-limma, error=TRUE}
+# counts <- read.delim('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/ethanol_stress/counts/salmon.gene_counts.merged.nonsubsamp.tsv',
+#     sep = "\t",
+#     header = T,
+#     row.names = 1
+#   )
+
+proteome_HS <- read.delim("~/Documents/GitHub/GenomicDataAnalysis_Fa23/data/heat_shock/proteomic_FC/HS_Proteomics_Data.txt",
+                          sep="\t",
+                          header=T,
+                          row.names=1)
+
+
+```
+
+To find the order of files we need, we can get just the part of the
+column name before the first "." symbol with this command:
+
+```{r identify-sampleOrder-limma}
+str_split_fixed(counts %>% colnames(), "\\.", n = 2)[, 1]
+```
+
+```{r generate-metadata-limma}
+
+# generate metadata from proteme data
+sample_metadata_proteome <- proteome_HS |>
+  colnames() |> # use column names of data
+  stringr::str_split(pattern="Rep", # split names based on character pattern
+                     simplify = T) |> # Convert to a matrix
+  as_tibble(.name_repair = "unique") |> # convert to a data.frame
+  setNames(c("Time", "Replicate")) |> # add column nmaes
+  mutate(Sample = colnames(proteome_HS), # add column with original sample name
+         Measure = "protein", # denote these values as proteomic
+         Time = readr::parse_number(Time) # make time a number
+         ) |>
+  mutate(Time=as.factor(Time)) #convert time to a factor
+  relocate(Sample)
+
+
+```
+
+Now, let's create a design matrix with this information
+
+```{r designMatrix-proteome}
+time <- sample_metadata_proteome$Time
+replicate <- sample_metadata_proteome$Replicate
+design <- model.matrix(~ 0 + time + replicate)
+
+design
+```
+
+Because our values aren't counts, we can't use edgeR to load the values
+in.
+
+```{r}
+fit <- lmFit(proteome_HS, design)
+fit$coef
+
+fit$genes <- fit$genes[,c("ProbeName","Symbol","EntrezID")]
+
+
+
+
+# generate contrasts we are interested in learning about
+my.contrasts <- makeContrasts(time5 = time5 - time0, 
+                     time10 = time10 - time0,
+                     time15 = time15 - time0,
+                     time30 = time30 - time0,
+                     time45 = time45 - time0,
+                     time60 = time60 - time0,
+                     time90 = time90 - time0,
+                     time120 = time120 - time0,
+                      time240 = time240 - time0,
+                     levels=design)
+
+# fit the linear model to these contrasts
+res_all <- contrasts.fit(fit, my.contrasts)
+
+# This looks at all of our contrasts in my.contrasts
+res_all <- eBayes(res_all)
+
+# get top results
+top.table <- topTable(res_all, sort.by = "F", n = Inf)
+head(top.table, 20)
+
+top.table %>% 
+  tibble() %>% 
+  arrange(adj.P.Val) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
+
+summary(decideTests(res_all))
+
+res_all |>
+  decideTests() |> 
+  data.frame() |>
+  tibble::rownames_to_column("ORF") |>
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") |>
+  mutate(Time = readr::parse_number(Time)) |>
+  group_by(Time, DE_direction) |>
+  filter(DE_direction != 0) |>
+  #group_by(Time) |>
+  summarise(n=n(),genes=toString(ORF)) |> View()
+
+```
+
+```{r}
+plot_summary_bars_proteome <- print(res_all |>
+  decideTests(p.value = 0.05, lfc = 0) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
+  group_by(contrast) %>%
+  summarise(
+    upregulated = sum(DE_direction == 1),
+    downregulated = sum(DE_direction == -1)
+  ) %>%
+  pivot_longer(-contrast, names_to = "DE_direction", values_to = "n_genes") %>%
+  mutate(contrast_temp = readr::parse_number(contrast)) |> 
+ggplot(aes(
+  x = fct_rev(as.factor(contrast_temp)),
+  y = n_genes,
+  fill = DE_direction
+)) +
+  geom_col(position = "dodge") +
+  theme_bw() +
+  coord_flip() +
+  geom_text(aes(label = n_genes),
+            position = position_dodge(width = .9),
+            hjust = "inward") +
+  labs(y = "Number of DE genes") +
+      ggtitle("Summary of protein level changes over time"))
+```
+
+
+```{r}
+# Visualization inspired by: https://tomsing1.github.io/blog/posts/upset_plots/
+
+# save decideTests output
+results <- res_all |>
+  decideTests(p.value = 0.05, lfc = 0)
+# remove genes not signif. in any contrast
+results <- results[rowSums(abs(results)) > 0, ]
+
+# calculate the intersection between the differentially expressed gene sets
+m <- ComplexHeatmap::make_comb_mat(abs(results), mode = "distinct")
+# exclude self-intersects (total # of diff. genes will be displayed separately)
+m <- m[ComplexHeatmap::comb_degree(m) > 1]
+(ss <- ComplexHeatmap::set_size(m))
+(cs <- ComplexHeatmap::comb_size(m))
+
+ht <- UpSet(m, 
+      set_order = colnames(m), 
+      comb_order = order(comb_degree(m)),
+      top_annotation = HeatmapAnnotation(
+        "Distinct diff. genes" = anno_barplot(
+          cs, 
+          ylim = c(0, max(cs)*1.1),
+          border = FALSE, 
+          gp = gpar(fill = "black"), 
+          height = unit(4, "cm")
+        ), 
+        annotation_name_side = "left", 
+        annotation_name_rot = 90),
+      right_annotation = HeatmapAnnotation(
+        which = "row",
+        "Total" = anno_barplot(
+          ss, 
+          ylim = c(0, max(ss)*1.1),
+          border = FALSE, 
+          gp = gpar(fill = "black"), 
+          width = unit(4, "cm")
+        )
+      ),
+      column_title = "Intersection between DE proteins (Protein Expression)"
+)
+ht = draw(ht)
+od = column_order(ht)
+rod = row_order(ht)
+decorate_annotation("Distinct diff. genes", {
+  grid.text(cs[od], 
+            x = seq_along(cs), 
+            y = unit(cs[od], "native") + unit(2, "pt"), 
+            default.units = "native", just = c("left", "bottom"), 
+            gp = gpar(fontsize = 8, col = "#404040"), rot = 45)
+})
+decorate_annotation("Total", {
+  grid.text(ss[rod], 
+            x = unit(ss[rod], "native") + unit(20, "pt"), 
+            y = rev(seq_along(ss)), 
+            default.units = "native", just = c("right", "bottom"), 
+            gp = gpar(fontsize = 8, col = "#404040"))
+})
+
+# upregulated
+
+# remove genes not signif. in any contrast
+results_up <- results[rowSums(results) > 0, ]
+
+# calculate the intersection between the differentially expressed gene sets
+m <- ComplexHeatmap::make_comb_mat(abs(results_up), mode = "distinct")
+# exclude self-intersects (total # of diff. genes will be displayed separately)
+m <- m[ComplexHeatmap::comb_degree(m) > 1]
+(ss <- ComplexHeatmap::set_size(m))
+(cs <- ComplexHeatmap::comb_size(m))
+
+ht <- UpSet(m, 
+      set_order = colnames(m), 
+      comb_order = order(comb_degree(m)),
+      top_annotation = HeatmapAnnotation(
+        "Distinct diff. genes" = anno_barplot(
+          cs, 
+          ylim = c(0, max(cs)*1.1),
+          border = FALSE, 
+          gp = gpar(fill = "black"), 
+          height = unit(4, "cm")
+        ), 
+        annotation_name_side = "left", 
+        annotation_name_rot = 90),
+      right_annotation = HeatmapAnnotation(
+        which = "row",
+        "Total" = anno_barplot(
+          ss, 
+          ylim = c(0, max(ss)*1.1),
+          border = FALSE, 
+          gp = gpar(fill = "black"), 
+          width = unit(4, "cm")
+        )
+      ),
+      column_title = "Intersection between UPREGULATED proteins (Protein Expression)"
+)
+ht = draw(ht)
+od = column_order(ht)
+rod = row_order(ht)
+decorate_annotation("Distinct diff. genes", {
+  grid.text(cs[od], 
+            x = seq_along(cs), 
+            y = unit(cs[od], "native") + unit(2, "pt"), 
+            default.units = "native", just = c("left", "bottom"), 
+            gp = gpar(fontsize = 8, col = "#404040"), rot = 45)
+})
+decorate_annotation("Total", {
+  grid.text(ss[rod], 
+            x = unit(ss[rod], "native") + unit(20, "pt"), 
+            y = rev(seq_along(ss)), 
+            default.units = "native", just = c("right", "bottom"), 
+            gp = gpar(fontsize = 8, col = "#404040"))
+})
+
+# downregulated
+
+# remove genes not signif. in any contrast
+results_down <- results[rowSums(results) < 0, ]
+
+# calculate the intersection between the differentially expressed gene sets
+m <- ComplexHeatmap::make_comb_mat(abs(results_down), mode = "distinct")
+# exclude self-intersects (total # of diff. genes will be displayed separately)
+m <- m[ComplexHeatmap::comb_degree(m) > 1]
+(ss <- ComplexHeatmap::set_size(m))
+(cs <- ComplexHeatmap::comb_size(m))
+
+ht <- UpSet(m, 
+      set_order = colnames(m), 
+      comb_order = order(comb_degree(m)),
+      top_annotation = HeatmapAnnotation(
+        "Distinct diff. genes" = anno_barplot(
+          cs, 
+          ylim = c(0, max(cs)*1.1),
+          border = FALSE, 
+          gp = gpar(fill = "black"), 
+          height = unit(4, "cm")
+        ), 
+        annotation_name_side = "left", 
+        annotation_name_rot = 90),
+      right_annotation = HeatmapAnnotation(
+        which = "row",
+        "Total" = anno_barplot(
+          ss, 
+          ylim = c(0, max(ss)*1.1),
+          border = FALSE, 
+          gp = gpar(fill = "black"), 
+          width = unit(4, "cm")
+        )
+      ),
+      column_title = "Intersection between DOWNREGULATED proteins (Protein Expression)"
+)
+ht = draw(ht)
+od = column_order(ht)
+rod = row_order(ht)
+decorate_annotation("Distinct diff. genes", {
+  grid.text(cs[od], 
+            x = seq_along(cs), 
+            y = unit(cs[od], "native") + unit(2, "pt"), 
+            default.units = "native", just = c("left", "bottom"), 
+            gp = gpar(fontsize = 8, col = "#404040"), rot = 45)
+})
+decorate_annotation("Total", {
+  grid.text(ss[rod], 
+            x = unit(ss[rod], "native") + unit(20, "pt"), 
+            y = rev(seq_along(ss)), 
+            default.units = "native", just = c("right", "bottom"), 
+            gp = gpar(fontsize = 8, col = "#404040"))
+})
+```
+
+
+### Gene Set Enrichment
+
+Now we have a list of genes that correspond to the peaks seen in treatment but not control. Let's see if there are any enrichments in this gene list, using techniques we have used already in class.
+
+We now have multiple lists of genes (proteins) that we can run enrichment analysis on.
+
+It looks like at 30 minutes we are starting to see a significant number of proteins being differentially expressed proteins.
+
+Let's pull the names of genes corresponding to proteins that are upregulated at t=30 minutes.
+
+```{r}
+ID_protein_up_30min <- results |>
+  data.frame() |>
+  dplyr::filter(time30==1) |>
+  rownames()
+```
+
+#### Gene Ontology
+
+We'll use `enrichGO` from `clusterProfiler` just as we did in the gene ontology lesson.
+
+```{r}
+# Run GO enrichment
+go_results <- clusterProfiler::enrichGO(
+  gene = ID_protein_up_30min,
+  OrgDb = "org.Sc.sgd.db",
+  keyType = "ORF",
+  ont = "ALL"
+) |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+# take a peak at the results
+head(go_results)
+
+# create a table for the html file
+data.frame(go_results) %>% View()
+
+# visualize top GO terms
+ggplot(go_results,
+       showCategory = 15,
+       aes(richFactor, fct_reorder(Description, richFactor))) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_gradientn(
+    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+    trans = "log10",
+    guide = guide_colorbar(reverse = TRUE, order = 1)
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  xlab("Rich Factor") +
+  ylab(NULL) +
+  ggtitle("Enriched GO Categories") +
+  theme_bw()
+```
+
+
+#### KEGG
+
+Run KEGG enrichment on the same gene list.
+
+```{r enrich-KEGG-chip}
+# Run our KEGG enrichment
+kegg_results <- clusterProfiler::enrichKEGG(gene = ID_protein_up_30min,
+                           organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
+                           )
+
+# take a peak at the results
+head(kegg_results)
+
+# create a table for the html file
+data.frame(kegg_results) %>% View()
+
+
+# Remove " - Saccharomyces cerevesiae" from each description entry
+kegg_results@result$Description <- kegg_results@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
+
+
+# browseKEGG(kegg_results, 'sce04213')  # longevity
+# browseKEGG(kegg_results, 'sce00500')  # Starch and sucrose metabolism
+
+
+dotplot(kegg_results, showCategory = 10) 
+```
+
+Cool, but that was only at the 30 minutes, do we need to do this for each gene list individually?
+
+Thankfully not, we can input a list of gene names into enrichGO and enrichKEGG. We do want to be cautious doing so to not be p-hacking. I'm not necessarily interested in all of the time points. Rather than fishing, there are a few I want to see so we can just make them all.
+
+```{r}
+ID_proteins_list <- results %>%
+  data.frame() %>%
+  tibble::rownames_to_column("ORF") %>%
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
+  mutate(Time = readr::parse_number(Time),
+         DE_name = case_when(DE_direction == 1 ~ "up",
+                             DE_direction == -1 ~ "down",
+                             TRUE~NA),
+         group=paste0("DE_",DE_name,"_",Time, "min")) %>%
+  mutate(entrezID=AnnotationDbi::select(org.Sc.sgd.db,keys=ORF,columns="ENTREZID",
+      multiVals = "first")$ENTREZID) %>%
+  group_by(group) %>%
+  filter(DE_direction != 0) %>%
+  group_split() %>% # split into many lists
+  purrr::set_names(purrr::map_chr(., ~.x$group[1])) %>% # assign names
+  map(., ~ .x |> pull(all_of("ORF"))) # grab just the gene names
+```
+
+
+Run GO enrichment on all groups at once
+```{r fig.height=18, fig.width=6}
+# Run GO enrichment
+test_enrich <- clusterProfiler::compareCluster(geneCluster = ID_proteins_list, 
+                                  ont           = "ALL",
+                                  OrgDb = org.Sc.sgd.db,
+                                  pAdjustMethod = "BH",
+                                  pvalueCutoff  = 0.01,
+                                  qvalueCutoff  = 0.05,
+                                  readable      = FALSE,
+                                  fun =  'enrichGO',
+                                  keyType       = 'ORF'
+                                  )  |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+
+dotplot(test_enrich,label_format = 20,
+        showCategory=10,
+        facet="ONTOLOGY",
+        strip_width=10) +
+  scale_x_discrete(guide = guide_axis(angle = 60))
+# 
+# go_results <- clusterProfiler::enrichGO(
+#   gene = ID_proteins_list,
+#   OrgDb = "org.Sc.sgd.db",
+#   keyType = "ORF",
+#   ont = "ALL"
+# ) |>
+#   # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+#   mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+```
+
+```{r fig.height=16, fig.width=12, dpi=600}
+# take a peak at the results
+head(test_enrich)
+
+# create a table for the html file
+data.frame(test_enrich) %>% View()
+
+# visualize top GO terms
+test_enrich %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=p.adjust, n = 20) %>%
+  separate_wider_delim(Cluster, delim = "_", names = c("junk","DE", "time")) %>%
+  ggplot(.,
+           showCategory = 5,
+           aes(richFactor, fct_reorder(Description, richFactor))) +
+      geom_segment(aes(xend = 0, yend = Description)) +
+      geom_point(aes(color = p.adjust, size = Count)) +
+      scale_color_gradientn(
+        colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+        trans = "log10",
+        guide = guide_colorbar(reverse = TRUE, order = 1)
+      ) +
+      scale_size_continuous(range = c(2, 10)) +
+      scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+      xlab("Rich Factor") +
+      ylab(NULL) +
+      ggtitle("Enriched GO Categories") +
+      facet_grid(rows = vars(DE), cols = vars(time), scales = "free_y") +
+      theme_bw()
+
+# get rid of sticks to save space
+test_enrich %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=p.adjust, n = 20) %>%
+  separate_wider_delim(Cluster, delim = "_", names = c("junk","DE", "time")) %>%
+  mutate(Time = readr::parse_number(time)) %>%
+  ggplot(.,
+           aes(as.factor(Time), fct_reorder(Description, richFactor))) +
+      geom_point(aes(color = p.adjust, size = Count)) +
+      scale_color_gradientn(
+        colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+        trans = "log10",
+        guide = guide_colorbar(reverse = TRUE, order = 1)
+      ) +
+      scale_size_continuous(range = c(2, 12)) +
+      scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
+      xlab("Time (minutes)") +
+      ylab(NULL) +
+      ggtitle("Enriched GO Categories") +
+      facet_wrap(~DE, scales = "free_y") +
+      theme_bw() +
+      theme(text = element_text(size=14))
+```
+
+
+If we wanted to generate a heatmap from these values, we can do that as well. Let's start from our `res_all` object, which contains the estimated log2FC values for each gene in each contrast
+```{r}
+library(ComplexHeatmap)
+
+res_all_matrix <- res_all %>%
+  as.matrix()
+```
+Using k-means clustering, we can find optimal k
+```{r}
+
+library(readr)
+library(factoextra)
+library(NbClust)
+
+## Elbow method
+fviz_nbclust(scale(res_all_matrix), kmeans, method = "wss") +
+    geom_vline(xintercept = 4, linetype = 2)+
+  labs(subtitle = "Elbow method")
+
+## Silhouette method
+fviz_nbclust(scale(res_all_matrix), kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+
+## Gap statistic
+# nboot = 50 to keep the function speedy. 
+# recommended value: nboot= 500 for your analysis.
+# Use verbose = FALSE to hide computing progression.
+set.seed(123)
+fviz_nbclust(res_all_matrix, kmeans, nstart = 25,  method = "gap_stat", nboot = 50)+
+  labs(subtitle = "Gap statistic method")
+```
+
+
+Let's use `k=5`, to match published research. 
+```{r}
+library(RColorBrewer)
+set.seed(123)
+
+heatmap_protein <- res_all_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column("ORF") %>%
+  dplyr::filter(ORF %in% list_c(ID_proteins_list)) %>%
+  column_to_rownames("ORF") %>%
+  data.matrix() %>%
+  # scale(center=TRUE, scale=TRUE) %>%
+  ComplexHeatmap::pheatmap(cluster_cols=F,
+                           clustering_distance_rows = "correlation", 
+                           #clustering_distance_cols = "correlation",
+    row_km = 5,
+    # column_km = 4,
+    show_rownames = F,
+    # color = rev(brewer.pal(5, "RdBu")),
+    colorRampPalette(c(
+      "blue",
+      "white",
+      "red"
+    ))(25
+    ),
+    # scale = "row", # Scale values in the direction of genes (rows)
+    breaks = c(-4,4),
+        heatmap_legend_param = list(direction = "horizontal")
+  )
+
+draw(heatmap_protein,
+    heatmap_legend_side = "bottom")
+
+clusterlist = row_order(heatmap_protein)
+
+# create empty list to store
+clusters_gene_list <- list()
+
+# get gene names for each cluster
+for (cluster in 1:length(clusterlist)) {
+  clusters_gene_list[[paste0("Cluster:",cluster)]] <- heatmap_protein@row_names_param$labels[clusterlist[[cluster]]]
+}
+
+
+# run GO enrichment
+
+heatmap_GO <- clusterProfiler::compareCluster(geneCluster = clusters_gene_list, 
+                                  ont           = "ALL",
+                                  OrgDb = org.Sc.sgd.db,
+                                  pAdjustMethod = "BH",
+                                  pvalueCutoff  = 0.01,
+                                  qvalueCutoff  = 0.05,
+                                  readable      = FALSE,
+                                  fun =  'enrichGO',
+                                  keyType       = 'ORF',
+                                  universe      = rownames(res_all_matrix)
+                                  )  |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+
+# look at top terms for each cluster
+heatmap_GO %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=p.adjust, n = 10) %>%
+  View()
+```
+
+Finally, let's get a correlation matrix of all of these different time points. We see time the weakest correlation between the first and final time point, as expected. Furthermore, there appears to be rapid changes occuring at early time points, where later time points 
+```{r}
+res_all_matrix %>%
+  cor(use="pairwise.complete.obs") %>%
+  corrplot::corrplot(method = "square", insig='blank',
+         addCoef.col ='white', number.cex = 0.8,
+         title="Correlation of Protein Expression between Time points in Heat Shock",
+         # add this to make sure title isn't cut off
+         mar=c(0,0,1,0))
+```
+
+
+## Transcriptomic Time Series
+
+Let's grab a dataset of the transcriptome for time series response to heat shock. Our lab doesn't have this data, so we are using an old micro-array dataset from https://doi.org/10.1534/genetics.109.107268. 
+
+### load in the data
+
+```{r}
+transcriptome_HS <- read.delim("~/Documents/GitHub/GenomicDataAnalysis_Fa23/data/heat_shock/Eng_2010_HS_Arrays.tsv",
+                          sep="\t",
+                          header=T,
+                          row.names=1,
+                          check.names = F) |>
+  # there are some empty columns in the file, so we trim those off now
+  janitor::remove_empty()
+```
+
+Now, let's generate some metadata for this dataset as well.
+```{r}
+# generate metadata from Array expression data
+sample_metadata_transcriptome <- transcriptome_HS |>
+  colnames() |> # use column names of data
+  stringr::str_split(pattern=" Rep", # split names based on character pattern
+                     simplify = T) |> # Convert to a matrix
+  as_tibble(.name_repair = "unique") |> # convert to a data.frame
+  setNames(c("Time", "Replicate")) |> # add column nmaes
+  mutate(Sample = colnames(transcriptome_HS), # add column with original sample name
+         Measure = "RNA", # denote these values as proteomic
+         Time = as.factor(readr::parse_number(Time)) # make time a factor
+         ) %>%
+  # mutate()
+  relocate(Sample)
+```
+
+### Design matrix
+
+Now, let's create a design matrix with this information
+
+```{r designMatrix-proteome}
+time_transcriptome <- sample_metadata_transcriptome$Time
+replicate_transcriptome <- sample_metadata_transcriptome$Replicate
+design_transcriptome <- model.matrix(~ 0 + time_transcriptome + replicate_transcriptome)
+
+# beautify column names
+colnames(design_transcriptome) <- colnames(design_transcriptome) %>% 
+  str_replace_all("_transcriptome","")
+design_transcriptome
+```
+
+Because our values aren't counts, we can't use `edgeR` to load the values
+in.
+
+```{r}
+fit_transcriptome <- lmFit(transcriptome_HS, design_transcriptome)
+fit_transcriptome$coef
+
+fit_transcriptome$genes <- fit_transcriptome$genes[,c("ProbeName","Symbol","EntrezID")]
+
+
+
+
+# generate contrasts we are interested in learning about
+my.contrasts_transcriptome <- makeContrasts(time5 = time5, 
+                     time15 = time15,
+                     time30 = time30,
+                     time45 = time45,
+                     time60 = time60,
+                     time120 = time120,
+                     levels=design_transcriptome)
+
+# fit the linear model to these contrasts
+res_all_transcriptome <- contrasts.fit(fit_transcriptome, my.contrasts_transcriptome)
+
+# This looks at all of our contrasts in my.contrasts
+res_all_transcriptome <- eBayes(res_all_transcriptome)
+
+# get top results
+top.table <- topTable(res_all_transcriptome, sort.by = "F", n = Inf)
+head(top.table, 20)
+
+top.table %>%
+  as_tibble(rownames = "ORF") %>%
+  arrange(adj.P.Val) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  View()
+
+summary(decideTests(res_all))
+
+res_all |>
+  decideTests() |> 
+  data.frame() |>
+  tibble::rownames_to_column("ORF") |>
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") |>
+  mutate(Time = readr::parse_number(Time)) |>
+  group_by(Time, DE_direction) |>
+  filter(DE_direction != 0) |>
+  summarise(n=n(),genes=toString(ORF)) |> 
+  View()
+
+```
+
+We could visualize these results in all of the ways we did above, but for brevity, let's just make one plot:
+
+```{r}
+plot_summary_bars_transcriptome <- print(
+  res_all_transcriptome |>
+  decideTests(p.value = 0.05, lfc = 0) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
+  group_by(contrast) %>%
+  # because there are NA values, we need to drop those now:
+  drop_na() %>%
+  summarise(
+    upregulated = sum(DE_direction == 1),
+    downregulated = sum(DE_direction == -1)
+  ) %>%
+  pivot_longer(-contrast, names_to = "DE_direction", values_to = "n_genes") %>%
+  mutate(contrast_temp = readr::parse_number(contrast)) |> 
+ggplot(aes(
+  x = fct_rev(as.factor(contrast_temp)),
+  y = n_genes,
+  fill = DE_direction
+)) +
+  geom_col(position = "dodge") +
+  theme_bw() +
+  coord_flip() +
+  geom_text(aes(label = n_genes),
+            position = position_dodge(width = .9),
+            hjust = "inward") +
+  labs(y = "Number of DE genes") +
+      ggtitle("Summary of gene expression changes over time") )
+```
+
+Do these results match what you'd expect to see? Maybe this will be easier as a direct comparison. We'll do that in the next section. But first, how do the expression time points compare with each other?
+
+```{r}
+
+res_all_transcriptome %>%
+  as.matrix() %>%
+  cor(use="pairwise.complete.obs") %>%
+  corrplot::corrplot(method = "square", insig='blank',
+         addCoef.col ='white', number.cex = 0.8,
+         title="Correlation of Gene Expression between Time points in Heat Shock",
+         # add this to make sure title isn't cut off
+         mar=c(0,0,1,0))
+```
+
+
+## Multi-omic comparison
+
+Now, let's create a side-by-side DE gene total graph. Here is an easy way to combine graphs we've made. 
+```{r}
+library(ggpubr)
+ggpubr::ggarrange(plot_summary_bars_transcriptome, plot_summary_bars_proteome,
+          ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
+```
+
+How do these data correlate with each other? Let's find out. To do this, we'll first need to 
+
+```{r}
+res_all %>%
+  as.matrix() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("ORF") %>%
+  full_join(res_all_transcriptome %>%
+              as.matrix() %>%
+              as.data.frame() %>%
+              tibble::rownames_to_column("ORF"),
+            by = "ORF"
+  ) %>%
+  column_to_rownames("ORF") %>%
+  as.matrix() %>%
+  cor(., use="pairwise.complete.obs") %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("group") %>%
+  filter(str_detect(group, '.y')) %>%
+  mutate(group=str_replace(group, ".y", "")) %>%
+  dplyr::select(!contains(".y")) %>%
+  rename_with(~str_remove(., '.x')) %>%
+  column_to_rownames("group") %>%
+  as.matrix() %>%
+  corrplot::corrplot(method = "color", insig='blank',
+                     is.corr=FALSE,
+         addCoef.col ='black', number.cex = 0.8,
+         title="Correlation of Protein and Gene Expression",
+         # add this to make sure title isn't cut off
+         mar=c(1,0,2,0)
+         )
+mtext(text = "mRNA", side = 3, line = 0, at = seq(5, 45, 10), las = 1 )
+mtext(text = "Protein", side = 1, line = 4, at = seq(5, 45, 10), las = 1 )
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Count loading and Annotation
+
+The count matrix is used to construct a DGEList class object. This is
+the main data class in the edgeR package. The DGEList object is used to
+store all the information required to fit a generalized linear model to
+the data, including library sizes and dispersion estimates as well as
+counts for each gene.
+
+```{r load-counts-limma}
+y <- DGEList(proteome_HS, group=time, remove.)
+colnames(y) <- sample_metadata$Sample
+y$samples
+```
+
+Human-readable gene symbols can also be added to complement the gene ID
+for each gene, using the annotation in the org.Sc.sgd.db package.
+
+```{r add-geneNames-limma}
+y$genes <- AnnotationDbi::select(org.Sc.sgd.db,keys=rownames(y),columns="GENENAME")
+
+head(y$genes)
+```
+
+## Filtering to remove low counts
+
+Genes with very low counts across all libraries provide little evidence
+for differential ex- pression. In addition, the pronounced discreteness
+of these counts interferes with some of the statistical approximations
+that are used later in the pipeline. These genes should be filtered out
+prior to further analysis. Here, we will retain a gene only if it is
+expressed at a count-per-million (CPM) above 60 in at least four
+samples.
+
+```{r filter-lowCounts-limma}
+keep <- rowSums(cpm(y) > 0.7) >= 4
+y <- y[keep,]
+summary(keep)
+```
+
+Where did those cutoff numbers come from?
+
+As a general rule, we don't want to exclude a gene that is expressed in
+only one group, so a cutoff number equal to the number of replicates can
+be a good starting point. For counts, a good threshold can be chosen by
+identifying the CPM that corresponds to a count of 10, which in this
+case would be about 60 (due to our fastq files being subsets of the full
+reads):
+
+```{r estimate-cpmCutoff-limma}
+cpm(10, mean(y$samples$lib.size))
+```
+
+Smaller CPM thresholds are usually appropriate for larger libraries.
+
+## Normalization for composition bias
+
+TMM normalization is performed to eliminate composition biases between
+libraries. This generates a set of normalization factors, where the
+product of these factors and the library sizes defines the effective
+library size. The calcNormFactors function returns the DGEList argument
+with only the norm.factors changed.
+
+```{r calc-normFactors-limma}
+y <- calcNormFactors(y)
+y$samples
+```
+
+The normalization factors multiply to unity across all libraries. A
+normalization factor below unity indicates that the library size will be
+scaled down, as there is more suppression (i.e., composition bias) in
+that library relative to the other libraries. This is also equivalent to
+scaling the counts upwards in that sample. Conversely, a factor above
+unity scales up the library size and is equivalent to downscaling the
+counts. The performance of the TMM normalization procedure can be
+examined using mean- difference (MD) plots. This visualizes the library
+size-adjusted log-fold change between two libraries (the difference)
+against the average log-expression across those libraries (the mean).
+The below command plots an MD plot, comparing sample 1 against an
+artificial library constructed from the average of all other samples.
+
+```{r ploteachMDS-limma, fig.show="hold", out.width="25%"}
+for (sample in 1:nrow(y$samples)) {
+  plotMD(cpm(y, log=TRUE), column=sample)
+  abline(h=0, col="red", lty=2, lwd=2)
+}
+```
+
+## Exploring differences between libraries
+
+The data can be explored by generating multi-dimensional scaling (MDS)
+plots. This visualizes the differences between the expression profiles
+of different samples in two dimensions. The next plot shows the MDS plot
+for the yeast heatshock data.
+
+```{r plot-libMDS-limma}
+points <- c(1,1,2,2)
+colors <- rep(c("black", "red"),8)
+plotMDS(y, col=colors[group], pch=points[group])
+# legend("bottomright", legend=levels(group),
+     # pch=points, col=colors, ncol=2)
+legend("bottomright",legend=levels(group),
+       pch=points, col=colors, ncol=2,
+       inset=c(0,1.05), xpd=TRUE)
+
+```
+
+## Estimate Dispersion
+
+This is the first step in a limma analysis that differs from the edgeR
+workflow.
+
+```{r estimate-dispersion-limma}
+y <- voom(y, design, plot = T)
+
+# compare this to the edgeR function estimateDisp, which uses a NB distribution.
+# y <- estimateDisp(y, design, robust=TRUE)
+# plotBCV(y)
+```
+
+What is `voom` doing?
+
+-   Counts are transformed to log2 counts per million reads (CPM), where
+    "per million reads" is defined based on the normalization factors we
+    calculated earlier
+
+-   A linear model is fitted to the log2 CPM for each gene, and the
+    residuals are calculated
+
+-   A smoothed curve is fitted to the sqrt(residual standard deviation)
+    by average expression (see red line in plot above)
+
+-   The smoothed curve is used to obtain weights for each gene and
+    sample that are passed into limma along with the log2 CPMs.
+
+Limma uses the `lmFit` function. This returns a MArrayLM object
+containing the weighted least squares estimates for each gene.
+
+```{r generate-fit-limma}
+fit <- lmFit(y, design)
+head(coef(fit))
+
+# edgeR equivalent
+# fit <- glmQLFit(y, design, robust=TRUE)
+# head(fit$coefficients)
+# plotQLDisp(fit)
+```
+
+Comparisons between groups (log fold-changes) are obtained as
+*contrasts* of these fitted linear models:
+
+## Testing for differential expression
+
+The final step is to actually test for significant differential
+expression in each gene, using the QL F-test. The contrast of interest
+can be specified using the `makeContrasts` function in limma, the same
+one that is used by edgeR.
+
+```{r fit-contrasts-limma}
+# generate contrasts we are interested in learning about
+my.contrasts <- makeContrasts(EtOHvsMOCK.WT = WT.EtOH - WT.unstressed, 
+                     EtOHvsMOCK.MSN24dd = msn24dd.EtOH - msn24dd.unstressed,
+                     EtOH.MSN24ddvsWT = msn24dd.EtOH - WT.EtOH,
+                     MOCK.MSN24ddvsWT = msn24dd.unstressed - WT.unstressed,
+                     EtOHvsWT.MSN24ddvsWT = (msn24dd.EtOH-msn24dd.unstressed)-(WT.EtOH-WT.unstressed),
+                     levels=design)
+
+# fit the linear model to these contrasts
+res_all <- contrasts.fit(fit, my.contrasts)
+
+# This looks at all of our contrasts in my.contrasts
+res_all <- eBayes(res_all)
+
+# eBayes is the alternative to glmQLFTest in edgeR
+# This contrast looks at the difference in the stress responses between mutant and WT
+# res <- glmQLFTest(fit, contrast = my.contrasts)
+```
+
+```{r create-TableAll-limma}
+
+top.table <- topTable(res_all, sort.by = "F", n = Inf)
+head(top.table, 20)
+
+top.table %>% 
+  tibble() %>% 
+  arrange(adj.P.Val) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
+
+
+# edgeR equivalent below:
+
+# let's take a quick look at the results
+# topTags(res, n=10) 
+# 
+# # generate a beautiful table for the pdf/html file.
+# topTags(res, n=Inf) %>% data.frame() %>% 
+#   arrange(FDR) %>%
+#   mutate(logFC=round(logFC,2)) %>%
+#   mutate(across(where(is.numeric), signif, 3)) %>%
+#   reactable()
+```
+
+```{r summarize-DEgenes-limma, fig.height=7, fig.width=10}
+# Let's see how many genes in total are significantly different in any contrast
+length(which(top.table$adj.P.Val < 0.05))
+
+# let's summarize this and break it down by contrast.
+res_all %>%
+  decideTests(p.value = 0.05, lfc = 0) %>%
+  summary()
+
+# we can save the decideTests output for graphing
+decide_tests_res_all_limma <- res_all %>%
+  decideTests(p.value = 0.05, lfc = 0) 
+  
+# Bonus: limma allows us to create a venn diagram of these contrasts 
+# up & downregulated genes
+res_all %>%
+  decideTests(p.value = 0.05, lfc = 1) %>% 
+  vennDiagram(include=c("up", "down"),
+              lwd=0.75,
+              mar=rep(2,4), # increase margin size
+              counts.col= c("red", "blue"),
+              show.include=TRUE)
+
+```
+
+## Examining a specific contrast
+
+It is interesting to see all of the contrasts simultaneously, but often
+we may want to look at just a single contrast (and get the corresponding
+probabilities). Here is how we do that:
+
+```{r fit-contrast-limma}
+# fit the linear model to these contrasts
+res <- contrasts.fit(fit, my.contrasts[,"EtOHvsWT.MSN24ddvsWT"])
+
+# This contrast looks at the difference in the stress responses between mutant and WT
+res <- eBayes(res)
+```
+
+```{r create-Table-limma}
+# Note that there is no longer an "F" column, because we only look at one contrast.
+top.table <- topTable(res, sort.by = "P", n = Inf)
+head(top.table, 20)
+
+top.table %>% 
+  tibble() %>% 
+  arrange(adj.P.Val) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  reactable()
+
+
+is.de <- decideTests(res, p.value=0.05)
+summary(is.de)
+
+```
+
+## Visualization
+
+We can visualize limma results using some built-in limma functions.
+
+### MA lot
+
+```{r visualize-contrast-limma}
+# visualize results
+limma::plotMA(res, status=is.de)
+```
+
+We need to make sure and save our output file(s).
+
+```{r save-res-limma}
+# Choose topTags destination
+dir_output_limma <-
+  path.expand("~/Desktop/Genomic_Data_Analysis/Analysis/limma/")
+if (!dir.exists(dir_output_limma)) {
+  dir.create(dir_output_limma, recursive = TRUE)
+}
+
+# for shairng with others, the topTags output is convenient.
+top.table %>% tibble() %>%
+  arrange(desc(adj.P.Val)) %>%
+  mutate(adj.P.Val = round(adj.P.Val, 2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  write_tsv(., file = paste0(dir_output_limma, "yeast_topTags_limma.tsv"))
+
+# for subsequent analysis, let's save the res object as an R data object.
+saveRDS(object = res, file = paste0(dir_output_limma, "yeast_res_limma.Rds"))
+
+# we might also want our y object list
+saveRDS(object = y, file = paste0(dir_output_limma, "yeast_y_limma.Rds"))
+```
+
+## `treat()` testing
+
+We can use the `limma` command `treat()` to test against a fold-change
+cutoff. `res` (or `fit`) can be either before or after eBayes has been
+run. Note that we need to use
+
+```{r lmtreat-workflow-limma}
+lfc1_res <- treat(res,
+               lfc=1,
+               robust = TRUE)
+# treat is a limma command that can be run on fit
+lfc1_top.table <- topTreat(lfc1_res, n=Inf, p.value=0.05)
+
+# print the genes with DE significantly beyond the cutoff
+lfc1_top.table
+
+# for subsequent analysis, let's save the output file as a tsv
+# and the res object as an R data object.
+lfc1_top.table %>% tibble() %>%
+  arrange(desc(adj.P.Val)) %>%
+  mutate(adj.P.Val = round(adj.P.Val, 2)) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  write_tsv(., file = paste0(dir_output_limma, "yeast_lfc1_topTreat_limma.tsv"))
+
+saveRDS(object = lfc1_res, file = paste0(dir_output_limma, "yeast_lfc1_res_limma.Rds"))
+
+
+```
+
+### Visualize DE genes from `Treat` using lfc=1
+
+```{r visualize-lfc1contrast-limma}
+is.de.lfc1 <- decideTests(lfc1_res, p.value=0.05)
+summary(is.de.lfc1)
+
+# visualize results
+limma::plotMA(lfc1_res, status=is.de.lfc1)
+```
+
+## Comparing DE analysis softwares
+
+We have went through some example DE workflows with edgeR, DESeq2, and
+limma-voom. Since we have saved our outputs for each analysis, we can
+compare their outcomes now.
+
+```{r load-DEworkflows-limma}
+# load in all of the DE results for the difference of difference contrast
+path_output_edgeR <- "~/Desktop/Genomic_Data_Analysis/Analysis/edgeR/yeast_topTags_edgeR.tsv"
+path_output_DESeq2 <- "~/Desktop/Genomic_Data_Analysis/Analysis/DESeq2/yeast_res_DESeq2.tsv"
+path_output_limma <- "~/Desktop/Genomic_Data_Analysis/Analysis/limma/yeast_topTags_limma.tsv"
+
+topTags_edgeR <- read.delim(path_output_edgeR)
+topTags_DESeq2 <- read.delim(path_output_DESeq2)
+topTags_limma <- read.delim(path_output_limma)
+```
+
+```{r get-geneLists-limma,  fig.show="hold", out.width="50%"}
+sig_cutoff <- 0.01
+FC_cutoff <- 1
+# NOTE: we need to be very careful applying an FC cutoff like this
+
+## edgeR
+# get genes that are upregualted
+up_edgeR_DEG <- topTags_edgeR %>%
+  dplyr::filter(FDR < sig_cutoff & logFC > FC_cutoff) %>%
+  pull(ORF)
+
+down_edgeR_DEG <- topTags_edgeR %>%
+  dplyr::filter(FDR < sig_cutoff & logFC < -FC_cutoff) %>%
+  pull(ORF)
+
+## DESeq2
+up_DESeq2_DEG <- topTags_DESeq2 %>%
+  dplyr::filter(padj < sig_cutoff & log2FoldChange > FC_cutoff) %>%
+  pull(ORF)
+
+down_DESeq2_DEG <- topTags_DESeq2 %>%
+  dplyr::filter(padj < sig_cutoff & log2FoldChange < -FC_cutoff) %>%
+  pull(ORF)
+
+## limma
+up_limma_DEG <- topTags_limma %>%
+  dplyr::filter(adj.P.Val < sig_cutoff & logFC > FC_cutoff) %>%
+  pull(ORF)
+
+down_limma_DEG <- topTags_limma %>%
+  dplyr::filter(adj.P.Val < sig_cutoff & logFC < -FC_cutoff) %>%
+  pull(ORF)
+
+up_DEG_results_list <- list(up_edgeR_DEG,
+                        up_DESeq2_DEG,
+                        up_limma_DEG)
+
+# visualize the GO results list as a venn diagram
+ggVennDiagram(up_DEG_results_list,
+              category.names = c("edgeR", "DESeq2", "limma")) +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_fill_distiller(palette = "RdBu"
+  ) +
+  ggtitle("Upregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
+
+
+# Now let's do the same for downregulated genes:
+down_DEG_results_list <- list(down_edgeR_DEG,
+                        down_DESeq2_DEG,
+                        down_limma_DEG)
+
+ggVennDiagram(down_DEG_results_list,
+              category.names = c("edgeR", "DESeq2", "limma")) +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_fill_distiller(palette = "RdBu"
+  ) +
+  ggtitle("Downregulated genes in contrast: \n(EtOH.MSN2/4dd - MOCK.MSN2/4dd) - (EtOH.WT - MOCK.WT)")
+```
+
+## Correlation between logFC estimates across softwares
+
+```{r compare-estimates-limma}
+# Custom labels for facet headers
+custom_labels <- c("purple" = "Sig in Both",
+                   "red" = "Only in edgeR",
+                   "blue" = "Only in DESeq2",
+                   "black" = "Not Sig",
+                   "grey" = "NA encountered")
+
+
+# compare edgeR & DESeq2
+full_join(topTags_edgeR, topTags_DESeq2,
+          by = join_by(ORF, SGD, GENENAME)) %>%
+  mutate(edgeR_sig = ifelse(FDR < sig_cutoff, "red", "black")) %>%
+  mutate(DESeq2_sig = ifelse(padj < sig_cutoff, "blue", "black")) %>% 
+  mutate(sig = factor(case_when(
+    edgeR_sig == "red" & DESeq2_sig == "blue" ~ "purple",
+    edgeR_sig == "red" & DESeq2_sig != "blue" ~ "red",
+    edgeR_sig != "red" & DESeq2_sig == "blue" ~ "blue",
+    edgeR_sig != "red" & DESeq2_sig != "blue" ~ "black",
+    TRUE ~ "grey"  # if none of these are met
+  ), levels = c("purple", "red", "blue", "black", "grey"), labels = c("Sig in Both", "Only in edgeR", "Only in DESeq2", "Not Sig", "NA encountered"))) %>%
+  ggplot(aes(x=logFC, y=log2FoldChange, color = sig, size=logCPM)) +
+  geom_abline(slope = 1,) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("purple", "red", "blue", "black", "grey")) + # use colors given
+  theme_bw() +
+  facet_wrap(~sig, labeller = labeller(new_column = custom_labels)) +
+  ggtitle("Comparing genewise logFC estimates between edgeR and DESeq2")
+
+# compare edgeR & limma
+full_join(topTags_edgeR, topTags_limma,
+          by = join_by(ORF, SGD, GENENAME)) %>%
+  mutate(edgeR_sig = ifelse(FDR < sig_cutoff, "red", "black")) %>%
+  mutate(limma_sig = ifelse(adj.P.Val < sig_cutoff, "green", "black")) %>% 
+  mutate(sig = factor(case_when(
+    edgeR_sig == "red" & limma_sig == "green" ~ "brown",
+    edgeR_sig == "red" & limma_sig != "green" ~ "red",
+    edgeR_sig != "red" & limma_sig == "green" ~ "green",
+    edgeR_sig != "red" & limma_sig != "green" ~ "black",
+    TRUE ~ "grey"  # if none of these are met
+  ), levels = c("brown", "red", "green", "black", "grey"), labels = c("Sig in Both", "Only in edgeR", "Only in limma", "Not Sig", "NA encountered"))) %>%
+  ggplot(aes(x=logFC.x, y=logFC.y, color = sig, size=logCPM)) +
+  geom_abline(slope = 1,) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("brown", "red", "green", "black", "grey")) + # use colors given
+  theme_bw() +
+  facet_wrap(~sig, labeller = labeller(new_column = custom_labels)) +
+  ggtitle("Comparing genewise logFC estimates between edgeR and limma") +
+  labs(x="logFC estimate: edgeR", y="logFC estimate: limma")
+
+# compare DESeq2 & limma
+full_join(topTags_DESeq2, topTags_limma,
+          by = join_by(ORF, SGD, GENENAME)) %>%
+  mutate(DESeq2_sig = ifelse(padj < sig_cutoff, "blue", "black")) %>%
+  mutate(limma_sig = ifelse(adj.P.Val < sig_cutoff, "green", "black")) %>% 
+  mutate(sig = factor(case_when(
+    DESeq2_sig == "blue" & limma_sig == "green" ~ "aquamarine3",
+    DESeq2_sig == "blue" & limma_sig != "green" ~ "blue",
+    DESeq2_sig != "blue" & limma_sig == "green" ~ "green",
+    DESeq2_sig != "blue" & limma_sig != "green" ~ "black",
+    TRUE ~ "grey"  # if none of these are met
+  ), levels = c("aquamarine3", "blue", "green", "black", "grey"), labels = c("Sig in Both", "Only in DESeq2", "Only in limma", "Not Sig", "NA encountered"))) %>%
+  ggplot(aes(x=log2FoldChange, y=logFC, color = sig, size=AveExpr)) +
+  geom_abline(slope = 1,) +
+  geom_point(alpha=0.5) +
+  scale_color_manual(values=c("aquamarine3", "blue", "green", "black", "grey")) + # use colors given
+  theme_bw() +
+  facet_wrap(~sig, labeller = labeller(new_column = custom_labels, drop=FALSE)) +
+  ggtitle("Comparing genewise logFC estimates between DESeq2 and limma") +
+  labs(x="logFC estimate: DESeq2", y="logFC estimate: limma")
+
+```
+
+## Questions
+
+Question 1: How many genes were upregulated and downregulated in the
+contrast we looked at in today's activity? Be sure to clarify the
+cutoffs used for determining significance.
+
+Question 2: What are the pros and cons of applying a logFC cutoff to a
+differential expression analysis?
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+
+```{r sessionInfo-limma}
+pander::pander(sessionInfo())
+```

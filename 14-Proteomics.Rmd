@@ -840,7 +840,7 @@ ID_transcriptome_list_down <- res_all_transcriptome %>%
 ## Multi-omic comparison
 
 Now, let's create a side-by-side DE gene total graph. Here is an easy way to combine graphs we've made. 
-```{r}
+```{r fig.height=6, fig.width=9, dpi=600}
 ggpubr::ggarrange(plot_summary_bars_transcriptome, plot_summary_bars_proteome,
           ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
 ```

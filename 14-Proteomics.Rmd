@@ -796,26 +796,6 @@ res_all_transcriptome %>%
 Save list of genes that are DE for each time point for gene expression. I want to split genes that are upregulated and downregulated into separate lists.
 
 ```{r}
-# get list of genes DE at each time point, as well as direction of DE
-ID_transcriptome_list <- res_all_transcriptome %>%
-  decideTests() %>%
-  data.frame() %>%
-  tibble::rownames_to_column("ORF") %>%
-  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
-  mutate(Time = readr::parse_number(Time),
-         DE_name = case_when(DE_direction == 1 ~ "up",
-                             DE_direction == -1 ~ "down",
-                             TRUE~NA),
-         group=paste0("DE_",DE_name,"_",Time, "min")) %>%
-  mutate(entrezID=AnnotationDbi::select(org.Sc.sgd.db,keys=ORF,columns="ENTREZID",
-      multiVals = "first")$ENTREZID) %>%
-  group_by(group) %>%
-  filter(DE_direction != 0) %>%
-  group_split() %>% # split into many lists
-  purrr::set_names(purrr::map_chr(., ~.x$group[1])) %>% # assign names
-  map(., ~ .x |> pull(all_of("ORF"))) # grab just the gene names
-
-
 # list of the upregulated DE genes in each contrast
 ID_transcriptome_list_up <- res_all_transcriptome %>%
   decideTests() %>%
@@ -865,9 +845,7 @@ ggpubr::ggarrange(plot_summary_bars_transcriptome, plot_summary_bars_proteome,
           ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
 ```
 
-How do these data correlate with each other? Let's find out. To do this, we'll first need to do some data wrangling.
-
-
+How do these data correlate with each other? Let's find out. To do this, we've defined a function below to plot their correlations.
 ```{r}
 perform_correlation_analysis <- function(data_proteome, data_transcriptome, gene_list, analysis_type, title) {
   merged_data <- full_join(
@@ -919,20 +897,22 @@ perform_correlation_analysis <- function(data_proteome, data_transcriptome, gene
     mtext(text = "Protein (min)", side = 3, line = 0, at = 5, las = 0)
   }
 }
+```
 
-# Example Usage:
-combined_gene_list <- c(list_c(ID_transcriptome_list_up), list_c(ID_transcriptome_list_down))
+```{r}
+# Combine the up and down gene lists
+ID_transcriptome_list <- c(list_c(ID_transcriptome_list_up), list_c(ID_transcriptome_list_down))
 
-# Analyze combined list
+# Correlation including all genes
 perform_correlation_analysis(
   res_all_proteome,
   res_all_transcriptome,
-  combined_gene_list,
+  ID_transcriptome_list,
   "combined",
   "Combined Correlation of Protein and Gene Expression"
 )
 
-# Analyze only upregulated genes
+# Analyze correlation of only upregulated genes
 perform_correlation_analysis(
   res_all_proteome,
   res_all_transcriptome,
@@ -941,7 +921,7 @@ perform_correlation_analysis(
   "Correlation of Upregulated Genes (Protein vs. Gene Expression)"
 )
 
-# Analyze only downregulated genes
+# Analyze correlation of only downregulated genes
 perform_correlation_analysis(
   res_all_proteome,
   res_all_transcriptome,
@@ -950,6 +930,15 @@ perform_correlation_analysis(
   "Correlation of Downregulated Genes (Protein vs. Gene Expression)"
 )
 
+
+# Analyze the correlation across ALL genes, (not just DE genes)
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  rownames(res_all_proteome_matrix),
+  "combined",
+  "Correlation of ALL Genes (Protein vs. Gene Expression)"
+)
 ```
 
 

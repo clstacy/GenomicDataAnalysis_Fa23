@@ -610,7 +610,7 @@ heatmap_GO <- clusterProfiler::compareCluster(geneCluster = clusters_gene_list,
                                   readable      = FALSE,
                                   fun =  'enrichGO',
                                   keyType       = 'ORF',
-                                  universe      = rownames(res_all_matrix)
+                                  universe      = rownames(res_all_proteome_matrix)
                                   )  |>
   # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
   mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))

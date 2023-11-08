@@ -32,10 +32,13 @@ p_load("tidyverse", "knitr", "readr",
 # We also need these Bioconductor packages today.
 p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "ggVennDiagram")
 p_load("janitor")
+p_load("RColorBrewer")
 p_load("UpSetR")
 p_load("ComplexHeatmap")
 p_load("enrichplot")
 p_load("clusterProfiler")
+p_load("factoextra", "NbClust")
+p_load("ggpubr", "corrplot", "stringr", "tidyr")
 #NOTE: edgeR loads limma as a dependency
 library(ComplexHeatmap)
 library(RColorBrewer)
@@ -43,12 +46,10 @@ library(limma)
 library(org.Sc.sgd.db)
 
 # choose number clusters
-library(readr)
 library(factoextra)
 library(NbClust)
 
 # corr plots
-
 library(ggpubr)
 library(corrplot)
 library(stringr)
@@ -64,10 +65,9 @@ transcriptomic changes in a time series heat shock experiment.
 
 At the end of this exercise, you should be able to:
 
+-   Recognize the steps of DE analysis of Mass Spec data
 -   Identify differentially Abundant proteins with limma
--   Filter low counts and normalize count data.
--   Utilize the limma package to identify differentially expressed proteins
-    \_\_\_\_\_\_\_.
+-   Better understand the temporal relationship between gene expression and protein abundance
 
 ```{r load-libraries-limma}
 # for ease of use, set max number of digits after decimal
@@ -159,7 +159,8 @@ fit_all_proteome <- contrasts.fit(fit_proteome,
 # This looks at all of our contrasts in my.contrasts
 res_all_proteome <- treat(fit_all_proteome,
                  fc = 1.2,
-                 robust = TRUE)
+                 robust = TRUE
+                 )
 
 # save top results to an object
 top.table_proteome <- topTable(res_all_proteome, sort.by = "p", n = Inf)
@@ -370,7 +371,7 @@ ggplot(go_results_proteome,
 
 Run KEGG enrichment on the same gene list of those proteins who were upregulated at 30 minutes.
 
-```{r enrich-KEGG-protein, eval=FALSE}
+```{r enrich-KEGG-protein}
 # Run our KEGG enrichment
 kegg_results_proteome <- clusterProfiler::enrichKEGG(gene = ID_protein_up_30min,
                            organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
@@ -548,7 +549,6 @@ set.seed(123)
 
 Let's use `k=4`.
 ```{r}
-
 set.seed(123)
 
 heatmap_protein <- res_all_proteome_matrix %>%
@@ -866,158 +866,101 @@ ggpubr::ggarrange(plot_summary_bars_transcriptome, plot_summary_bars_proteome,
 ```
 
 How do these data correlate with each other? Let's find out. To do this, we'll first need to do some data wrangling.
-```{r}
-res_all_proteome %>%
-  as.matrix() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("ORF") %>%
-  full_join(res_all_transcriptome %>%
-              as.matrix() %>%
-              as.data.frame() %>%
-              tibble::rownames_to_column("ORF"),
-            by = "ORF"
-  ) %>%
-  #   dplyr::filter(ORF %in% c(list_c(ID_proteins_list)
-  #                            # ,list_c(ID_transcriptome_list) 
-  #                            )
-  #                 ) %>%
-  # dplyr::filter(ORF %in% list_c(ID_proteins_list)
-  #                            & ORF %in% list_c(ID_transcriptome_list) 
-  #                            # )
-  #                 ) %>%
-  # drop_na() %>%
-  column_to_rownames("ORF") %>%
-  as.matrix() %>%
-  cor(#method = "spearman", 
-      use="pairwise.complete.obs"
-      ) %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("group") %>%
-  filter(str_detect(group, '.y')) %>%
-  mutate(group=str_replace(group, ".y", "")) %>%
-  mutate(group=str_replace(group, "time", "")) %>%
-  dplyr::select(!contains(".y")) %>%
-  rename_with(~str_remove(., '.x')) %>%
-  rename_with(~str_remove(., 'time')) %>%
-  column_to_rownames("group") %>%
-  as.matrix() %>%
-  corrplot::corrplot(method = "color", insig='blank',
-                     is.corr=FALSE,
-         addCoef.col ='black', 
-         col=colorRampPalette(c("white","blue"))(200),
-         col.lim=c(-0.01,1),
-         number.cex = 0.8,
-         tl.srt=45,
-         title="Correlation of Protein and Gene Expression",
-         # add this to make sure title isn't cut off
-         mar=c(1,0,4,0)
-         )
-mtext(text = "mRNA (min)", side = 2, line = 0, at = 3.5, las = 0)
-mtext(text = "Protein (min)", side = 3, line = 0, at =5, las = 0 )
-```
 
-Look at correlations of genes that were **upregulated** at the mRNA level.
-```{r}
-res_all_proteome %>%
-  as.matrix() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("ORF") %>%
-  full_join(res_all_transcriptome %>%
-              as.matrix() %>%
-              as.data.frame() %>%
-              tibble::rownames_to_column("ORF"),
-            by = "ORF"
-  ) %>%
-  dplyr::filter(ORF %in% list_c(ID_transcriptome_list_up)
-                  ) %>%
-  column_to_rownames("ORF") %>%
-  as.matrix() %>%
-  cor(#method = "spearman", 
-      use="pairwise.complete.obs"
-      ) %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("group") %>%
-  filter(str_detect(group, '.y')) %>%
-  mutate(group=str_replace(group, ".y", "")) %>%
-  mutate(group=str_replace(group, "time", "")) %>%
-  dplyr::select(!contains(".y")) %>%
-  rename_with(~str_remove(., '.x')) %>%
-  rename_with(~str_remove(., 'time')) %>%
-  column_to_rownames("group") %>%
-  as.matrix() %>%
-  corrplot::corrplot(method = "color", insig='blank',
-                     is.corr=FALSE,
-         addCoef.col ='black', 
-         col=colorRampPalette(c("red","white","blue"))(200),
-         col.lim=c(-1,1),
-         number.cex = 0.8,
-         tl.srt=45,
-         title="Correlation of Protein and Gene Expression (upregulated genes)",
-         # add this to make sure title isn't cut off
-         mar=c(1,0,4,0)
-         )
-mtext(text = "mRNA (min)", side = 2, line = 0, at = 3.5, las = 0)
-mtext(text = "Protein (min)", side = 3, line = 0, at =5, las = 0 )
-```
-
-Look at correlations of genes that were **downregulated** at the mRNA level.
 
 ```{r}
-res_all_proteome %>%
-  as.matrix() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("ORF") %>%
-  full_join(res_all_transcriptome %>%
-              as.matrix() %>%
-              as.data.frame() %>%
-              tibble::rownames_to_column("ORF"),
-            by = "ORF"
-  ) %>%
-  dplyr::filter(ORF %in% list_c(ID_transcriptome_list_down)
-                  ) %>%
-  column_to_rownames("ORF") %>%
-  as.matrix() %>%
-  cor(#method = "spearman", 
-      use="pairwise.complete.obs"
-      ) %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("group") %>%
-  filter(str_detect(group, '.y')) %>%
-  mutate(group=str_replace(group, ".y", "")) %>%
-  mutate(group=str_replace(group, "time", "")) %>%
-  dplyr::select(!contains(".y")) %>%
-  rename_with(~str_remove(., '.x')) %>%
-  rename_with(~str_remove(., 'time')) %>%
-  column_to_rownames("group") %>%
-  as.matrix() %>%
-  corrplot::corrplot(method = "color", insig='blank',
-                     is.corr=FALSE,
-         addCoef.col ='black', 
-         col=colorRampPalette(c("red","white","blue"))(200),
-         col.lim=c(-1,1),
-         number.cex = 0.8,
-         tl.srt=45,
-         title="Correlation of Protein and Gene Expression (downregulated genes)",
-         # add this to make sure title isn't cut off
-         mar=c(1,0,4,0)
-         )
-mtext(text = "mRNA (min)", side = 2, line = 0, at = 3.5, las = 0)
-mtext(text = "Protein (min)", side = 3, line = 0, at =5, las = 0 )
+perform_correlation_analysis <- function(data_proteome, data_transcriptome, gene_list, analysis_type, title) {
+  merged_data <- full_join(
+    data_proteome %>%
+      as.matrix() %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("ORF"),
+    data_transcriptome %>%
+      as.matrix() %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("ORF"),
+    by = "ORF"
+  )
+
+  if (!is.null(gene_list)) {
+    filtered_data <- merged_data %>%
+      dplyr::filter(ORF %in% gene_list) %>%
+      column_to_rownames("ORF") %>%
+      as.matrix()
+
+    correlation_matrix <- cor(filtered_data,
+                              use = "pairwise.complete.obs") %>%
+                              as.data.frame() %>%
+                              tibble::rownames_to_column("group") %>%
+                              filter(str_detect(group, '.y')) %>%
+                              mutate(group = str_replace(group, ".y", "")) %>%
+                              mutate(group = str_replace(group, "time", "")) %>%
+                              dplyr::select(!contains(".y")) %>%
+                              rename_with( ~ str_remove(., '.x')) %>%
+                              rename_with( ~ str_remove(., 'time')) %>%
+                              column_to_rownames("group") %>%
+                              as.matrix()
+
+    corrplot::corrplot(
+      correlation_matrix,
+      method = "color",
+      insig = "blank",
+      is.corr = FALSE,
+      addCoef.col = "black",
+      col = colorRampPalette(c("red", "white", "blue"))(200),
+      col.lim = c(-1, 1),
+      number.cex = 0.8,
+      tl.srt = 45,
+      mar=c(1,0,4,0),
+      title = title
+    )
+
+    mtext(text = "mRNA (min)", side = 2, line = 0, at = 3.5, las = 0)
+    mtext(text = "Protein (min)", side = 3, line = 0, at = 5, las = 0)
+  }
+}
+
+# Example Usage:
+combined_gene_list <- c(list_c(ID_transcriptome_list_up), list_c(ID_transcriptome_list_down))
+
+# Analyze combined list
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  combined_gene_list,
+  "combined",
+  "Combined Correlation of Protein and Gene Expression"
+)
+
+# Analyze only upregulated genes
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  list_c(ID_transcriptome_list_up),
+  "upregulated",
+  "Correlation of Upregulated Genes (Protein vs. Gene Expression)"
+)
+
+# Analyze only downregulated genes
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  list_c(ID_transcriptome_list_down),
+  "downregulated",
+  "Correlation of Downregulated Genes (Protein vs. Gene Expression)"
+)
+
 ```
-
-
-
 
 
 
 ## Questions
 
-Question 1: How many genes were upregulated and downregulated in the
-contrast we looked at in today's activity? Be sure to clarify the
-cutoffs used for determining significance.
+Question 1: Which time point of gene (mRNA) expression showed the highest correlation with changes in protein abundance?
 
-Question 2: What are the pros and cons of applying a logFC cutoff to a
-differential expression analysis?
+Question 2: Does the pattern of mRNA and protein levels match your expectatoins?
+
+Question 3: How is the intersection between differentially expressed gene sets calculated, and why is it relevant?
 
 Be sure to knit this file into a pdf or html file once you're finished.
 

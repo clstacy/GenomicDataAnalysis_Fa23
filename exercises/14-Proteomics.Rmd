@@ -1,0 +1,1035 @@
+---
+title: "Proteomic Analysis"
+author: "Carson Stacy & Jeffrey Lewis"
+date: "Fall 2023"
+output:
+  html_document:
+    code_folding: show
+    embed-resources: true
+
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Proteomic Analysis with limma
+
+last updated: `r Sys.Date()`
+
+```{r setup-limma, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
+set.seed("1492")
+```
+
+## Description
+
+Use limma to identify differential patterns of proteomic and
+transcriptomic changes in a time series heat shock experiment.
+
+## Learning Outcomes
+
+At the end of this exercise, you should be able to:
+
+-   Recognize the steps of differential protein expression analysis of
+    TMT mass spectrometry data
+-   Use limma to identify differentially expressed proteins
+-   Better understand the temporal relationship between changes in RNA
+    abundance and protein abundance
+
+## Exercise Background
+
+In this exercise, we will compare transcriptomic and proteomic time
+course data for the yeast heat shock response (shift from cell growing
+at 25°C to 37°C). The proteomic data is median centered log2 protein
+counts from this paper:
+<https://pubs.acs.org/doi/10.1021/acs.jproteome.9b00704>. We will the
+dynamics of protein abundance changes to RNA changes using microarray
+data from this paper:
+<https://academic.oup.com/genetics/article/184/2/587/6077881>. Those
+data are median centered log2 ratios of each heat shock time point
+compared to an unstressed control.
+
+## Install Packages
+
+As usual, make sure we have the right packages for this exercise
+
+```{r ready-packages-limma, cache=FALSE}
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+
+# let's load all of the files we were using and want to have again today
+p_load("tidyverse", "knitr", "readr",
+       "pander", "BiocManager", 
+       "dplyr", "stringr", 
+       "statmod", # required dependency, need to load manually on some macOS versions.
+       "Glimma", # beautifies limma results
+       "purrr", # for working with lists (beautify column names)
+       "reactable") # for pretty tables.
+
+# We also need these Bioconductor packages today.
+p_load("edgeR", "AnnotationDbi", "org.Sc.sgd.db", "ggVennDiagram")
+p_load("janitor")
+p_load("RColorBrewer")
+p_load("UpSetR")
+p_load("ComplexHeatmap")
+p_load("enrichplot")
+p_load("clusterProfiler")
+p_load("factoextra", "NbClust")
+p_load("ggpubr", "corrplot", "stringr", "tidyr")
+#NOTE: edgeR loads limma as a dependency
+library(ComplexHeatmap)
+library(RColorBrewer)
+library(limma)
+library(org.Sc.sgd.db)
+
+# choose number clusters
+library(factoextra)
+library(NbClust)
+
+# corr plots
+library(ggpubr)
+library(corrplot)
+library(stringr)
+library(tidyr)
+```
+
+```{r load-libraries-limma}
+# for ease of use, set max number of digits after decimal
+options(digits=3)
+```
+
+## Loading in the proteomics count data file
+
+*We are downloading the normalized counts for the TMT proteomics data
+from a Github repository using the code below, and assigning the data to
+the variable `proteome_HS`.*
+
+```{r load-proteome-raw, error=TRUE}
+proteome_HS <- read.delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/proteomic_FC/HS_Proteomics_Data.txt",
+                          sep="\t",
+                          header=T,
+                          row.names=1)
+```
+
+**Generate Metadata**
+
+Create a dataframe of metadata for each sample by using the column
+names.
+
+```{r generate-metadata-limma}
+# generate metadata from proteme data
+sample_metadata_proteome <- proteome_HS |>
+  colnames() |> # use column names of data
+  stringr::str_split(pattern="Rep", # split names based on character pattern
+                     simplify = T) |> # Convert to a matrix
+  as_tibble(.name_repair = "unique") |> # convert to a data.frame
+  setNames(c("Time", "Replicate")) |> # add column nmaes
+  mutate(Sample = colnames(proteome_HS), # add column with original sample name
+         Measure = "protein", # denote these values as proteomic
+         Time = readr::parse_number(Time) # make time a number
+         ) |>
+  mutate(Time=as.factor(Time)) |> #convert time to a factor
+  relocate(Sample)
+
+# Check our metadata output
+head(sample_metadata_proteome)
+```
+
+### Design Matrix
+
+Create a design matrix with the generated metadata:
+
+```{r designMatrix-proteome}
+# notice, we made `time` a factor in the previous code, since we are comparing time points to an unstressed (t0) control
+time_proteome <- sample_metadata_proteome$Time
+replicate_proteome <- sample_metadata_proteome$Replicate
+
+# create our design (without intercept aka common reference)
+# we could use the unstressed control as a common reference, but it doesn't change results if you manually make the contrast explicit
+# see section 9.2 of limma user guide for details
+design_proteome <- model.matrix(~ 0 + time_proteome + replicate_proteome)
+
+# remove _proteome from the column names
+colnames(design_proteome) <- colnames(design_proteome) %>% str_remove("_proteome")
+```
+
+Because our values aren't RNA-seq counts, but are instead log2
+normalized counts, we can't use the edgeR `DGElist` command to load the
+values in. Plus, the data are already normalized, so TMM normalization
+would not be appropriate. Instead, we will use limma's linear models and
+empirical Bayes directly (lmFit and eBayes).
+
+```{r}
+# generate fit
+fit_proteome <- lmFit(proteome_HS, design_proteome)
+
+# add genes to the fit
+fit_proteome$genes <- fit_proteome$genes[,c("ProbeName","Symbol","EntrezID")]
+
+# generate contrasts we are interested in learning about--in this case every stress timepoint vs the unstressed control (time 0)
+my.contrasts_proteome <- makeContrasts(time5 = time5 - time0, 
+                     time10 = time10 - time0,
+                     time15 = time15 - time0,
+                     time30 = time30 - time0,
+                     time45 = time45 - time0,
+                     time60 = time60 - time0,
+                     time90 = time90 - time0,
+                     time120 = time120 - time0,
+                      time240 = time240 - time0,
+                     levels=design_proteome)
+
+# fit the linear model to these contrasts
+fit_all_proteome <- contrasts.fit(fit_proteome, 
+                                  my.contrasts_proteome)
+
+# computes moderated t- and F-statistics on all of our contrasts in my.contrasts
+res_all_proteome <- eBayes(fit_all_proteome)
+
+# save top results to an object, by default p.adjust does Benjamini-Hochberg FDR correction
+top.table_proteome <- topTable(res_all_proteome, sort.by = "F", n = Inf)
+
+# see the first few entries
+head(top.table_proteome, 20)
+```
+
+We can open a new window to see all genes
+
+```{r, eval="FALSE"}
+top.table_proteome %>% 
+  tibble() %>% 
+  arrange(adj.P.Val) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  View()
+```
+
+Create a summary output of DE proteins across each time point (compared
+to time=0)
+
+```{r}
+summary(decideTests(res_all_proteome, p.value=0.05))
+```
+
+You can change the `p.value` parameter in the code above, and see how
+this results summary changes.
+
+If we want a detailed look at how many proteins are up or down DE at
+each time point, the code below will generate that and open it in a new
+window
+
+```{r, eval=FALSE}
+res_all_proteome |>
+  decideTests(p.value=0.05) |> 
+  data.frame() |>
+  tibble::rownames_to_column("ORF") |>
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") |>
+  mutate(Time = readr::parse_number(Time)) |>
+  group_by(Time, DE_direction) |>
+  filter(DE_direction != 0) |>
+  #group_by(Time) |>
+  summarise(n=n(),genes=toString(ORF)) |> View()
+```
+
+Let's plot that information
+
+```{r}
+plot_summary_bars_proteome <- print(res_all_proteome |>
+  decideTests(p.value=0.05) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
+  group_by(contrast) %>%
+  summarise(
+    upregulated = sum(DE_direction == 1),
+    downregulated = sum(DE_direction == -1)
+  ) %>%
+  pivot_longer(-contrast, names_to = "DE_direction", values_to = "n_genes") %>%
+  mutate(contrast_temp = readr::parse_number(contrast)) |> 
+ggplot(aes(
+  x = fct_rev(as.factor(contrast_temp)),
+  y = n_genes,
+  fill = DE_direction
+)) +
+  geom_col(position = "dodge") +
+  theme_bw() +
+  coord_flip() +
+  geom_text(aes(label = n_genes),
+            position = position_dodge(width = .9),
+            hjust = "inward") +
+  labs(x= "Time (min)", 
+       y = "Number of DE genes") +
+      ggtitle("Summary of protein level changes over time"))
+```
+
+We see more and more proteins are being DE over time, with more being
+upregulated than downregulated. But are these the same genes at each
+time point? We could use a Venn diagram to answer this question, but
+with so many time points that can be hard to see.
+
+### UpSet Plot
+
+Another alternative is to use an UpSetPlot of the overlaps. The code
+below writes a function named `generage_upset_plot` that does just that.
+
+```{r}
+# Visualization inspired by: https://tomsing1.github.io/blog/posts/upset_plots/
+generage_upset_plot <- function(results, title) {
+  # Remove genes not significant in any contrast
+  results_filtered <- results[rowSums(results) != 0, ]
+  
+  # Calculate the intersection between the differentially expressed gene sets
+  m <- ComplexHeatmap::make_comb_mat(abs(results_filtered), mode = "distinct")
+  
+  # Exclude self-intersects
+  m <- m[ComplexHeatmap::comb_degree(m) > 1]
+  
+  # Calculate set and comb sizes
+  ss <- ComplexHeatmap::set_size(m)
+  cs <- ComplexHeatmap::comb_size(m)
+  
+  # Create UpSet plot
+  ht <- UpSet(m, set_order = colnames(m), comb_order = order(comb_degree(m)),
+    top_annotation = HeatmapAnnotation("Distinct diff. genes" = 
+        anno_barplot(cs,ylim = c(0, max(cs) * 1.1),border = FALSE,
+                     gp = gpar(fill = "black"), height = unit(4, "cm")),
+      annotation_name_side = "left", annotation_name_rot = 90),
+    right_annotation = HeatmapAnnotation(which = "row",
+      "Total" = anno_barplot(ss, ylim = c(0, max(ss) * 1.1),
+        border = FALSE, gp = gpar(fill = "black"), width = unit(4, "cm"))),
+    column_title = title)
+  
+  ht = draw(ht)
+  od = column_order(ht)
+  rod = row_order(ht)
+  
+  # Decorate annotations
+  decorate_annotation("Distinct diff. genes", {
+    grid.text(cs[od], x = seq_along(cs), y = unit(cs[od], "native") + 
+              unit(2, "pt"), default.units = "native", 
+              just = c("left", "bottom"), gp = gpar(fontsize = 8, 
+                                                     col = "#404040"),
+              rot = 45)})
+  decorate_annotation("Total", {
+    grid.text(
+      ss[rod],x = unit(ss[rod], "native") + unit(20, "pt"),
+      y = rev(seq_along(ss)), default.units = "native",
+      just = c("right", "bottom"), gp = gpar(fontsize = 8, col = "#404040"))})
+}
+```
+
+View Upset Plots:
+
+```{r}
+# save decideTests output
+results_proteome <- res_all_proteome |>
+    decideTests(p.value=0.05)
+
+# select genes that are upregulated
+results_up <- results_proteome[rowSums(results_proteome) > 0, ]
+# select genes that are downregulated
+results_down <- results_proteome[rowSums(results_proteome) < 0, ]
+
+
+# Example Usage:
+generage_upset_plot(results = results_proteome, 
+                    title = "Intersection between DE proteins (Protein Expression)")
+generage_upset_plot(results = results_up, 
+                    title = "Intersection between UPREGULATED proteins (Protein Expression)")
+generage_upset_plot(results = results_down, 
+                    title = "Intersection between DOWNREGULATED proteins (Protein Expression)")
+```
+
+### Gene Set Enrichment
+
+Now we have a list of genes whose proteins are differentially expressed
+at each time point. Let's see if there are any enrichments in these gene
+lists, using techniques we have used already in class.
+
+We now have multiple lists of genes (proteins) that we can run
+enrichment analysis on.
+
+It looks like at 30 minutes we are starting to see a significant number
+of proteins being differentially expressed proteins.
+
+Let's pull the names of genes corresponding to proteins that are
+upregulated at t=30 minutes.
+
+```{r}
+# get protein ID of those DE at 30 minutes when compared to 0 minute.
+ID_protein_up_30min <- results_proteome |>
+  data.frame() |>
+  dplyr::filter(time30==1) |>
+  rownames()
+```
+
+#### Gene Ontology
+
+We'll use `enrichGO` from `clusterProfiler` just as we did in the gene
+ontology lesson.
+
+```{r}
+# Run GO enrichment
+go_results_proteome <- clusterProfiler::enrichGO(
+  gene = ID_protein_up_30min,
+  OrgDb = "org.Sc.sgd.db",
+  keyType = "ORF",
+  ont = "ALL"
+) |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+# take a peak at the results
+head(go_results_proteome)
+```
+
+##### Visualize GO enrichments
+
+```{r}
+# see start of the table
+data.frame(go_results_proteome) %>% head()
+
+# visualize top GO terms
+ggplot(go_results_proteome,
+       showCategory = 15,
+       aes(richFactor, fct_reorder(Description, richFactor))) +
+  geom_segment(aes(xend = 0, yend = Description)) +
+  geom_point(aes(color = p.adjust, size = Count)) +
+  scale_color_gradientn(
+    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+    trans = "log10",
+    guide = guide_colorbar(reverse = TRUE, order = 1)
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  xlab("Rich Factor") +
+  ylab(NULL) +
+  ggtitle("Enriched GO Categories") +
+  theme_bw()
+```
+
+#### KEGG
+
+We can also run KEGG enrichment on the same gene list of proteins
+upregulated at 30 minutes.
+
+```{r enrich-KEGG-protein}
+# Run our KEGG enrichment
+kegg_results_proteome <- clusterProfiler::enrichKEGG(gene = ID_protein_up_30min,
+                           organism = 'sce' #options: https://www.genome.jp/kegg/catalog/org_list.html
+                           )
+
+# take a peak at the results
+head(kegg_results_proteome)
+```
+
+```{r view-KEGG-protein, eval=FALSE}
+# create a table for the html file
+data.frame(kegg_results_proteome) %>% View()
+```
+
+```{r view-KEGG-proteomics}
+# Remove " - Saccharomyces cerevesiae" from each description entry for plotting
+kegg_results_proteome@result$Description <- kegg_results_proteome@result$Description %>% print() %>% str_replace_all(., fixed(" - Saccharomyces cerevisiae"), "")
+
+# browseKEGG(kegg_results, 'sce04213')  # longevity
+# browseKEGG(kegg_results, 'sce00500')  # Starch and sucrose metabolism
+
+
+dotplot(kegg_results_proteome, showCategory = 10) 
+```
+
+Cool, but that was only at the 30 minutes, do we have to do this for
+each gene list individually?
+
+### GO terms for each time point
+
+Thankfully not, we can input a list of gene names into `compareCluster`
+and call `enrichGO` or `enrichKEGG`. We do want to be cautious to not be
+p-hacking. I'm not necessarily interested in all of the time points.
+Rather than fishing, there are a few I want to see, so we can just make
+them all.
+
+```{r}
+# Generate a list containing DE genes for each time point, 
+# Here, we split by up vs down regulated
+ID_proteins_list <- results_proteome %>%
+  data.frame() %>%
+  tibble::rownames_to_column("ORF") %>%
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
+  mutate(Time = readr::parse_number(Time),
+         DE_name = case_when(DE_direction == 1 ~ "up",
+                             DE_direction == -1 ~ "down",
+                             TRUE~NA),
+         # create grouping variable
+         group=paste0("DE_",DE_name,"_0",Time, "min")) %>%
+  # modify names to pad leading 0's to fix time order
+  mutate(group = str_replace(group,"_0120", "_120")) %>%
+  mutate(group = str_replace(group,"_0240", "_240")) %>%
+  mutate(entrezID=AnnotationDbi::select(org.Sc.sgd.db,keys=ORF,columns="ENTREZID",
+      multiVals = "first")$ENTREZID) %>%
+  group_by(group) %>%
+  # only get genes that are DE
+  filter(DE_direction != 0) %>%
+  group_split() %>% # split into many lists
+  purrr::set_names(purrr::map_chr(., ~.x$group[1])) %>% # assign names
+  # get just the ORF names
+  map(., ~ .x |> pull(all_of("ORF")))
+```
+
+Run GO enrichment on all groups at once with `compareCluster`.
+
+For time, we just look at `ont="BP"`, we could also run this code with
+"ALL", it just takes much longer so for time we are only looking at
+"BP".
+
+```{r fig.height=18, fig.width=10, dpi=300}
+# Run GO enrichment
+GO_enrich_proteome_all <- clusterProfiler::compareCluster(
+                                  geneCluster   = ID_proteins_list, 
+                                  ont           = "BP",
+                                  OrgDb         = org.Sc.sgd.db,
+                                  pAdjustMethod = "BH",
+                                  pvalueCutoff  = 0.01,
+                                  qvalueCutoff  = 0.05,
+                                  readable      = FALSE,
+                                  fun           = 'enrichGO',
+                                  keyType       = 'ORF'
+                                  )  |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+
+dotplot(GO_enrich_proteome_all,
+        showCategory=5
+        # if we choose "ALL", we can show them all with facet.
+        #facet="ONTOLOGY",
+        ) + scale_x_discrete(guide = guide_axis(angle = 60))
+```
+
+```{r, eval=FALSE}
+# take a peak at the results
+head(GO_enrich_proteome_all)
+
+# create a table for the html file
+data.frame(GO_enrich_proteome_all) %>% View()
+```
+
+```{r fig.height=16, fig.width=12, dpi=600}
+# visualize top GO terms
+GO_enrich_proteome_all %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  # grab the top 10 GO terms per time point
+  slice_min(order_by=p.adjust, n = 10) %>%
+  separate_wider_delim(Cluster, delim = "_", names = c("junk","DE", "time")) %>%
+  ggplot(.,
+           showCategory = 5,
+           aes(richFactor, fct_reorder(Description, richFactor))) +
+      geom_segment(aes(xend = 0, yend = Description)) +
+      geom_point(aes(color = p.adjust, size = Count)) +
+      scale_color_gradientn(
+        colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+        trans = "log10",
+        guide = guide_colorbar(reverse = TRUE, order = 1)
+      ) +
+      scale_size_continuous(range = c(2, 10)) +
+      scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
+      xlab("Rich Factor") +
+      ylab(NULL) +
+      ggtitle("Enriched GO Categories") +
+      facet_grid(rows = vars(DE), cols = vars(time), scales = "free_y") +
+      theme_bw()
+
+# get rid of sticks to save space
+GO_enrich_proteome_all %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=p.adjust, n = 10) %>%
+  separate_wider_delim(Cluster, delim = "_", names = c("junk","DE", "time")) %>%
+  mutate(Time = readr::parse_number(time)) %>%
+  ggplot(.,
+           aes(as.factor(Time), fct_reorder(Description, richFactor))) +
+      geom_point(aes(color = p.adjust, size = Count)) +
+      scale_color_gradientn(
+        colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+        trans = "log10",
+        guide = guide_colorbar(reverse = TRUE, order = 1)
+      ) +
+      scale_size_continuous(range = c(2, 12)) +
+      scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
+      xlab("Time (minutes)") +
+      ylab(NULL) +
+      ggtitle("Enriched GO Categories") +
+      facet_wrap(~DE, scales = "free_y") +
+      theme_bw() +
+      theme(text = element_text(size=14))
+```
+
+If we wanted to cluster the genes to generate a heatmap from these
+values, we can do in Cluster 3.0, but here's an alternative using R.
+Let's start from our `res_all_proteome` object, which contains the
+estimated log2FC values for each gene in each contrast
+
+```{r}
+res_all_proteome_matrix <- res_all_proteome %>%
+  as.matrix()
+```
+
+Let's use k-means clustering for this. The fviz_nbclust function in the
+factoextra package has multiple methods for identifying the optimal
+number of clusters. The Gap method is arguably the most robust, but has
+been commented out here because it takes a long time to run.
+
+```{r}
+## Elbow method
+fviz_nbclust(scale(res_all_proteome_matrix), kmeans, method = "wss") +
+    geom_vline(xintercept = 4, linetype = 2)+
+  labs(subtitle = "Elbow method")
+
+## Silhouette method
+fviz_nbclust(scale(res_all_proteome_matrix), kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+
+## Gap statistic
+# nboot = 5 to keep the function speedy. 
+# recommended value: nboot= 500 for your analysis.
+# Use verbose = FALSE to hide computing progression.
+# set.seed(123)
+#fviz_nbclust(res_all_proteome_matrix, kmeans, nstart = 25,  method = "gap_stat", nboot = 5)+
+  #labs(subtitle = "Gap statistic method")
+```
+
+Based on the wss (elbow) method, let's use `k=4`. The ComplexHeatmap
+package has tools for clustering, and we'll use the
+ComplexHeatmap::pheatmap command. We are clustering the genes using k =
+4, and then performing hierarchical clustering within those clusters
+using Pearson correlation.
+
+```{r}
+set.seed(123)
+
+heatmap_protein <- res_all_proteome_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column("ORF") %>%
+  # get names of genes different at any time point
+  dplyr::filter(ORF %in% list_c(ID_proteins_list)) %>%
+  column_to_rownames("ORF") %>%
+  data.matrix() %>%
+  # scale(center=TRUE, scale=TRUE) %>%
+  ComplexHeatmap::pheatmap(cluster_cols=F,
+                           clustering_distance_rows = "correlation", 
+                           #clustering_distance_cols = "correlation",
+    row_km = 4,
+    show_rownames = F,
+    colorRampPalette(c(
+      "blue",
+      "white",
+      "red"
+    ))(25
+    ),
+    main = "Clustering of Protein levels of DE proteins over time",
+    # scale = "row", # Scale values in the direction of genes (rows)
+    breaks = c(-4,4),
+        heatmap_legend_param = list(direction = "horizontal", title="log2FC")
+  )
+
+# add the legend to bottom of the plot, and generate
+draw_heat_protein <- draw(heatmap_protein,
+    heatmap_legend_side = "bottom")
+
+# view the plot
+draw_heat_protein 
+```
+
+We can extract the gene names from each cluster and then perform
+functional enrichments all at once.
+
+```{r}
+# Get order of genes in the heatmap
+clusterlist <- row_order(draw_heat_protein)
+
+# create empty list to store genes in each cluster
+clusters_gene_list <- list()
+
+# get gene names for each cluster based on row order
+for (cluster in as.character(1:length(clusterlist))) {
+  clusters_gene_list[[paste0("Cluster:",cluster)]] <- heatmap_protein@row_names_param$labels[clusterlist[[cluster]]]
+}
+
+
+# run GO enrichment
+heatmap_GO <- clusterProfiler::compareCluster(geneCluster = clusters_gene_list, 
+                                  ont           = "ALL",
+                                  OrgDb = org.Sc.sgd.db,
+                                  pAdjustMethod = "BH",
+                                  pvalueCutoff  = 0.01,
+                                  qvalueCutoff  = 0.05,
+                                  readable      = FALSE,
+                                  fun =  'enrichGO',
+                                  keyType       = 'ORF',
+                                  universe      = rownames(res_all_proteome_matrix)
+                                  )  |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+
+# look at top terms for each cluster
+heatmap_GO %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=p.adjust, n = 10) %>%
+  View()
+```
+
+Finally, let's get a correlation matrix of all of these different time
+points. We see time the weakest correlation between the first and final
+time point, and better correlations at the closest time points.
+
+```{r}
+res_all_proteome_matrix %>%
+  cor(use="pairwise.complete.obs") %>%
+  corrplot::corrplot(method = "square", insig='blank',
+         addCoef.col ='white', number.cex = 0.8,
+         tl.srt=45,
+         title="Correlation of Protein Expression between Time points in Heat Shock",
+         # add this to make sure title isn't cut off
+         mar=c(0,0,2,0))
+```
+
+## Transcriptomic Time Series response to Heat Shock
+
+Let's grab a dataset of the transcriptome for time series response to
+heat shock. Our lab doesn't have this data, so we are using microarray
+dataset from <https://doi.org/10.1534/genetics.109.107268>.
+
+### load in the data
+
+```{r}
+transcriptome_HS <- read.delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/Eng_2010_HS_Arrays.tsv",
+                          sep="\t",
+                          header=T,
+                          row.names=1,
+                          check.names = F) |>
+  # there are some empty columns in the file, so we trim those off now
+  janitor::remove_empty()
+```
+
+Now, let's generate some metadata for this dataset as well.
+
+```{r}
+# generate metadata from Array expression data
+sample_metadata_transcriptome <- transcriptome_HS |>
+  colnames() |> # use column names of data
+  stringr::str_split(pattern=" Rep", # split names based on character pattern
+                     simplify = T) |> # Convert to a matrix
+  as_tibble(.name_repair = "unique") |> # convert to a data.frame
+  setNames(c("Time", "Replicate")) |> # add column nmaes
+  mutate(Sample = colnames(transcriptome_HS), # add column with original sample name
+         Measure = "RNA", # denote these values as proteomic
+         Time = as.factor(readr::parse_number(Time)) # make time a factor
+         ) %>%
+  # mutate()
+  relocate(Sample)
+```
+
+### Design matrix
+
+Now, let's create a design matrix with this information
+
+```{r designMatrix-transcriptome}
+time_transcriptome <- sample_metadata_transcriptome$Time
+replicate_transcriptome <- sample_metadata_transcriptome$Replicate
+design_transcriptome <- model.matrix(~ 0 + time_transcriptome + replicate_transcriptome)
+
+# beautify column names
+colnames(design_transcriptome) <- colnames(design_transcriptome) %>% 
+  str_replace_all("_transcriptome","")
+design_transcriptome
+```
+
+limma is an acronym for linear models for microarray data, so it's
+actually designed for this type of two-color microarray data.
+
+```{r}
+# fit linear model with limma
+fit_transcriptome <- lmFit(transcriptome_HS, design_transcriptome)
+
+# assign gene names
+fit_transcriptome$genes <- fit_transcriptome$genes[,c("ProbeName","Symbol","EntrezID")]
+
+
+# generate contrasts we are interested in learning about
+my.contrasts_transcriptome <- makeContrasts(time5 = time5, 
+                     time15 = time15,
+                     time30 = time30,
+                     time45 = time45,
+                     time60 = time60,
+                     time120 = time120,
+                     levels=design_transcriptome)
+
+# fit the linear model to these contrasts
+res_all_transcriptome <- contrasts.fit(fit_transcriptome, my.contrasts_transcriptome)
+
+
+# Run eBayes on all contrasts
+res_all_transcriptome <- eBayes(res_all_transcriptome)
+
+# get top results
+top.table_transcriptome <- topTable(res_all_transcriptome, sort.by = "F", n = Inf)
+head(top.table_transcriptome, 20)
+```
+
+```{r, eval=FALSE}
+# look at the top table gene results
+top.table_transcriptome %>%
+  as_tibble(rownames = "ORF") %>%
+  arrange(adj.P.Val) %>%
+  mutate(across(where(is.numeric), signif, 3)) %>%
+  View()
+
+# look at a detailed summary of the number DE in each time
+res_all_transcriptome |>
+  decideTests(p.value=0.01) |> 
+  data.frame() |>
+  tibble::rownames_to_column("ORF") |>
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") |>
+  mutate(Time = readr::parse_number(Time)) |>
+  group_by(Time, DE_direction) |>
+  filter(DE_direction != 0) |>
+  summarise(n=n(),genes=toString(ORF)) |> 
+  View()
+```
+
+We can also get the results of the DE counts in each contrast with
+`summary()` on `decideTests()`
+
+```{r}
+summary(decideTests(res_all_transcriptome, p.value=0.01))
+```
+
+We could visualize these results in all of the ways we did above for the
+protein data, but for brevity, let's just make one plot:
+
+```{r}
+plot_summary_bars_transcriptome <- print(
+  res_all_transcriptome |>
+  decideTests(p.value=0.01) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
+  group_by(contrast) %>%
+  # because there are NA microarray values, we need to drop those now:
+  drop_na() %>%
+  summarise(
+    upregulated = sum(DE_direction == 1),
+    downregulated = sum(DE_direction == -1)
+  ) %>%
+  pivot_longer(-contrast, names_to = "DE_direction", values_to = "n_genes") %>%
+  mutate(contrast_temp = readr::parse_number(contrast)) |> 
+ggplot(aes(
+  x = fct_rev(as.factor(contrast_temp)),
+  y = n_genes,
+  fill = DE_direction
+)) +
+  geom_col(position = "dodge") +
+  theme_bw() +
+  coord_flip() +
+  geom_text(aes(label = n_genes),
+            position = position_dodge(width = .9),
+            hjust = "inward") +
+  labs(x="Time (min)",
+       y = "Number of DE genes") +
+      ggtitle("Summary of gene expression changes over time") )
+```
+
+Do these results match what you'd expect to see? Maybe this will be
+easier as a direct comparison. We'll do that in the next section. But
+first, how do the expression time points compare with each other?
+
+```{r}
+# correlation plot of mRNA across time points
+res_all_transcriptome %>%
+  as.matrix() %>%
+  cor(use="pairwise.complete.obs") %>%
+  corrplot::corrplot(method = "square", insig='blank',
+         addCoef.col ='white', number.cex = 0.8,
+         tl.srt=45,
+         title="Correlation of Gene Expression between Time points in Heat Shock",
+         # add this to make sure title isn't cut off
+         mar=c(0,0,1,0))
+```
+
+Let's save the list of genes that are DE for each time point for gene
+expression. I want to split genes that are upregulated and downregulated
+into separate lists.
+
+```{r}
+# list of the upregulated DE genes in each contrast
+ID_transcriptome_list_up <- res_all_transcriptome %>%
+  decideTests(p.value=0.01) %>%
+  data.frame() %>%
+  tibble::rownames_to_column("ORF") %>%
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
+  mutate(Time = readr::parse_number(Time),
+         DE_name = case_when(DE_direction == 1 ~ "up",
+                             DE_direction == -1 ~ "down",
+                             TRUE~NA),
+         group=paste0("DE_",DE_name,"_",Time, "min")) %>%
+  mutate(entrezID=AnnotationDbi::select(org.Sc.sgd.db,keys=ORF,columns="ENTREZID",
+      multiVals = "first")$ENTREZID) %>%
+  group_by(group) %>%
+  filter(DE_direction > 0) %>%
+  group_split() %>% # split into many lists
+  purrr::set_names(purrr::map_chr(., ~.x$group[1])) %>% # assign names
+  map(., ~ .x |> pull(all_of("ORF"))) # grab just the gene names
+
+
+# list of the downregulated DE genes in each contrast
+ID_transcriptome_list_down <- res_all_transcriptome %>%
+  decideTests(p.value=0.01) %>%
+  data.frame() %>%
+  tibble::rownames_to_column("ORF") %>%
+  tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
+  mutate(Time = readr::parse_number(Time),
+         DE_name = case_when(DE_direction == 1 ~ "up",
+                             DE_direction == -1 ~ "down",
+                             TRUE~NA),
+         group=paste0("DE_",DE_name,"_",Time, "min")) %>%
+  mutate(entrezID=AnnotationDbi::select(org.Sc.sgd.db,keys=ORF,columns="ENTREZID",
+      multiVals = "first")$ENTREZID) %>%
+  group_by(group) %>%
+  filter(DE_direction < 0) %>%
+  group_split() %>% # split into many lists
+  purrr::set_names(purrr::map_chr(., ~.x$group[1])) %>% # assign names
+  map(., ~ .x |> pull(all_of("ORF"))) # grab just the gene names
+```
+
+## Multi-omic comparison
+
+Now, let's create a side-by-side DE gene total graph. Here is an easy
+way to combine graphs we've made.
+
+```{r fig.height=6, fig.width=9, dpi=600}
+ggpubr::ggarrange(plot_summary_bars_transcriptome, plot_summary_bars_proteome,
+          ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
+```
+
+How do these data correlate with each other? Let's find out. To do this,
+we've defined a function below to plot their correlations.
+
+```{r}
+perform_correlation_analysis <- function(data_proteome, data_transcriptome, gene_list, analysis_type, title) {
+  merged_data <- full_join(
+    data_proteome %>%
+      as.matrix() %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("ORF"),
+    data_transcriptome %>%
+      as.matrix() %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("ORF"),
+    by = "ORF"
+  )
+
+  if (!is.null(gene_list)) {
+    filtered_data <- merged_data %>%
+      dplyr::filter(ORF %in% gene_list) %>%
+      column_to_rownames("ORF") %>%
+      as.matrix()
+
+    correlation_matrix <- cor(filtered_data,
+                              use = "pairwise.complete.obs") %>%
+                              as.data.frame() %>%
+                              tibble::rownames_to_column("group") %>%
+                              filter(str_detect(group, '.y')) %>%
+                              mutate(group = str_replace(group, ".y", "")) %>%
+                              mutate(group = str_replace(group, "time", "")) %>%
+                              dplyr::select(!contains(".y")) %>%
+                              rename_with( ~ str_remove(., '.x')) %>%
+                              rename_with( ~ str_remove(., 'time')) %>%
+                              column_to_rownames("group") %>%
+                              as.matrix()
+
+    corrplot::corrplot(
+      correlation_matrix,
+      method = "color",
+      insig = "blank",
+      is.corr = FALSE,
+      addCoef.col = "black",
+      col = colorRampPalette(c("red", "white", "blue"))(200),
+      col.lim = c(-1, 1),
+      number.cex = 0.8,
+      tl.srt = 45,
+      mar=c(1,0,4,0),
+      title = title
+    )
+
+    mtext(text = "mRNA (min)", side = 2, line = 0, at = 3.5, las = 0)
+    mtext(text = "Protein (min)", side = 3, line = 0, at = 5, las = 0)
+  }
+}
+```
+
+```{r}
+# Combine the up and down gene lists
+ID_transcriptome_list <- c(list_c(ID_transcriptome_list_up), list_c(ID_transcriptome_list_down))
+
+# Correlation including all genes
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  ID_transcriptome_list,
+  "combined",
+  "Combined Correlation of Protein and Gene Expression"
+)
+
+# Analyze correlation of only upregulated genes
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  list_c(ID_transcriptome_list_up),
+  "upregulated",
+  "Correlation of Upregulated Genes (Protein vs. Gene Expression)"
+)
+
+# Analyze correlation of only downregulated genes
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  list_c(ID_transcriptome_list_down),
+  "downregulated",
+  "Correlation of Downregulated Genes (Protein vs. Gene Expression)"
+)
+
+
+# Analyze the correlation across ALL genes, (not just DE genes)
+perform_correlation_analysis(
+  res_all_proteome,
+  res_all_transcriptome,
+  rownames(res_all_proteome_matrix),
+  "combined",
+  "Correlation of ALL Genes (Protein vs. Gene Expression)"
+)
+```
+
+## Questions
+
+Question 1: For the proteomics data, what are the functions of the
+proteins that are responding the most rapidly and strongly.
+
+Question 2: How is the intersection between differentially expressed
+gene sets calculated, and why is it relevant?
+
+Question 3: Which time point of gene (mRNA) expression showed the
+highest correlation with changes in protein abundance?
+
+Question 4: Does the pattern of responses at the mRNA and protein levels
+match your expectations?
+
+Question 5: Why do you think the correlation between mRNA and protein
+levels is worse for the repressed genes?
+
+Be sure to knit this file into a pdf or html file once you're finished.
+
+System information for reproducibility:
+
+```{r sessionInfo-limma}
+pander::pander(sessionInfo())
+```

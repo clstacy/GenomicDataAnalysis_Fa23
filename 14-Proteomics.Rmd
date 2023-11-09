@@ -157,13 +157,10 @@ fit_all_proteome <- contrasts.fit(fit_proteome,
                                   my.contrasts_proteome)
 
 # This looks at all of our contrasts in my.contrasts
-res_all_proteome <- treat(fit_all_proteome,
-                 fc = 1.2,
-                 robust = TRUE
-                 )
+res_all_proteome <- eBayes(fit_all_proteome)
 
 # save top results to an object
-top.table_proteome <- topTable(res_all_proteome, sort.by = "p", n = Inf)
+top.table_proteome <- topTable(res_all_proteome, sort.by = "F", n = Inf)
 
 # see the first few entries
 head(top.table_proteome, 20)
@@ -180,15 +177,15 @@ top.table_proteome %>%
 
 Create a summary output of DE proteins across each time point (compared to time=0)
 ```{r}
-summary(decideTests(res_all_proteome))
+summary(decideTests(res_all_proteome, p.value=0.05))
 ```
 
-You can change the `lfc` parameter in the `treat()` code above, and see how this results summary changes.
+You can change the `p.value` parameter in the code above, and see how this results summary changes.
 
 If we want a detailed look at how many proteins are up or down DE at each time point, the code below will generate that and open it in a new window
 ```{r, eval=FALSE}
 res_all_proteome |>
-  decideTests() |> 
+  decideTests(p.value=0.05) |> 
   data.frame() |>
   tibble::rownames_to_column("ORF") |>
   tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") |>
@@ -203,7 +200,7 @@ Let's plot that information
 
 ```{r}
 plot_summary_bars_proteome <- print(res_all_proteome |>
-  decideTests() %>%
+  decideTests(p.value=0.05) %>%
   as.data.frame() %>%
   rownames_to_column("gene") %>%
   pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
@@ -288,7 +285,7 @@ View Upset Plots:
 ```{r}
 # save decideTests output
 results_proteome <- res_all_proteome |>
-    decideTests()
+    decideTests(p.value=0.05)
 
 # select genes that are upregulated
 results_up <- results_proteome[rowSums(results_proteome) > 0, ]
@@ -345,8 +342,8 @@ head(go_results_proteome)
 
 ##### Visualize GO enrichments
 ```{r}
-# create a table for the html file
-data.frame(go_results_proteome) %>% View()
+# see start of the table
+data.frame(go_results_proteome) %>% head()
 
 # visualize top GO terms
 ggplot(go_results_proteome,
@@ -381,7 +378,7 @@ kegg_results_proteome <- clusterProfiler::enrichKEGG(gene = ID_protein_up_30min,
 head(kegg_results_proteome)
 ```
 
-```{r view-KEGG-protein, eval=FALSE}}
+```{r view-KEGG-protein, eval=FALSE}
 # create a table for the html file
 data.frame(kegg_results_proteome) %>% View()
 ```
@@ -434,7 +431,7 @@ ID_proteins_list <- results_proteome %>%
 Run GO enrichment on all groups at once with `compareCluster`.
 
 For time, we just look at `ont="BP"`, we could also run this code with "ALL", it just takes much longer so for time we are only looking at "BP".
-```{r fig.height=18, fig.width=8, dpi=300}
+```{r fig.height=18, fig.width=10, dpi=300}
 # Run GO enrichment
 GO_enrich_proteome_all <- clusterProfiler::compareCluster(
                                   geneCluster   = ID_proteins_list, 
@@ -563,9 +560,7 @@ heatmap_protein <- res_all_proteome_matrix %>%
                            clustering_distance_rows = "correlation", 
                            #clustering_distance_cols = "correlation",
     row_km = 4,
-    column_km = 3,
     show_rownames = F,
-    # color = rev(brewer.pal(5, "RdBu")),
     colorRampPalette(c(
       "blue",
       "white",
@@ -708,13 +703,12 @@ my.contrasts_transcriptome <- makeContrasts(time5 = time5,
 # fit the linear model to these contrasts
 res_all_transcriptome <- contrasts.fit(fit_transcriptome, my.contrasts_transcriptome)
 
-# Run treat on all contrasts
-res_all_transcriptome <- treat(res_all_transcriptome,
-                               lfc=1, # higher than for proteome, since more differences
-                               robust=TRUE)
+
+# Run eBayes on all contrasts
+res_all_transcriptome <- eBayes(res_all_transcriptome)
 
 # get top results
-top.table_transcriptome <- topTreat(res_all_transcriptome, sort.by = "p", n = Inf)
+top.table_transcriptome <- topTable(res_all_transcriptome, sort.by = "F", n = Inf)
 head(top.table_transcriptome, 20)
 ```
 
@@ -728,7 +722,7 @@ top.table_transcriptome %>%
 
 # look at a detailed summary of the number DE in each time
 res_all_transcriptome |>
-  decideTests() |> 
+  decideTests(p.value=0.01) |> 
   data.frame() |>
   tibble::rownames_to_column("ORF") |>
   tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") |>
@@ -741,7 +735,7 @@ res_all_transcriptome |>
 
 We can also get the results of the DE counts in each contrast with `summary()` on `decideTests()`
 ```{r}
-summary(decideTests(res_all_transcriptome))
+summary(decideTests(res_all_transcriptome, p.value=0.01))
 ```
 
 We could visualize these results in all of the ways we did above for the protein data, but for brevity, let's just make one plot:
@@ -749,7 +743,7 @@ We could visualize these results in all of the ways we did above for the protein
 ```{r}
 plot_summary_bars_transcriptome <- print(
   res_all_transcriptome |>
-  decideTests() %>%
+  decideTests(p.value=0.01) %>%
   as.data.frame() %>%
   rownames_to_column("gene") %>%
   pivot_longer(-gene, names_to = "contrast", values_to = "DE_direction") %>%
@@ -798,7 +792,7 @@ Save list of genes that are DE for each time point for gene expression. I want t
 ```{r}
 # list of the upregulated DE genes in each contrast
 ID_transcriptome_list_up <- res_all_transcriptome %>%
-  decideTests() %>%
+  decideTests(p.value=0.01) %>%
   data.frame() %>%
   tibble::rownames_to_column("ORF") %>%
   tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
@@ -818,7 +812,7 @@ ID_transcriptome_list_up <- res_all_transcriptome %>%
 
 # list of the downregulated DE genes in each contrast
 ID_transcriptome_list_down <- res_all_transcriptome %>%
-  decideTests() %>%
+  decideTests(p.value=0.01) %>%
   data.frame() %>%
   tibble::rownames_to_column("ORF") %>%
   tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%

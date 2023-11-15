@@ -482,341 +482,90 @@ head(edge_list_var_genes)
 ```
 
 ```{r fig.height=12, fig.width=12}
+# correlation cutoff
+corr_cutoff = 0.3
+
 # first, create adjacency matrix
 adjacency = adjacency(variable_genes_matrix, power=12, type="signed")
-# # ensure bound from 0,1 as is corr
-# adjacency[adjacency < 0] = 0
-# adjacency[adjacency > 1] = 1
+
 # Calculate topological overlap matrix and dissimilarity from adjacency matrix
 TOM = TOMsimilarity(adjacency, TOMType="signed")
 
 # Add gene names to row and columns
-row.names(TOM) = AnnotationDbi::select(org.Sc.sgd.db,keys=row.names(adjacency),columns="GENENAME") %>% mutate(label = case_when(
+rownames(TOM) = AnnotationDbi::select(org.Sc.sgd.db,keys=row.names(adjacency),columns="GENENAME") %>% mutate(label = case_when(
   is.na(GENENAME) ~ ORF,
-  TRUE ~ GENENAME
-)) %>% pull(label)
+  TRUE ~ GENENAME)) %>% pull(label)
+
+
 colnames(TOM) = AnnotationDbi::select(org.Sc.sgd.db,keys=row.names(adjacency),columns="GENENAME") %>% mutate(label = case_when(
   is.na(GENENAME) ~ ORF,
-  TRUE ~ GENENAME
-)) %>% pull(label)
+  TRUE ~ GENENAME)) %>% pull(label)
 
 # assign TOM to new variable
 adj <- TOM
-# only show correlations greater than 0.3
-adj[adj > 0.3] = 1
+
+# only show correlations greater than corr_cutoff
+adj[adj > corr_cutoff] = 1
+
 # set all correlations below that threshold to 0
 adj[adj != 1] = 0
+
 # graph adjacency network
 network_graph_data <- graph.adjacency(adj)
+
 # remove redundant elf-loops in the network
 network_graph_data <- simplify(network_graph_data)
-# cor <- WGCNA::cor
-# results <- WGCNA::blockwiseModules(input_mat, power=12, TOMType="signed", networkType="signed")
-# cor <- stats::cor
 
 # add colors for the network graph from constructed network modules
 V(network_graph_data)$color <- variable_genes_network$colors
+
+# set plotting margins
 par(mar=c(0,0,0,0))
 # remove unconnected nodes
-network_graph_data <- delete.vertices(network_graph_data, degree(network_graph_data)==0)
-# plot(network_graph_data, layout=layout.fruchterman.reingold(network_graph_data, niter=10000),type="o")
-# plot(network_graph_data, layout=layout_with_mds(network_graph_data), edge.arrow.size = 0.1)
+network_graph_data <- delete.vertices(network_graph_data,
+                                      degree(network_graph_data)==0)
+
 
 plot(network_graph_data, 
      layout=layout.fruchterman.reingold(network_graph_data, niter=1000),
      vertex.size=3,edge.arrow.size=0.1, 
      vertex.label.cex = 0.01,  # increase this value to see gene names
-     vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1))
+     vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1),
+     main = "Network plot for most variable genes")
 ```
 
 
-# use logFC data instead
-```{r fig.height=8, fig.width=8}
-FC_list <- read_delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz",
-    delim = "\t", escape_double = FALSE, 
-    name_repair = "universal",
-    show_col_types=FALSE,
-    trim_ws = TRUE) %>%
-  dplyr::select(ID, contains("logFC")) %>%
-  dplyr::select(ID, contains(".v.")) %>%
-  column_to_rownames("ID")
-
-FC_list_t <- t(FC_list)
-cv_wpn <- matrixStats::colVars(FC_list_t)
-# get variance corresponding to 95th percentile
-q95_wpn <- quantile( matrixStats::colVars(FC_list_t), .95)  # <= changed to 95 quantile 
-
-# to reduce dataset, only get genes with variance greater than above
-FC_list_t <- FC_list_t[, cv_wpn > q95_wpn ]
-
-adjacency = adjacency(FC_list_t, power=12, type="signed")
-adjacency[adjacency < 0] = 0
-adjacency[adjacency > 1] = 1
-TOM = TOMsimilarity(adjacency, TOMType="unsigned")
-
-# Add gene names to row and columns
-row.names(TOM) = AnnotationDbi::select(org.Sc.sgd.db,keys=row.names(adjacency),columns="GENENAME") %>% mutate(label = case_when(
-  is.na(GENENAME) ~ ORF,
-  TRUE ~ GENENAME
-)) %>% pull(label)
-colnames(TOM) = AnnotationDbi::select(org.Sc.sgd.db,keys=row.names(adjacency),columns="GENENAME") %>% mutate(label = case_when(
-  is.na(GENENAME) ~ ORF,
-  TRUE ~ GENENAME
-)) %>% pull(label)
-
-adj <- TOM
-adj[adj > 0.3] = 1
-adj[adj != 1] = 0
-network <- graph.adjacency(adj)
-network <- simplify(network)  # removes self-loops
-cor <- WGCNA::cor
-results <- WGCNA::blockwiseModules(FC_list_t, power=12, TOMType="unsigned", networkType="unsigned")
-cor <- stats::cor
-V(network)$color <- results$colors
-par(mar=c(0,0,0,0))
-# remove unconnected nodes
-network <- delete.vertices(network, degree(network)==0)
-# network <- delete.vertices(network, V(network)$color=="blue")
-# network <- delete.vertices(network, V(network)$color=="yellow")
-plot(network, layout=layout.fruchterman.reingold(network, niter=1000),
-     vertex.size=3,edge.arrow.size=0.1, vertex.label.cex = 0.05,  vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1))
-# plot(network, layout=layout_with_mds(network), vertex.label.cex = 0.5,
-#      edge.arrow.size = 0.1, vertex.size=7,rescale=FALSE)
-
-# plot(network, layout=layout_on_grid(network),
-#      vertex.size=5,edge.arrow.size=0.1, vertex.label.cex = 0.5,rescale=TRUE)#, ylim=c(-5,-2),xlim=c(-8,5), asp = 1)
 
 
-```
+## Network using genes identified as Differentially Expressed
 
-
-```{r fig.height=16, fig.width=8}
-module_df <- data.frame(
-  gene_id = names(results$colors),
-  colors = labels2colors(results$colors)
-)
-
-# Convert labels to colors for plotting
-mergedColors = labels2colors(results$colors)
-# Plot the dendrogram and the module colors underneath
-plotDendroAndColors(
-  results$dendrograms[[1]],
-  mergedColors[results$blockGenes[[1]]],
-  "Module colors",
-  dendroLabels = FALSE,
-  hang = 0.03,
-  addGuide = TRUE,
-  guideHang = 0.05 )
-
-
-# pick out a few modules of interest here
-modules_of_interest = c("midnightblue", "lightyellow", "cyan", "blue", "salmon", "turquoise", "royalblue", "purple", "lightcyan", "red", "lightgreen", "yellow", "grey60", "green", "brown", "tan", "pink", "greenyellow", "magenta", "black")
-
-# Pull out list of genes in that module
-submod = module_df %>%
-  subset(colors %in% modules_of_interest)
-
-row.names(module_df) = module_df$gene_id
-
-# Get normalized expression for those genes
-subexpr = FC_list[submod$gene_id,]
-
-submod_df = data.frame(subexpr) %>%
-  mutate(
-    gene_id = row.names(.)
-  ) %>%
-  pivot_longer(-gene_id) %>%
-  mutate(
-    module = module_df[gene_id,]$colors
-  )
-
-submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
-  geom_line(aes(color = module),
-            alpha = 0.2) +
-  theme_bw() +
-  theme(
-    axis.text.x = element_text(angle = 40)
-  ) +
-  facet_grid(rows = vars(module), 
-             # scales = "free_y"
-             ) +
-  scale_color_identity() + 
-  labs(x = "treatment",
-       y = "normalized expression")# +
-  # scale_y_log10()
-```
-
+Our network so far didn't use any prior information about genes to include or exclude, just those that are most variable. We do have information about the genes that are considered differentially expressed in their corresponding genotype and environment. What does the network look like if we build it based on those genes that have been identified as differentially expressed?
 
 ```{r}
-# Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(FC_list_t, mergedColors)$eigengenes
+# set FDR threshold for being considered a DE gene, 
+# this is applied to the data we are loading in here.
+FDR_cutoff <- 0.01
 
-# Reorder modules so similar modules are next to each other
-MEs0 <- orderMEs(MEs0)
-module_order = names(MEs0) %>% gsub("ME","", .)
-
-# Add treatment names
-MEs0$treatment = row.names(MEs0)
-
-# tidy & plot data
-mME = MEs0 %>%
-  pivot_longer(-treatment) %>%
-  mutate(
-    name = gsub("ME", "", name),
-    name = factor(name, levels = module_order)
-  )
-
-mME %>% ggplot(., aes(x=treatment, y=name, fill=value)) +
-  geom_tile() +
-  theme_bw() +
-  scale_fill_gradient2(
-    low = "blue",
-    high = "red",
-    mid = "white",
-    midpoint = 0,
-    limit = c(-1,1)) +
-  theme(axis.text.x = element_text(angle=20)) +
-  labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
-```
-
-
-GO enrichment on those modules
-```{r}
-go_results_yellow <- clusterProfiler::enrichGO(
-  gene = submod_df %>% filter(module=="lightyellow") %>% pull(gene_id) %>% unique(),
-  OrgDb = "org.Sc.sgd.db",
-  keyType = "ORF",
-  ont = "ALL"
-) |>
-  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
-  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
-
-# take a peak at the results
-head(go_results_yellow)
-
-ggplot(go_results_yellow,
-       showCategory = 15,
-       aes(richFactor, fct_reorder(Description, richFactor))) +
-  geom_segment(aes(xend = 0, yend = Description)) +
-  geom_point(aes(color = p.adjust, size = Count)) +
-  scale_color_gradientn(
-    colours = c("#f7ca64", "#46bac2", "#7e62a3"),
-    trans = "log10",
-    guide = guide_colorbar(reverse = TRUE, order = 1)
-  ) +
-  scale_size_continuous(range = c(2, 10)) +
-  xlab("Rich Factor") +
-  ylab(NULL) +
-  ggtitle("Enriched GO Categories") +
-  theme_bw()
-```
-```{r fig.height=18, fig.width=8}
-# create list of genes in each one
-ID_network_list <- submod_df %>%
-  # data.frame() %>%
-  # tibble::rownames_to_column("ORF") %>%
-  # tidyr::pivot_longer(-ORF,names_to="Time", values_to = "DE_direction") %>%
-  # mutate(Time = readr::parse_number(Time),
-  #        DE_name = case_when(DE_direction == 1 ~ "up",
-  #                            DE_direction == -1 ~ "down",
-  #                            TRUE~NA),
-  #        # create grouping variable
-  #        group=paste0("DE_",DE_name,"_0",Time, "min")) %>%
-  # # modify names to pad leading 0's to fix time order
-  # mutate(group = str_replace(group,"_0120", "_120")) %>%
-  # mutate(group = str_replace(group,"_0240", "_240")) %>%
-  # mutate(entrezID=AnnotationDbi::select(org.Sc.sgd.db,keys=ORF,columns="ENTREZID",
-  #     multiVals = "first")$ENTREZID) %>%
-  group_by(module) %>%
-  # only get genes that are DE
-  # filter(DE_direction != 0) %>%
-  group_split() %>% # split into many lists
-  purrr::set_names(purrr::map_chr(., ~.x$module[1])) %>% # assign names
-  # get just the ORF names
-  map(., ~ .x |> pull(all_of("gene_id")))
-
-
-GO_enrich_network_all <- clusterProfiler::compareCluster(
-                                  geneCluster   = ID_network_list, 
-                                  ont           = "BP",
-                                  OrgDb         = org.Sc.sgd.db,
-                                  pAdjustMethod = "BH",
-                                  pvalueCutoff  = 0.05,
-                                  qvalueCutoff  = 0.05,
-                                  readable      = FALSE,
-                                  fun           = 'enrichGO',
-                                  keyType       = 'ORF'
-                                  )  |>
-  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
-  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
-
-
-clusterProfiler::dotplot(GO_enrich_network_all,
-        showCategory=10
-        # if we choose "ALL", we can show them all with facet.
-        #facet="ONTOLOGY",
-        ) + scale_x_discrete(guide = guide_axis(angle = 60))
-
-
-# get rid of sticks to save space
-GO_enrich_network_all %>%
-# GO_enrich_proteome_all %>%
-  as.data.frame() %>% 
-  group_by(Cluster) %>%
-  slice_min(order_by=p.adjust, n = 8) %>%
-  # separate_wider_delim(Cluster, delim = "_", names = c("junk","DE", "time")) %>%
-  # mutate(Time = readr::parse_number(time)) %>%
-  ggplot(.,
-           aes(Cluster, fct_reorder(Description, richFactor))) +
-      geom_point(aes(color = p.adjust, size = Count)) +
-      scale_color_gradientn(
-        colours = c("#f7ca64", "#46bac2", "#7e62a3"),
-        trans = "log10",
-        guide = guide_colorbar(reverse = TRUE, order = 1)
-      ) +
-      scale_size_continuous(range = c(2, 12)) +
-      scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
-      xlab("Time (minutes)") +
-      ylab(NULL) +
-      ggtitle("Enriched GO Categories") +
-      # facet_wrap(~DE, scales = "free_y") +
-      theme_bw() +
-      theme(text = element_text(size=14))
-```
-
-
-
-I want to use just the counts, and build a network for each different knockout+stress combination? Could group either by mutant, stress, or both. It feels like both makes most sense.
-
-
-### Network using only DE genes
-
-```{r}
-
-# DE_genes
-DE_genes <- read_delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz",
-    delim = "\t", escape_double = FALSE, 
+# Load in DE gene summary
+DE_genes <- readr::read_delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/DE_yeast_TF_stress.txt.gz",
+    delim = "\t", 
+    escape_double = FALSE, 
     name_repair = "universal",
     show_col_types=FALSE,
     trim_ws = TRUE) %>%
   dplyr::select(ID, contains("FDR")) %>%
   dplyr::select(ID, contains(".v.")) %>%
   pivot_longer(-ID, names_to = "contrast", values_to = "FDR") %>%
-  filter(FDR < 0.01) %>%
+  # only get genes with FDR < 0.01
+  filter(FDR < FDR_cutoff) %>%
   pull(ID) %>%
   unique()
 
-
-counts_DE <- read.delim('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/YPS606_TF_Rep1_4_ExpectedCounts.txt',
-    sep = "\t",
-    header = T,
-    row.names = 1
-  ) %>%
+# subset the counts to only be counts for genes that are DE
+counts_DE <- counts %>%
   rownames_to_column("ORF") %>%
   dplyr::filter(ORF %in% DE_genes) %>%
   column_to_rownames("ORF")
-
-
 
 # read into a DGElist
 y_DE <- edgeR::DGEList(counts_DE,
@@ -827,24 +576,22 @@ y_DE <- edgeR::DGEList(counts_DE,
                     genes = rownames(counts_DE)
                     )
 
-
-# filter low counts
+# filter low counts (note none are filtered here)
 keep_DE <- rowSums(cpm(y_DE) > 1) >= 4
 y_DE <- y_DE[keep_DE,]
 
 # normalize with cpm
-normalized_counts_DE <- cpm(y_DE,
-                         log = FALSE)
-
-expr_normalized_DE <- normalized_counts_DE#[ rv_wpn > q975_wpn, ]
+normalized_counts_DE_genes <- cpm(y_DE,
+                         log = TRUE)
 
 
-input_mat = t(expr_normalized_DE)
+
+DE_genes_matrix = t(normalized_counts_DE_genes)
 
 picked_power = 7
 temp_cor <- cor       
 cor <- WGCNA::cor         # Force it to use WGCNA cor function (fix a namespace conflict issue)
-netwk <- blockwiseModules(input_mat,                # <= input here
+netwk <- blockwiseModules(DE_genes_matrix,                # <= input here
 
                           # == Adjacency Function ==
                           power = picked_power,                # <= power here
@@ -898,7 +645,7 @@ module_df <- data.frame(
 
 ```{r}
 # Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(input_mat, mergedColors)$eigengenes
+MEs0 <- moduleEigengenes(DE_genes_matrix, mergedColors)$eigengenes
 
 # Reorder modules so similar modules are next to each other
 MEs0 <- orderMEs(MEs0)
@@ -1022,7 +769,7 @@ powers = c(c(1:10), seq(from = 12, to = 20, by = 2))
 
 # Call the network topology analysis function
 sft = pickSoftThreshold(
-  input_mat,             # <= Input data
+  DE_genes_matrix,             # <= Input data
   #blockSize = 30,
   powerVector = powers,
   verbose = 5
@@ -1057,7 +804,7 @@ text(sft$fitIndices[, 1],
 It looks like power=7 or 8 is reasonable. Let's try with 7.
 
 ```{r fig.height=12, fig.width=12}
-adjacency = adjacency(input_mat, power=7, type="signed")
+adjacency = adjacency(DE_genes_matrix, power=7, type="signed")
 adjacency[adjacency < 0] = 0
 adjacency[adjacency > 1] = 1
 TOM = TOMsimilarity(adjacency, TOMType="signed")
@@ -1077,9 +824,9 @@ adj[adj > 0.3] = 1
 adj[adj != 1] = 0
 network <- graph.adjacency(adj)
 network <- simplify(network)  # removes self-loops
-cor <- WGCNA::cor
-results <- WGCNA::blockwiseModules(input_mat, power=7, TOMType="signed", networkType="signed")
-cor <- stats::cor
+# cor <- WGCNA::cor
+# results <- WGCNA::blockwiseModules(input_mat, power=7, TOMType="signed", networkType="signed")
+# cor <- stats::cor
 V(network)$color <- results$colors
 par(mar=c(0,0,0,0))
 # remove unconnected nodes
@@ -1111,7 +858,7 @@ plotDendroAndColors(
 
 ```{r fig.height=6, fig.width=8}
 # Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(input_mat, mergedColors)$eigengenes
+MEs0 <- moduleEigengenes(DE_genes_matrix, mergedColors)$eigengenes
 
 # Reorder modules so similar modules are next to each other
 MEs0 <- orderMEs(MEs0)

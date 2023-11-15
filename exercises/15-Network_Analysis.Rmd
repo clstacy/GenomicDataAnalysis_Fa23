@@ -39,32 +39,10 @@ if (!require("WGCNA")) BiocManager::install("WGCNA", force=TRUE); library(WGCNA)
 p_load("edgeR")
 p_load("matrixStats")
 p_load("org.Sc.sgd.db")
+p_load("AnnotationDbi")
 p_load("cowplot")
 p_load("igraph")
-# p_load("AnnotationDbi", "org.Sc.sgd.db", "ggVennDiagram")
-# p_load("janitor")
-# p_load("RColorBrewer")
-# p_load("UpSetR")
-# p_load("ComplexHeatmap")
-# p_load("enrichplot")
-# p_load("clusterProfiler")
-# p_load("factoextra", "NbClust")
-# p_load("ggpubr", "corrplot", "stringr", "tidyr")
-# #NOTE: edgeR loads limma as a dependency
-# library(ComplexHeatmap)
-# library(RColorBrewer)
-# library(limma)
-# library(org.Sc.sgd.db)
-# 
-# # choose number clusters
-# library(factoextra)
-# library(NbClust)
-# 
-# # corr plots
-# library(ggpubr)
-# library(corrplot)
-# library(stringr)
-# library(tidyr)
+
 ```
 
 ## Description
@@ -87,51 +65,48 @@ options(digits=3)
 
 ## Loading in the count data file
 
-*We are downloading the counts for the non-subsampled fastq files from a
+*We are downloading the expected raw counts from a
 Github repository using the code below. Just as in previous exercises,
 assign the data to the variable `counts`. You can change the file path
 if you have saved it to your computer in a different location.*
 
-```{r load-counts-raw, error=TRUE}
-# proteome_HS <- read.delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/heat_shock/proteomic_FC/HS_Proteomics_Data.txt",
-#                           sep="\t",
-#                           header=T,
-#                           row.names=1)
-
-# Load gene file used of raw counts 
+```{r load-counts-raw}
+# Load in raw counts for all samples
 counts <- read.delim('https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/main/data/YPS606_TF_Rep1_4_ExpectedCounts.txt',
     sep = "\t",
     header = T,
-    row.names = 1
+    row.names = 1 # convert first column to rownames
   )
 ```
 
 
 ```{r}
-col_sel = names(counts)     # Get all but first column name
-mdata <- counts %>%
+# tidy raw counts to visualize distributions
+tidy_counts <- counts %>%
   rownames_to_column("gene_id") %>%
   tidyr::pivot_longer(
     .,                        # The dot is the the input data, magrittr tutorial
-    col = all_of(col_sel)
+    col = -gene_id
     ) %>%  
   separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE)
 
 (
-p <- mdata %>%
-    ggplot(., aes(x = replicate, y = value)) +             # x = treatment, y = RNA Seq count
+p <- tidy_counts %>%
+    ggplot(., aes(x = replicate, y = value)) +        # x = treatment, y = RNA Seq count
     geom_violin() +                                   # violin plot, show distribution
-    geom_point(alpha = 0.2) +                         # scatter plot
+    geom_point(alpha = 0.2) +                         # add transparent points
     theme_bw() +
     theme(
       axis.text.x = element_text(angle = 90)          # Rotate treatment text
     ) +
     labs(x = "Treatment Groups", y = "RNA Seq Counts") +
-    facet_grid(cols = vars(stress),rows = vars(strain), drop = TRUE, scales = "free_x")      # Facet by hour
+    facet_grid(cols = vars(stress), rows = vars(strain), drop = TRUE, scales = "free_x") +     # Facet by condition
+    # scale_y_log10() +
+    ggtitle("Raw count distributions")
 )
 ```
 
-Let's use edgeR to normalize.
+Let's use edgeR to normalize the raw counts
 
 ```{r}
 # read into a DGElist
@@ -143,7 +118,6 @@ y <- edgeR::DGEList(counts,
                     genes = rownames(counts)
                     )
 
-
 # filter low counts
 keep <- rowSums(cpm(y) > 1) >= 4
 y <- y[keep,]
@@ -152,60 +126,100 @@ y <- y[keep,]
 normalized_counts <- cpm(y,
                          log = TRUE)
 str(normalized_counts)
+```
 
-# get th row 
+Now that we've normalized, let's look at the distributions again
+
+```{r}
+# create data 
+tidy_normalized_counts <- normalized_counts %>%
+  data.frame() %>%
+  rownames_to_column("gene_id") %>%
+  tidyr::pivot_longer(
+    .,                        # The dot is the the input data, magrittr tutorial
+    col = -gene_id
+    ) %>%  
+  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE)
+
+(
+p_normalized <- tidy_normalized_counts %>%
+    ggplot(., aes(x = replicate, y = value)) +        # x = treatment, y = RNA Seq count
+    geom_violin() +                                   # violin plot, show distribution
+    geom_point(alpha = 0.2) +                         # add transparent points
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle = 90)          # Rotate treatment text
+    ) +
+    labs(x = "Treatment Groups", y = "normalized expression") +
+    facet_grid(cols = vars(stress),rows = vars(strain), drop = TRUE, scales = "free_x") +     # Facet by condition
+    # scale_y_log10() +
+    ggtitle("Normalized CPM distribution")
+)
+```
+
+For WGCNA, we don't want to correlate all of the genes because (1) computational limitation and (2) genes that vary a small amount increase the number of variables in the model, making it harder to be confident in the patterns we do see. One way to account for this is by subsetting our entire gene list. 
+
+One common approach for subsetting genes is taking genes whose variance is greater than the $n^{th}$ quantile of gene varainces. We'll do that now:
+
+```{r}
+# get the variance for each row (gene)
 rv_wpn <- matrixStats::rowVars(normalized_counts)
 
+# see a summary of the quantiles of variances
 summary(rv_wpn)
+```
 
+```{r}
+# get variance corresponding to 75th percentile
+q75_wpn <- quantile( matrixStats::rowVars(normalized_counts), .75)  # common cutoff
 
-# get variance corresponding to 95th percentile
-q95_wpn <- quantile( matrixStats::rowVars(normalized_counts), .95)  # <= changed to 95 quantile 
-# get variance corresponding to 97.5th percentile
-q975_wpn <- quantile( matrixStats::rowVars(normalized_counts), .975) 
+# 
+# # get variance corresponding to 95th percentile
+# q95_wpn <- quantile( matrixStats::rowVars(normalized_counts), .95)  # <= changed to 95 quantile 
 
 # to reduce dataset, only get genes with variance greater than above
-expr_normalized <- normalized_counts[ rv_wpn > q975_wpn, ]
+normalized_counts_variable_genes <- normalized_counts[ rv_wpn > q75_wpn, ]
 
-str(expr_normalized)
+str(normalized_counts_variable_genes)
 ```
 Notice the number of genes retained is much fewer now.
 
 What are the distributions of counts of the normalized cpm's of the retained genes?
 ```{r}
-expr_normalized_df <- data.frame(expr_normalized) %>%
-  mutate(
-    Gene_id = row.names(expr_normalized)
-  ) %>%
-  pivot_longer(-Gene_id)
+tidy_normalized_counts_variable_genes <- normalized_counts_variable_genes %>%
+  data.frame() %>%
+  rownames_to_column("gene_id") %>%
+  pivot_longer(-gene_id) %>%  
+  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE)
 
-expr_normalized_df %>% ggplot(., aes(x = name, y = value)) +
-  geom_violin() +
-  geom_point(alpha=0.5) +
-  theme_bw() +
-  theme(
-    axis.text.x = element_text( angle = 90)
-  ) +
-  ylim(0, NA) +
-  labs(
-    title = "Normalized and 95 quantile Expression",
-    x = "treatment",
-    y = "normalized expression"
-  )
+(
+p_normalized_varGenes <- tidy_normalized_counts_variable_genes %>%
+    ggplot(., aes(x = replicate, y = value)) +        # x = treatment, y = RNA Seq count
+    geom_violin() +                                   # violin plot, show distribution
+    geom_point(alpha = 0.2) +                         # add transparent points
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle = 90)          # Rotate treatment text
+    ) +
+    labs(x = "Treatment Groups", y = "normalized expression") +
+    facet_grid(cols = vars(stress),rows = vars(strain), drop = TRUE, scales = "free_x") +     # Facet by condition
+    # scale_y_log10() +
+    ggtitle("Normalized CPM distribution")
+)
 ```
 
-Now let’s transpose the data and prepare the dataset for WGCNA.
-
+For the analyses we've done so far, we've needed the columns to correspond to samples and the rows to correspond to genes. WGCNA expects the opposite, where columns are genes and rows are samples. We can use the transpose function in r `t()` in order to convert our data. Let's do that now
 ```{r}
-input_mat = t(expr_normalized)
+# transpose our normalized count matrix and save to new object
+variable_genes_matrix = t(normalized_counts_variable_genes)
 
 # Look at first 5 rows and 10 columns
-input_mat[1:5,1:10]           
+variable_genes_matrix[1:5,1:10]           
 ```
 
-We can see now that the rows = treatments and columns = gene probes. We’re ready to start WGCNA. A correlation network will be a complete network (all genes are connected to all other genes). Ergo we will need to pick a threshhold value (if correlation is below threshold, remove the edge). We assume the true biological network follows a scale-free structure (see papers by Albert Barabasi).
+We can see now that the `rows = treatments` and `columns = gene probes`. We’re ready to start WGCNA. A correlation network would be a complete network (all genes would be connected to all other genes). Hence we need to pick a threshhold value (if correlation is below threshold, remove the edge). We assume the true biological network follows a scale-free structure (see papers by Albert Barabasi).
 
-To do that, WGCNA will try a range of soft thresholds and create a diagnostic plot. This step will take several minutes so feel free to run and get coffee.
+To do that, WGCNA will try a range of soft thresholds and create a diagnostic plot. This step can take several minutes.
 
 ```{r}
 # library(WGCNA)
@@ -217,12 +231,13 @@ powers = c(c(1:10), seq(from = 12, to = 20, by = 2))
 
 # Call the network topology analysis function
 sft = pickSoftThreshold(
-  input_mat,             # <= Input data
+  variable_genes_matrix, # <= Input data
   #blockSize = 30,
   powerVector = powers,
   verbose = 5
   )
 ```
+Let's visualize those results
 
 ```{r}
 
@@ -253,13 +268,13 @@ text(sft$fitIndices[, 1],
      cex = cex1, col = "red")
 ```
 
-Pick a soft threshold power near the curve of the plot, so here we could pick 7, 8 or 9. We’ll pick 9 but feel free to experiment with other powers to see how it affects your results. Now we can create the network using the blockwiseModules command. The blockwiseModule may take a while to run, since it is constructing the TOM (topological overlap matrix) and several other steps. While it runs, take a look at the blockwiseModule documentation (link to vignette[https://www.rdocumentation.org/packages/WGCNA/versions/1.69/topics/blockwiseModules]) for more information on the parameters. How might you change the parameters to get more or less modules?
+Pick a soft threshold power near the curve of the plot. We’ll pick 12, but feel free to experiment with other powers to see how it affects your results. Now we can create the network using the `blockwiseModules` command. The `blockwiseModule` may take a while to run, since it is constructing the TOM (topological overlap matrix) and several other steps. While it runs, take a look at the b`lockwiseModule` documentation (link to [vignette][https://www.rdocumentation.org/packages/WGCNA/versions/1.69/topics/blockwiseModules]) for more information on the parameters. How might you change the parameters to get more or less modules?
 
 ```{r}
-picked_power = 7
-temp_cor <- cor       
+# NOTE: Be sure to run this entire chunk at once
+picked_power = 12
 cor <- WGCNA::cor         # Force it to use WGCNA cor function (fix a namespace conflict issue)
-netwk <- blockwiseModules(input_mat,                # <= input here
+variable_genes_network <- blockwiseModules(variable_genes_matrix,                # <= input here
 
                           # == Adjacency Function ==
                           power = picked_power,                # <= power here
@@ -281,20 +296,21 @@ netwk <- blockwiseModules(input_mat,                # <= input here
                           saveTOMFileBase = "ER",
 
                           # == Output Options
-                          numericLabels = T,
+                          numericLabels = F,
                           verbose = 3)
 
-cor <- temp_cor
+# return cor() to be the usual command
+cor <- stats::cor
 ```
 
-
+Let's visualize a dendrogram of those modules, each terminal branch corresponds to a single gene.
 ```{r}
 # Convert labels to colors for plotting
-mergedColors = labels2colors(netwk$colors)
+mergedColors = labels2colors(variable_genes_network$colors)
 # Plot the dendrogram and the module colors underneath
 plotDendroAndColors(
-  netwk$dendrograms[[1]],
-  mergedColors[netwk$blockGenes[[1]]],
+  variable_genes_network$dendrograms[[1]],
+  mergedColors[variable_genes_network$blockGenes[[1]]],
   "Module colors",
   dendroLabels = FALSE,
   hang = 0.03,
@@ -302,18 +318,102 @@ plotDendroAndColors(
   guideHang = 0.05 )
 ```
 
+Now let's extract the genes and their coresponding module/color to a data frame
+```{r}
+modules_variable_genes_df <- data.frame(
+  gene_id = names(variable_genes_network$colors),
+  colors = labels2colors(variable_genes_network$colors)
+)
+
+head(modules_variable_genes_df)
+```
 
 
 ```{r}
-module_df <- data.frame(
-  gene_id = names(netwk$colors),
-  colors = labels2colors(netwk$colors)
+# # pick out a few modules of interest here
+# modules_of_interest = c("turquoise", "blue", "brown", "grey")
+# 
+# # Pull out list of genes in that module
+# subset_modules_variable_genes_df = modules_variable_genes_df %>%
+#   subset(colors %in% modules_of_interest)
+# 
+# row.names(modules_variable_genes_df) = modules_variable_genes_df$gene_id
+# 
+# # Get normalized expression for those genes
+# subexpr = normalized_counts_variable_genes[subset_modules_variable_genes_df$gene_id,]
+# 
+# # convert to a data frame
+# subset_modules_variable_genes_df = data.frame(subexpr) %>%
+#   mutate(
+#     gene_id = row.names(.)
+#   ) %>%
+#   pivot_longer(-gene_id) %>%
+#   mutate(
+#     module = modules_variable_genes_df[gene_id,]$colors
+#   )
+# 
+# subset_modules_variable_genes_df %>% 
+#   ggplot(., aes(x=name, y=1+value, group=gene_id)) +
+#   geom_line(aes(color = module),
+#             alpha = 0.2) +
+#   theme_bw() +
+#   theme(
+#     axis.text.x = element_text(angle = 90)
+#   ) +
+#   facet_grid(rows = vars(module), 
+#              # scales = "free_y"
+#              ) +
+#   labs(x = "treatment",
+#        y = "normalized expression") +
+#   scale_color_identity() #+ 
+#   # scale_y_log10()
+```
+
+Plot gene expression correlations in a grid, based on genotype and module membership
+```{r fig.height=12, fig.width=8}
+(
+  var_genes_plot <- normalized_counts_variable_genes %>%
+  data.frame() %>%
+    mutate(
+        gene_id = row.names(.)
+    ) %>%
+    pivot_longer(-gene_id) %>%
+    mutate(
+        module = variable_genes_network$colors[gene_id]
+    ) %>% 
+  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE) %>%
+  ggplot(., aes(x=name, y=value, group=gene_id)) +
+    geom_line(aes(color = "grey"), size=1,
+            alpha = 0.2) +
+    geom_line(aes(color = module),
+            alpha = 0.2) +
+    # geom_boxplot(width=0.5,
+    #              aes(group=name, color = module),
+    #              outlier.shape = NA,
+    #              alpha=0.9) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    facet_grid(rows = vars(module), 
+             cols= vars(strain),
+             scales = "free"
+             ) +
+    scale_x_discrete(position = "top") +
+    labs(x = "treatment",
+       y = "normalized expression") +
+    # use color variable as the color
+    scale_color_identity()
 )
 ```
 
+
+
+### heatmap comparing modules
+
+Now, let's generate a heatmap of the relationship between the modules
+
 ```{r}
 # Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(input_mat, mergedColors)$eigengenes
+MEs0 <- moduleEigengenes(variable_genes_matrix, mergedColors)$eigengenes
 
 # Reorder modules so similar modules are next to each other
 MEs0 <- orderMEs(MEs0)
@@ -343,56 +443,19 @@ mME %>% ggplot(., aes(x=treatment, y=name, fill=value)) +
   labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
 ```
 
-
-```{r}
-# pick out a few modules of interest here
-modules_of_interest = c("turquoise", "blue", "brown", "grey")
-
-# Pull out list of genes in that module
-submod = module_df %>%
-  subset(colors %in% modules_of_interest)
-
-row.names(module_df) = module_df$gene_id
-
-# Get normalized expression for those genes
-subexpr = expr_normalized[submod$gene_id,]
-
-submod_df = data.frame(subexpr) %>%
-  mutate(
-    gene_id = row.names(.)
-  ) %>%
-  pivot_longer(-gene_id) %>%
-  mutate(
-    module = module_df[gene_id,]$colors
-  )
-
-submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
-  geom_line(aes(color = module),
-            alpha = 0.2) +
-  theme_bw() +
-  theme(
-    axis.text.x = element_text(angle = 90)
-  ) +
-  facet_grid(rows = vars(module), 
-             # scales = "free_y"
-             ) +
-  labs(x = "treatment",
-       y = "normalized expression") +
-  scale_color_identity() + 
-  scale_y_log10()
-```
-
-
 ### Generate and Export Networks
 
-The network file can be generated for Cytoscape or as an edge/vertices file.
+We can generate a network graph file for analysis in Cytoscape or as an edge/vertices file.
 
+
+i think this code chunk can be removed
 ```{r}
-genes_of_interest = module_df %>%
-  subset(colors %in% modules_of_interest)
+# we could subset to only certain modules, if we want to.
+genes_of_interest = modules_variable_genes_df #%>%
+  # subset(colors %in% modules_of_interest)
 
-expr_of_interest = expr_normalized[genes_of_interest$gene_id,]
-expr_of_interest[1:5,1:5]
+# if we subset, this would only get genes in selected modules
+expr_of_interest = normalized_counts_variable_genes[genes_of_interest$gene_id,]
 
 # Only recalculate TOM for modules of interest (faster, altho there's some online discussion if this will be slightly off)
 TOM = TOMsimilarityFromExpr(t(expr_of_interest),
@@ -402,7 +465,7 @@ TOM = TOMsimilarityFromExpr(t(expr_of_interest),
 row.names(TOM) = row.names(expr_of_interest)
 colnames(TOM) = row.names(expr_of_interest)
 
-edge_list = data.frame(TOM) %>%
+edge_list_var_genes = data.frame(TOM) %>%
   mutate(
     gene1 = row.names(.)
   ) %>%
@@ -411,17 +474,20 @@ edge_list = data.frame(TOM) %>%
   unique() %>%
   subset(!(gene1==gene2)) %>%
   mutate(
-    module1 = module_df[gene1,]$colors,
-    module2 = module_df[gene2,]$colors
+    module1 = modules_variable_genes_df[gene1,]$colors,
+    module2 = modules_variable_genes_df[gene2,]$colors
   )
 
-head(edge_list)
+head(edge_list_var_genes)
 ```
 
 ```{r fig.height=12, fig.width=12}
-adjacency = adjacency(input_mat, power=12, type="signed")
-adjacency[adjacency < 0] = 0
-adjacency[adjacency > 1] = 1
+# first, create adjacency matrix
+adjacency = adjacency(variable_genes_matrix, power=12, type="signed")
+# # ensure bound from 0,1 as is corr
+# adjacency[adjacency < 0] = 0
+# adjacency[adjacency > 1] = 1
+# Calculate topological overlap matrix and dissimilarity from adjacency matrix
 TOM = TOMsimilarity(adjacency, TOMType="signed")
 
 # Add gene names to row and columns
@@ -434,20 +500,33 @@ colnames(TOM) = AnnotationDbi::select(org.Sc.sgd.db,keys=row.names(adjacency),co
   TRUE ~ GENENAME
 )) %>% pull(label)
 
+# assign TOM to new variable
 adj <- TOM
-adj[adj > 0.5] = 1
+# only show correlations greater than 0.3
+adj[adj > 0.3] = 1
+# set all correlations below that threshold to 0
 adj[adj != 1] = 0
-network <- graph.adjacency(adj)
-network <- simplify(network,)  # removes self-loops
-cor <- WGCNA::cor
-results <- WGCNA::blockwiseModules(input_mat, power=12, TOMType="signed", networkType="signed")
-cor <- stats::cor
-V(network)$color <- results$colors
+# graph adjacency network
+network_graph_data <- graph.adjacency(adj)
+# remove redundant elf-loops in the network
+network_graph_data <- simplify(network_graph_data)
+# cor <- WGCNA::cor
+# results <- WGCNA::blockwiseModules(input_mat, power=12, TOMType="signed", networkType="signed")
+# cor <- stats::cor
+
+# add colors for the network graph from constructed network modules
+V(network_graph_data)$color <- variable_genes_network$colors
 par(mar=c(0,0,0,0))
 # remove unconnected nodes
-network <- delete.vertices(network, degree(network)==0)
-plot(network, layout=layout.fruchterman.reingold(network, niter=10000),type="o")
-plot(network, layout=layout_with_mds(network), edge.arrow.size = 0.1)
+network_graph_data <- delete.vertices(network_graph_data, degree(network_graph_data)==0)
+# plot(network_graph_data, layout=layout.fruchterman.reingold(network_graph_data, niter=10000),type="o")
+# plot(network_graph_data, layout=layout_with_mds(network_graph_data), edge.arrow.size = 0.1)
+
+plot(network_graph_data, 
+     layout=layout.fruchterman.reingold(network_graph_data, niter=1000),
+     vertex.size=3,edge.arrow.size=0.1, 
+     vertex.label.cex = 0.01,  # increase this value to see gene names
+     vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1))
 ```
 
 
@@ -465,7 +544,7 @@ FC_list <- read_delim("https://github.com/clstacy/GenomicDataAnalysis_Fa23/raw/m
 FC_list_t <- t(FC_list)
 cv_wpn <- matrixStats::colVars(FC_list_t)
 # get variance corresponding to 95th percentile
-q95_wpn <- quantile( matrixStats::colVars(FC_list_t), .75)  # <= changed to 95 quantile 
+q95_wpn <- quantile( matrixStats::colVars(FC_list_t), .95)  # <= changed to 95 quantile 
 
 # to reduce dataset, only get genes with variance greater than above
 FC_list_t <- FC_list_t[, cv_wpn > q95_wpn ]

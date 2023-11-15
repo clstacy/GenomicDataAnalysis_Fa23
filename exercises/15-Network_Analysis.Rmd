@@ -38,6 +38,9 @@ if (!require("WGCNA")) BiocManager::install("WGCNA", force=TRUE); library(WGCNA)
 # # We also need these Bioconductor packages today.
 p_load("edgeR")
 p_load("matrixStats")
+p_load("org.Sc.sgd.db")
+p_load("cowplot")
+p_load("igraph")
 # p_load("AnnotationDbi", "org.Sc.sgd.db", "ggVennDiagram")
 # p_load("janitor")
 # p_load("RColorBrewer")
@@ -375,6 +378,7 @@ submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
              ) +
   labs(x = "treatment",
        y = "normalized expression") +
+  scale_color_identity() + 
   scale_y_log10()
 ```
 
@@ -393,13 +397,6 @@ expr_of_interest[1:5,1:5]
 # Only recalculate TOM for modules of interest (faster, altho there's some online discussion if this will be slightly off)
 TOM = TOMsimilarityFromExpr(t(expr_of_interest),
                             power = picked_power)
-#> TOM calculation: adjacency..
-#> ..will use 4 parallel threads.
-#>  Fraction of slow calculations: 0.000000
-#> ..connectivity..
-#> ..matrix multiplication (system BLAS)..
-#> ..normalization..
-#> ..done.
 
 # Add gene names to row and columns
 row.names(TOM) = row.names(expr_of_interest)
@@ -419,10 +416,6 @@ edge_list = data.frame(TOM) %>%
   )
 
 head(edge_list)
-```
-
-
-```{r}
 ```
 
 ```{r fig.height=12, fig.width=12}
@@ -511,8 +504,8 @@ plot(network, layout=layout.fruchterman.reingold(network, niter=1000),
 # plot(network, layout=layout_with_mds(network), vertex.label.cex = 0.5,
 #      edge.arrow.size = 0.1, vertex.size=7,rescale=FALSE)
 
-plot(network, layout=layout_on_grid(network),
-     vertex.size=5,edge.arrow.size=0.1, vertex.label.cex = 0.5,rescale=TRUE)#, ylim=c(-5,-2),xlim=c(-8,5), asp = 1)
+# plot(network, layout=layout_on_grid(network),
+#      vertex.size=5,edge.arrow.size=0.1, vertex.label.cex = 0.5,rescale=TRUE)#, ylim=c(-5,-2),xlim=c(-8,5), asp = 1)
 
 
 ```
@@ -568,6 +561,7 @@ submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
   facet_grid(rows = vars(module), 
              # scales = "free_y"
              ) +
+  scale_color_identity() + 
   labs(x = "treatment",
        y = "normalized expression")# +
   # scale_y_log10()
@@ -607,7 +601,7 @@ mME %>% ggplot(., aes(x=treatment, y=name, fill=value)) +
 ```
 
 
-GO enrichment on those dudes
+GO enrichment on those modules
 ```{r}
 go_results_yellow <- clusterProfiler::enrichGO(
   gene = submod_df %>% filter(module=="lightyellow") %>% pull(gene_id) %>% unique(),
@@ -890,6 +884,7 @@ submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
              ) +
   labs(x = "treatment",
        y = "normalized expression") +
+  scale_color_identity() + 
   scale_y_log10()
 ```
 
@@ -980,7 +975,7 @@ text(sft$fitIndices[, 1],
      labels = powers,
      cex = cex1, col = "red")
 ```
-It looksl ike power=7 or 8 is best. Let's try with 7.
+It looks like power=7 or 8 is reasonable. Let's try with 7.
 
 ```{r fig.height=12, fig.width=12}
 adjacency = adjacency(input_mat, power=7, type="signed")
@@ -1018,6 +1013,65 @@ plot(network, layout=layout.fruchterman.reingold(network, niter=1000),
      vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1))
 ```
 
+
+```{r}
+# Convert labels to colors for plotting
+mergedColors = labels2colors(results$colors)
+# Plot the dendrogram and the module colors underneath
+plotDendroAndColors(
+  results$dendrograms[[1]],
+  mergedColors[results$blockGenes[[1]]],
+  "Module colors",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05 )
+
+
+```
+
+```{r fig.height=6, fig.width=8}
+# Get Module Eigengenes per cluster
+MEs0 <- moduleEigengenes(input_mat, mergedColors)$eigengenes
+
+# Reorder modules so similar modules are next to each other
+MEs0 <- orderMEs(MEs0)
+module_order = names(MEs0) %>% gsub("ME","", .)
+
+# Add treatment names
+MEs0$treatment = row.names(MEs0)
+
+# tidy & plot data
+mME = MEs0 %>%
+  pivot_longer(-treatment) %>%
+  mutate(
+    name = gsub("ME", "", name),
+    name = factor(name, levels = module_order)
+  )
+
+
+
+mME %>%
+  ggplot(., aes(x = treatment, y = name, fill = value)) +
+  geom_tile() +
+  theme_bw() +
+  scale_fill_gradient2(
+    low = "blue",
+    high = "red",
+    mid = "white",
+    midpoint = 0,
+    limit = c(-1, 1)
+  ) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    hjust = 1,
+    vjust = 1
+  )) +
+  labs(title = "Module-trait Relationships", y = "Modules", fill = "corr")
+```
+
+
+
 ```{r fig.height=12, fig.width=8}
 (
   test_plot <- expr_normalized_DE %>%
@@ -1030,56 +1084,29 @@ plot(network, layout=layout.fruchterman.reingold(network, niter=1000),
         module = results$colors[gene_id]
     ) %>% 
   separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE) %>%
-  ggplot(., aes(x=name, y=value, group=gene_id)) +
-  geom_line(aes(color = module),
+  ggplot(., aes(x=name, y=value+1, group=gene_id)) +
+    geom_line(aes(color = "grey"), size=1,
             alpha = 0.2) +
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(angle = 90)
-  ) +
-  facet_grid(rows = vars(module), 
+    geom_line(aes(color = module),
+            alpha = 0.2) +
+    # geom_boxplot(width=0.5,
+    #              aes(group=name, color = module),
+    #              outlier.shape = NA,
+    #              alpha=0.9) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    facet_grid(rows = vars(module), 
              cols= vars(strain),
              scales = "free"
              ) +
-  scale_x_discrete(position = "top") +
-  labs(x = "treatment",
+    scale_x_discrete(position = "top") +
+    labs(x = "treatment",
        y = "normalized expression") +
-  # use color variable as the color
-  scale_color_identity() + 
-  scale_y_log10()
+    # use color variable as the color
+    scale_color_identity() + 
+    scale_y_log10()
 )
 
-```
-
-```{r}
-expr_normalized_DE %>%
-  data.frame() %>%
-    mutate(
-        gene_id = row.names(.)
-    ) %>%
-    pivot_longer(-gene_id) %>%
-    mutate(
-        module = results$colors[gene_id]
-    ) %>% 
-  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"), cols_remove = FALSE) %>%
-  filter(module == "salmon") %>%
-  ggplot(., aes(x=replicate, y=value, group=gene_id)) +
-  geom_line(aes(color = module),
-            alpha = 0.2) +
-  theme_bw() +
-  theme(
-    axis.text.x = element_text(angle = 90)
-  ) +
-  facet_grid(rows = vars(stress), 
-             cols= vars(strain),
-             scales = "free_x"
-             ) +
-  scale_x_discrete(position = "top") +
-  labs(x = "treatment",
-       y = "normalized expression") +
-  # use color variable as the color
-  scale_color_identity() +
-  scale_y_log10()
 ```
 
 
@@ -1122,21 +1149,12 @@ GO_enrich_network_all <- clusterProfiler::compareCluster(
   mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
 
 
-clusterProfiler::dotplot(GO_enrich_network_all,
-        showCategory=10
-        # if we choose "ALL", we can show them all with facet.
-        #facet="ONTOLOGY",
-        ) + scale_x_discrete(guide = guide_axis(angle = 60))
-
-
 # get rid of sticks to save space
 GO_enrich_network_all %>%
-# GO_enrich_proteome_all %>%
+
   as.data.frame() %>% 
   group_by(Cluster) %>%
   slice_min(order_by=pvalue, n = 5) %>%
-  # separate_wider_delim(Cluster, delim = "_", names = c("junk","DE", "time")) %>%
-  # mutate(Time = readr::parse_number(time)) %>%
   ggplot(.,
            aes(Cluster, fct_reorder(Description, richFactor))) +
       geom_point(aes(color = p.adjust, size = Count)) +
@@ -1163,8 +1181,8 @@ GO_enrich_network_all %>%
 GO_summaries <- GO_enrich_network_all %>%
   as.data.frame() %>% 
   group_by(Cluster) %>%
-  slice_min(order_by=p.adjust, n = 4) %>%
-  slice_head(n = 4) %>%
+  slice_min(order_by=p.adjust, n = 5) %>%
+  slice_head(n = 5) %>%
   mutate(Description = case_when(
     p.adjust < 0.05 ~ paste0(Description," (",Count,")"),
     TRUE ~ " "
@@ -1196,6 +1214,6 @@ Be sure to knit this file into a pdf or html file once you're finished.
 
 System information for reproducibility:
 
-```{r sessionInfo-limma}
+```{r sessionInfo-WGCNA}
 pander::pander(sessionInfo())
 ```

@@ -240,7 +240,6 @@ sft = pickSoftThreshold(
 Let's visualize those results
 
 ```{r}
-
 par(mfrow = c(1,2));
 cex1 = 0.9;
 
@@ -306,11 +305,11 @@ cor <- stats::cor
 Let's visualize a dendrogram of those modules, each terminal branch corresponds to a single gene.
 ```{r}
 # Convert labels to colors for plotting
-mergedColors = labels2colors(variable_genes_network$colors)
+mergedColors_var_genes = labels2colors(variable_genes_network$colors)
 # Plot the dendrogram and the module colors underneath
 plotDendroAndColors(
   variable_genes_network$dendrograms[[1]],
-  mergedColors[variable_genes_network$blockGenes[[1]]],
+  mergedColors_var_genes[variable_genes_network$blockGenes[[1]]],
   "Module colors",
   dendroLabels = FALSE,
   hang = 0.03,
@@ -413,7 +412,7 @@ Now, let's generate a heatmap of the relationship between the modules
 
 ```{r}
 # Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(variable_genes_matrix, mergedColors)$eigengenes
+MEs0 <- moduleEigengenes(variable_genes_matrix, mergedColors_var_genes)$eigengenes
 
 # Reorder modules so similar modules are next to each other
 MEs0 <- orderMEs(MEs0)
@@ -534,10 +533,102 @@ plot(network_graph_data,
      main = "Network plot for most variable genes")
 ```
 
+### Let's add GO enrichments to the module pattern graph
+
+### GO enrichments
+```{r fig.height=18, fig.width=8}
+# create list of genes in each one
+variable_geneIDs_module_list <- normalized_counts_variable_genes %>%
+  data.frame() %>%
+    mutate(
+        gene_id = row.names(.)
+    ) %>%
+    pivot_longer(-gene_id) %>%
+    mutate(
+        module = variable_genes_network$colors[gene_id]
+    ) %>%
+  group_by(module) %>%
+  # only get genes that are DE
+  # filter(DE_direction != 0) %>%
+  group_split() %>% # split into many lists
+  purrr::set_names(purrr::map_chr(., ~.x$module[1])) %>% # assign names
+  # get just the ORF names
+  map(., ~ .x |> pull(all_of("gene_id"))) %>%
+  # remove duplicates
+  map(., ~ unique(.))
+  
+
+# run enrichment for each module
+GO_enrich_variable_gene_modules <- clusterProfiler::compareCluster(
+                                  geneCluster   = variable_geneIDs_module_list, 
+                                  ont           = "BP",
+                                  OrgDb         = org.Sc.sgd.db,
+                                  pAdjustMethod = "BH",
+                                  pvalueCutoff  = 0.5, # high to get for all modules
+                                  qvalueCutoff  = 0.5,
+                                  readable      = FALSE,
+                                  fun           = 'enrichGO',
+                                  keyType       = 'ORF'
+                                  )  |>
+  # let's add a 'richFactor' column that gives us the proportion of genes DE in the term
+  mutate(richFactor = Count / as.numeric(sub("/\\d+", "", BgRatio)))
+
+
+# plot those enrichments
+GO_enrich_variable_gene_modules %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=pvalue, n = 5) %>%
+  ggplot(.,
+           aes(Cluster, fct_reorder(Description, richFactor))) +
+      geom_point(aes(color = p.adjust, size = Count)) +
+      scale_color_gradientn(
+        colours = c("#f7ca64", "#46bac2", "#7e62a3"),
+        trans = "log10",
+        guide = guide_colorbar(reverse = TRUE, order = 1)
+      ) +
+      scale_size_continuous(range = c(2, 12)) +
+      scale_x_discrete(position = "top") +
+      scale_y_discrete(labels = function(x) str_wrap(x, width = 25)) +
+      xlab("Module") +
+      ylab(NULL) +
+      ggtitle("Enriched GO Categories by Module") +
+      # facet_wrap(~DE, scales = "free_y") +
+      theme_bw() +
+      theme(text = element_text(size=14),
+            axis.text.x = element_text(angle = 90,hjust=0) )
+```
+
+
+```{r fig.height=12, fig.width=8}
+# here are the data to add to cowplot:
+GO_summaries_variable_genes <- GO_enrich_variable_gene_modules %>%
+  as.data.frame() %>% 
+  group_by(Cluster) %>%
+  slice_min(order_by=p.adjust, n = 5) %>%
+  slice_head(n = 5) %>%
+  mutate(Description = case_when(
+    p.adjust < 0.05 ~ paste0(Description," (",Count,")"),
+    TRUE ~ " "
+  )) %>%
+  summarize(description = str_c(Description, collapse = "\n")) %>%
+  pull(description)
+
+
+# draw plot with GO terms
+cowplot::ggdraw(var_genes_plot +
+                  theme(plot.margin = margin(t = 0.5, r = 5, b = 0.5, l = 0.1, unit = "cm"))) +
+  cowplot::draw_text(GO_summaries_variable_genes, 
+                     x = 0.76,  # Adjust this value for the desired horizontal position
+                     y = rev(seq(0.1, 0.82, length.out = length(GO_summaries_variable_genes))),  # Adjust this sequence for the desired vertical positions
+                     size = 6, 
+                     hjust = 0,  # Align to the left
+                     vjust = 0.5)
+```
 
 
 
-## Network using genes identified as Differentially Expressed
+## Create a network using genes identified as differentially expressed
 
 Our network so far didn't use any prior information about genes to include or exclude, just those that are most variable. We do have information about the genes that are considered differentially expressed in their corresponding genotype and environment. What does the network look like if we build it based on those genes that have been identified as differentially expressed?
 
@@ -585,179 +676,7 @@ normalized_counts_DE_genes <- cpm(y_DE,
                          log = TRUE)
 
 
-
 DE_genes_matrix = t(normalized_counts_DE_genes)
-
-picked_power = 7
-temp_cor <- cor       
-cor <- WGCNA::cor         # Force it to use WGCNA cor function (fix a namespace conflict issue)
-netwk <- blockwiseModules(DE_genes_matrix,                # <= input here
-
-                          # == Adjacency Function ==
-                          power = picked_power,                # <= power here
-                          networkType = "signed",
-
-                          # == Tree and Block Options ==
-                          deepSplit = 2,
-                          pamRespectsDendro = F,
-                          # detectCutHeight = 0.75,
-                          minModuleSize = 30,
-                          maxBlockSize = 4000,
-
-                          # == Module Adjustments ==
-                          reassignThreshold = 0,
-                          mergeCutHeight = 0.25,
-
-                          # == TOM == Archive the run results in TOM file (saves time)
-                          saveTOMs = T,
-                          saveTOMFileBase = "ER",
-
-                          # == Output Options
-                          numericLabels = T,
-                          verbose = 3)
-
-cor <- temp_cor
-```
-
-```{r}
-# Convert labels to colors for plotting
-mergedColors = labels2colors(netwk$colors)
-# Plot the dendrogram and the module colors underneath
-plotDendroAndColors(
-  netwk$dendrograms[[1]],
-  mergedColors[netwk$blockGenes[[1]]],
-  "Module colors",
-  dendroLabels = FALSE,
-  hang = 0.03,
-  addGuide = TRUE,
-  guideHang = 0.05 )
-```
-
-
-
-
-```{r}
-module_df <- data.frame(
-  gene_id = names(netwk$colors),
-  colors = labels2colors(netwk$colors)
-)
-```
-
-```{r}
-# Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(DE_genes_matrix, mergedColors)$eigengenes
-
-# Reorder modules so similar modules are next to each other
-MEs0 <- orderMEs(MEs0)
-module_order = names(MEs0) %>% gsub("ME","", .)
-
-# Add treatment names
-MEs0$treatment = row.names(MEs0)
-
-# tidy & plot data
-mME = MEs0 %>%
-  pivot_longer(-treatment) %>%
-  mutate(
-    name = gsub("ME", "", name),
-    name = factor(name, levels = module_order)
-  )
-
-mME %>% ggplot(., aes(x=treatment, y=name, fill=value)) +
-  geom_tile() +
-  theme_bw() +
-  scale_fill_gradient2(
-    low = "blue",
-    high = "red",
-    mid = "white",
-    midpoint = 0,
-    limit = c(-1,1)) +
-  theme(axis.text.x = element_text(angle=90)) +
-  labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
-```
-
-
-```{r fig.height=12, fig.width=6}
-# pick out a few modules of interest here
-modules_of_interest = c("turquoise", "blue", "brown", "grey", "yellow")
-
-# Pull out list of genes in that module
-submod = module_df #%>%
-  # subset(colors %in% modules_of_interest)
-
-row.names(module_df) = module_df$gene_id
-
-# Get normalized expression for those genes
-subexpr = expr_normalized_DE[submod$gene_id,]
-
-submod_df = data.frame(subexpr) %>%
-  mutate(
-    gene_id = row.names(.)
-  ) %>%
-  pivot_longer(-gene_id) %>%
-  mutate(
-    module = module_df[gene_id,]$colors
-  )
-
-submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
-  geom_line(aes(color = module),
-            alpha = 0.2) +
-  theme_bw() +
-  theme(
-    axis.text.x = element_text(angle = 90)
-  ) +
-  facet_grid(rows = vars(module), 
-             # scales = "free_y"
-             ) +
-  labs(x = "treatment",
-       y = "normalized expression") +
-  scale_color_identity() + 
-  scale_y_log10()
-```
-
-
-
-### Generate and Export Networks
-
-The network file can be generated for Cytoscape or as an edge/vertices file.
-
-```{r}
-genes_of_interest = module_df #%>%
-  #subset(colors %in% modules_of_interest)
-
-expr_of_interest = expr_normalized_DE#[genes_of_interest$gene_id,]
-expr_of_interest[1:5,1:5]
-
-# Only recalculate TOM for modules of interest (faster, altho there's some online discussion if this will be slightly off)
-TOM = TOMsimilarityFromExpr(t(expr_of_interest),
-                            power = picked_power)
-
-# Add gene names to row and columns
-row.names(TOM) = row.names(expr_of_interest)
-colnames(TOM) = row.names(expr_of_interest)
-
-edge_list = data.frame(TOM) %>%
-  mutate(
-    gene1 = row.names(.)
-  ) %>%
-  pivot_longer(-gene1) %>%
-  dplyr::rename(gene2 = name, correlation = value) %>%
-  unique() %>%
-  subset(!(gene1==gene2)) %>%
-  mutate(
-    module1 = module_df[gene1,]$colors,
-    module2 = module_df[gene2,]$colors
-  )
-
-head(edge_list)
-```
-
-What does the distribution of correlations look like?
-```{r fig.height=5, fig.width=6}
-edge_list %>%
-  ggplot(aes(x=correlation)) +
-  geom_histogram(bins=60) +
-  theme_bw() +
-  facet_grid(rows=vars(module1), cols = vars(module2))
 ```
 
 What is the correct power for this analysis?
@@ -801,7 +720,231 @@ text(sft$fitIndices[, 1],
      labels = powers,
      cex = cex1, col = "red")
 ```
-It looks like power=7 or 8 is reasonable. Let's try with 7.
+It looks like a higher power would better fit this data. Let's try with 7. You can try changing to 18 and see how the results change.
+
+```{r}
+picked_power = 7
+cor <- WGCNA::cor         # Force it to use WGCNA cor function (fix a namespace conflict issue)
+DE_genes_network <- blockwiseModules(DE_genes_matrix,                # <= input here
+
+                          # == Adjacency Function ==
+                          power = picked_power,                # <= power here
+                          networkType = "signed",
+
+                          # == Tree and Block Options ==
+                          deepSplit = 2,
+                          pamRespectsDendro = F,
+                          # detectCutHeight = 0.75,
+                          minModuleSize = 30,
+                          maxBlockSize = 4000,
+
+                          # == Module Adjustments ==
+                          reassignThreshold = 0,
+                          mergeCutHeight = 0.25,
+
+                          # == TOM == Archive the run results in TOM file (saves time)
+                          saveTOMs = T,
+                          saveTOMFileBase = "ER",
+
+                          # == Output Options
+                          numericLabels = T,
+                          verbose = 3)
+
+# fix namespace issue with cor to return to desired function
+cor <- stats::cor    
+```
+
+```{r}
+# Convert labels to colors for plotting
+mergedColors_DE = labels2colors(DE_genes_network$colors)
+# Plot the dendrogram and the module colors underneath
+plotDendroAndColors(
+  DE_genes_network$dendrograms[[1]],
+  mergedColors_DE[DE_genes_network$blockGenes[[1]]],
+  "Module colors",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05 )
+```
+
+
+Now let's extract the genes and their corresponding module/color to a data frame
+```{r}
+modules_DE_genes_df <- data.frame(
+  gene_id = names(variable_genes_network$colors),
+  colors = labels2colors(variable_genes_network$colors)
+)
+
+head(modules_DE_genes_df)
+```
+
+
+
+### Visualize cluster patterns
+```{r fig.height=12, fig.width=8}
+(
+  DE_genes_plot <- normalized_counts_DE_genes %>%
+  data.frame() %>%
+    mutate(
+        gene_id = row.names(.)
+    ) %>%
+    pivot_longer(-gene_id) %>%
+    mutate(
+        module = results$colors[gene_id]
+    ) %>% 
+  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE) %>%
+  ggplot(., aes(x=name, y=value+1, group=gene_id)) +
+    geom_line(aes(color = "grey"), size=1,
+            alpha = 0.2) +
+    geom_line(aes(color = module),
+            alpha = 0.2) +
+    # geom_boxplot(width=0.5,
+    #              aes(group=name, color = module),
+    #              outlier.shape = NA,
+    #              alpha=0.9) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    facet_grid(rows = vars(module), 
+             cols= vars(strain),
+             scales = "free"
+             ) +
+    scale_x_discrete(position = "top") +
+    labs(x = "treatment",
+       y = "normalized expression") +
+    # use color variable as the color
+    scale_color_identity() + 
+    scale_y_log10()
+)
+
+```
+
+
+
+Generate a heatmap of the eigengenes
+```{r}
+# Get Module Eigengenes per cluster
+DE_eigengenes <- moduleEigengenes(DE_genes_matrix, mergedColors_DE)$eigengenes
+
+# Reorder modules so similar modules are next to each other
+DE_eigengenes <- orderMEs(DE_eigengenes)
+
+# get order of modules without extra naming
+module_order = names(DE_eigengenes) %>% gsub("ME","", .)
+
+# Add treatment names
+DE_eigengenes$treatment = row.names(DE_eigengenes)
+
+# tidy & plot data
+tidy_DE_eigengenes <- DE_eigengenes %>%
+  pivot_longer(-treatment) %>%
+  mutate(
+    name = gsub("ME", "", name),
+    name = factor(name, levels = module_order)
+  )
+
+tidy_DE_eigengenes %>% 
+  ggplot(., aes(x=treatment, y=name, fill=value)) +
+  geom_tile() +
+  theme_bw() +
+  scale_fill_gradient2(
+    low = "blue",
+    high = "red",
+    mid = "white",
+    midpoint = 0,
+    limit = c(-1,1)) +
+  theme(axis.text.x = element_text(angle=90)) +
+  labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
+```
+
+##TODO: Continue from here...
+
+
+```{r fig.height=12, fig.width=6}
+# # pick out a few modules of interest here
+# modules_of_interest = c("turquoise", "blue", "brown")
+# 
+# # Pull out list of genes in that module
+# submod = module_df #%>%
+#   # subset(colors %in% modules_of_interest)
+# 
+# row.names(module_df) = module_df$gene_id
+# 
+# # Get normalized expression for those genes
+# subexpr = expr_normalized_DE[submod$gene_id,]
+# 
+# submod_df = data.frame(subexpr) %>%
+#   mutate(
+#     gene_id = row.names(.)
+#   ) %>%
+#   pivot_longer(-gene_id) %>%
+#   mutate(
+#     module = module_df[gene_id,]$colors
+#   )
+# 
+# submod_df %>% ggplot(., aes(x=name, y=value, group=gene_id)) +
+#   geom_line(aes(color = module),
+#             alpha = 0.2) +
+#   theme_bw() +
+#   theme(
+#     axis.text.x = element_text(angle = 90)
+#   ) +
+#   facet_grid(rows = vars(module),
+#              # scales = "free_y"
+#              ) +
+#   labs(x = "treatment",
+#        y = "normalized expression") +
+#   scale_color_identity() +
+#   scale_y_log10()
+```
+
+
+
+### Generate and Export Networks
+
+The network file can be generated for Cytoscape or as an edge/vertices file.
+
+```{r}
+genes_of_interest_DE = modules_DE_genes_df #%>%
+  #subset(colors %in% modules_of_interest)
+
+expr_of_interest_DE = normalized_counts_variable_genes#[genes_of_interest$gene_id,]
+expr_of_interest[1:5,1:5]
+
+# Only recalculate TOM for modules of interest (faster, altho there's some online discussion if this will be slightly off)
+TOM = TOMsimilarityFromExpr(t(expr_of_interest),
+                            power = picked_power)
+
+# Add gene names to row and columns
+row.names(TOM) = row.names(expr_of_interest)
+colnames(TOM) = row.names(expr_of_interest)
+
+edge_list = data.frame(TOM) %>%
+  mutate(
+    gene1 = row.names(.)
+  ) %>%
+  pivot_longer(-gene1) %>%
+  dplyr::rename(gene2 = name, correlation = value) %>%
+  unique() %>%
+  subset(!(gene1==gene2)) %>%
+  mutate(
+    module1 = modules_variable_genes_df[gene1,]$colors,
+    module2 = modules_variable_genes_df[gene2,]$colors
+  )
+
+head(edge_list)
+```
+
+What does the distribution of correlations look like?
+```{r fig.height=5, fig.width=6}
+edge_list %>%
+  ggplot(aes(x=correlation)) +
+  geom_histogram(bins=60) +
+  theme_bw() +
+  facet_grid(rows=vars(module1), cols = vars(module2))
+```
+
+
 
 ```{r fig.height=12, fig.width=12}
 adjacency = adjacency(DE_genes_matrix, power=7, type="signed")
@@ -840,21 +983,6 @@ plot(network, layout=layout.fruchterman.reingold(network, niter=1000),
 ```
 
 
-```{r}
-# Convert labels to colors for plotting
-mergedColors = labels2colors(results$colors)
-# Plot the dendrogram and the module colors underneath
-plotDendroAndColors(
-  results$dendrograms[[1]],
-  mergedColors[results$blockGenes[[1]]],
-  "Module colors",
-  dendroLabels = FALSE,
-  hang = 0.03,
-  addGuide = TRUE,
-  guideHang = 0.05 )
-
-
-```
 
 ```{r fig.height=6, fig.width=8}
 # Get Module Eigengenes per cluster
@@ -896,44 +1024,6 @@ mME %>%
   labs(title = "Module-trait Relationships", y = "Modules", fill = "corr")
 ```
 
-
-
-```{r fig.height=12, fig.width=8}
-(
-  test_plot <- expr_normalized_DE %>%
-  data.frame() %>%
-    mutate(
-        gene_id = row.names(.)
-    ) %>%
-    pivot_longer(-gene_id) %>%
-    mutate(
-        module = results$colors[gene_id]
-    ) %>% 
-  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE) %>%
-  ggplot(., aes(x=name, y=value+1, group=gene_id)) +
-    geom_line(aes(color = "grey"), size=1,
-            alpha = 0.2) +
-    geom_line(aes(color = module),
-            alpha = 0.2) +
-    # geom_boxplot(width=0.5,
-    #              aes(group=name, color = module),
-    #              outlier.shape = NA,
-    #              alpha=0.9) +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90)) +
-    facet_grid(rows = vars(module), 
-             cols= vars(strain),
-             scales = "free"
-             ) +
-    scale_x_discrete(position = "top") +
-    labs(x = "treatment",
-       y = "normalized expression") +
-    # use color variable as the color
-    scale_color_identity() + 
-    scale_y_log10()
-)
-
-```
 
 
 ### GO enrichments

@@ -696,7 +696,7 @@ DE_genes_network <- blockwiseModules(DE_genes_matrix,                # <= input 
                           verbose = 3)
 
 # fix namespace issue with cor to return to desired function
-cor <- stats::cor    
+cor <- stats::cor
 ```
 
 ```{r}

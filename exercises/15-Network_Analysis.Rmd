@@ -124,9 +124,39 @@ y <- y[keep,]
 
 # normalize with cpm
 normalized_counts <- cpm(y,
+                         prior.count = 4,
+                         normalized.lib.sizes = FALSE,
                          log = TRUE)
+
+# normalized_counts <- cpmByGroup(y,
+#                          log = TRUE)
 str(normalized_counts)
 ```
+
+```{r}
+pca <- prcomp(t(normalized_counts))
+
+# Extract PC loadings and variances
+pc_loadings <- pca$x
+pc_variances <- pca$sdev^2
+
+# Create PCA plot
+pc_loadings %>%
+  as.data.frame() %>%
+  rownames_to_column("genotype_stress_replicate") %>%
+  tidyr::separate(genotype_stress_replicate, into = c("genotype", "stress", "replicate"), sep = "_") %>%
+ggplot(data = ., aes(x = PC1, y = PC2, color = stress)) +
+  geom_point() +
+  # geom_text(aes(label = rownames(pc_loadings)), nudge_x = 0.02, nudge_y = 0.02) +
+  labs(
+    title = "PCA plot of normalized gene expression",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  facet_wrap(~genotype) +
+  theme_bw()
+```
+
 
 Now that we've normalized, let's look at the distributions again
 
@@ -138,8 +168,8 @@ tidy_normalized_counts <- normalized_counts %>%
   tidyr::pivot_longer(
     .,                        # The dot is the the input data, magrittr tutorial
     col = -gene_id
-    ) %>%  
-  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE)
+    ) %>% # pull(name) %>% unique()
+  tidyr::separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE)
 
 (
 p_normalized <- tidy_normalized_counts %>%
@@ -171,19 +201,34 @@ rv_wpn <- matrixStats::rowVars(normalized_counts)
 summary(rv_wpn)
 ```
 
+
+
+
 ```{r find-quantile-rowwise-variances-wgcna}
 # get variance corresponding to 75th percentile
-q75_wpn <- quantile( matrixStats::rowVars(normalized_counts), .75)  # common cutoff
+q75_wpn <- quantile( matrixStats::rowVars(normalized_counts), .3)  # common cutoff
 
 # # get variance corresponding to 95th percentile
 # q95_wpn <- quantile( matrixStats::rowVars(normalized_counts), .95)  # <= changed to 95 quantile 
 
 # to reduce dataset, only get genes with variance greater than above
-normalized_counts_variable_genes <- normalized_counts[ rv_wpn > q75_wpn, ]
+normalized_counts_variable_genes <- normalized_counts[ rv_wpn > q75_wpn, ] %>% 
+  t() %>%
+  scale() %>% 
+  t()
 
 str(normalized_counts_variable_genes)
 ```
 Notice the number of genes retained is much fewer now.
+
+We can see the distribution of gene variances, and where our cutoff is
+```{r}
+ggplot(data=NULL,aes(x=rv_wpn)) +
+  geom_histogram(bins=600) +
+  geom_vline(xintercept = q75_wpn, color="red") +
+  theme_bw() +
+  ggtitle("Distribution of gene variances")
+```
 
 What are the distributions of counts of the normalized cpm's of the retained genes?
 ```{r see-distro-normalized-variable-genes-wgcna}
@@ -271,7 +316,7 @@ text(sft$fitIndices[, 1],
      cex = cex1, col = "red")
 ```
 
-Pick a soft threshold power near the curve of the plot. We’ll pick 12, but feel free to experiment with other powers to see how it affects your results. Now we can create the network using the `blockwiseModules` command. The `blockwiseModule` may take a while to run, since it is constructing the TOM (topological overlap matrix) and several other steps. While it runs, take a look at the `blockwiseModule` documentation (link to [vignette][https://www.rdocumentation.org/packages/WGCNA/versions/1.69/topics/blockwiseModules]) for more information on the parameters. How might you change the parameters to get more or less modules?
+Pick a soft threshold power near the curve of the plot. We’ll pick 8, but feel free to experiment with other powers to see how it affects your results. Now we can create the network using the `blockwiseModules` command. The `blockwiseModule` may take a while to run, since it is constructing the TOM (topological overlap matrix) and several other steps. While it runs, take a look at the `blockwiseModule` documentation (link to [vignette][https://www.rdocumentation.org/packages/WGCNA/versions/1.69/topics/blockwiseModules]) for more information on the parameters. How might you change the parameters to get more or less modules?
 
 ### Generate network
 
@@ -290,14 +335,14 @@ variable_genes_network <- blockwiseModules(variable_genes_matrix,               
                           pamRespectsDendro = F,
                           # detectCutHeight = 0.75,
                           minModuleSize = 30,
-                          maxBlockSize = 4000,
+                          maxBlockSize = 8000,
 
                           # == Module Adjustments ==
                           reassignThreshold = 0,
                           mergeCutHeight = 0.25,
 
                           # == TOM == Archive the run results in TOM file (saves time)
-                          saveTOMs = T,
+                          saveTOMs = F,
                           saveTOMFileBase = "ER",
 
                           # == Output Options
@@ -309,14 +354,17 @@ cor <- stats::cor
 ```
 
 Let's visualize a dendrogram of those modules, each terminal branch corresponds to a single gene.
-```{r}
+```{r fig.height=4, fig.width=8, dpi=600}
 # Convert labels to colors for plotting
-mergedColors_var_genes = labels2colors(variable_genes_network$colors)
+mergedColors_var_genes = #labels2colors(
+  variable_genes_network$colors
+  #)
 # Plot the dendrogram and the module colors underneath
 plotDendroAndColors(
   variable_genes_network$dendrograms[[1]],
+  # mergedColors_var_genes[variable_genes_network$blockGenes],
   mergedColors_var_genes[variable_genes_network$blockGenes[[1]]],
-  "Module colors",
+  " ",
   dendroLabels = FALSE,
   hang = 0.03,
   addGuide = TRUE,
@@ -327,10 +375,16 @@ Now let's extract the genes and their coresponding module/color to a data frame
 ```{r}
 modules_variable_genes_df <- data.frame(
   gene_id = names(variable_genes_network$colors),
-  colors = labels2colors(variable_genes_network$colors)
+  colors = #labels2colors(
+    variable_genes_network$colors
+  # )
 )
 
 head(modules_variable_genes_df)
+
+modules_variable_genes_df %>%
+  group_by(colors) %>%
+  summarise(n())
 ```
 
 ### Visualize Modules
@@ -347,25 +401,26 @@ Plot gene expression correlations in a grid, based on genotype and module member
     mutate(
         module = variable_genes_network$colors[gene_id]
     ) %>% 
-  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE) %>%
-  ggplot(., aes(x=name, y=value, group=gene_id)) +
-    geom_line(aes(color = "grey"), size=1,
+  separate_wider_delim(name, delim = "_", names = c("strain", "stress", "replicate"),cols_remove = FALSE) %>% 
+    mutate(xlab = paste(stress, replicate, sep = "_")) %>%
+  ggplot(., aes(x=xlab, y=value, group=gene_id)) +
+    geom_line(aes(color = "grey"), linewidth=1,
             alpha = 0.2) +
     geom_line(aes(color = module),
             alpha = 0.2) +
-    # geom_boxplot(width=0.5,
-    #              aes(group=name, color = module),
-    #              outlier.shape = NA,
-    #              alpha=0.9) +
+    geom_boxplot(width=0.5,
+                 aes(group=name, color = module),
+                 outlier.shape = NA,
+                 alpha=0.9) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 90)) +
     facet_grid(rows = vars(module), 
-             cols= vars(strain),
+             cols= vars(fct_rev(as.factor(strain))),
              scales = "free"
              ) +
     scale_x_discrete(position = "top") +
-    labs(x = "treatment",
-       y = "normalized expression") +
+    labs(x = "Environmental Condition",
+       y = "Normalized Gene Expression (z-score)") +
     # use color variable as the color
     scale_color_identity()
 )
@@ -414,7 +469,7 @@ mME %>% ggplot(., aes(x=treatment, y=name, fill=value)) +
 
 We can generate a network graph file for analysis in Cytoscape, or as an edge/vertices file.
 
-```{r fig.height=12, fig.width=12}
+```{r fig.height=12, fig.width=12, dpi=600}
 # correlation cutoff
 corr_cutoff = 0.3
 
@@ -453,18 +508,67 @@ network_graph_data <- simplify(network_graph_data)
 V(network_graph_data)$color <- variable_genes_network$colors
 
 # set plotting margins
-par(mar=c(0,0,0.5,0))
+par(mar=c(0,0,1,0))
 # remove unconnected nodes
 network_graph_data <- delete.vertices(network_graph_data,
                                       degree(network_graph_data)==0)
 
 
+# plot(network_graph_data, 
+#      layout=layout.fruchterman.reingold(network_graph_data, niter=1000),
+#      vertex.size=3,edge.arrow.size=0.1, 
+#      vertex.label.cex = 0.01,  # increase this value to see gene names
+#      vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1),
+#      main = "Network plot for most variable genes")
+
+
+
+# require("intergraph")
+# require("ggnetwork")
+# ggplot(ggnetwork::ggnetwork(network_graph_data,
+#                      layout = with_fr()),
+#                      aes(x = x, y = y, 
+#                          xend = xend, yend = yend,
+#                          label = name, color = color)) +
+#   geom_edges(arrow = arrow(length = unit(1, "pt"), 
+#                            type = "closed"),
+#              # arrow.gap = 0,
+#              color = "grey50", alpha=0.3) +
+#   geom_nodes(size = 4.1, aes(color="black")) +
+#   geom_nodes(size = 4) +
+#   # geom_nodetext(check_overlap = TRUE,size=0.5) +
+#   scale_color_identity() +
+#   theme_blank() +
+#   xlim(c(0,1)) +
+#   ylim(c(0,1)) +
+#   ggtitle("Network plot for most variable genes")
+  
+# plot(network_graph_data, 
+#      layout=layout.fruchterman.reingold(network_graph_data, niter=1000),
+#      vertex.size=3, edge.arrow.size=0.1, 
+#      vertex.label.cex = 0.01,  # increase this value to see gene names
+#      vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1),
+#      main = "Network plot for most variable genes")
+# 
+# # Step 1: Call the pdf command to start the plot
+# tiff(file = "~/Desktop/network_for_seminar.tiff",   # The directory you want to save the file in
+#     width = 1200, # The width of the plot in inches
+#     height = 1200, # The height of the plot in inches
+#     res = 600)
+
+# Step 2: Create the plot with R code
+
 plot(network_graph_data, 
-     layout=layout.fruchterman.reingold(network_graph_data, niter=1000),
-     vertex.size=3,edge.arrow.size=0.1, 
-     vertex.label.cex = 0.01,  # increase this value to see gene names
-     vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1),
-     main = "Network plot for most variable genes")
+       layout=layout.fruchterman.reingold(network_graph_data, niter=1000),
+       vertex.size=3, edge.arrow.size=0.1, 
+       vertex.label.cex = 0.01,  # increase this value to see gene names
+       vertex.label.color= "black", rescale=TRUE, ylim=c(-1,1),xlim=c(-1,1),
+       main = " ")
+
+
+# Step 3: Run dev.off() to create the file!
+# dev.off()
+
 ```
 
 
@@ -483,7 +587,7 @@ exportNetworkToCytoscape(
   nodeFile = paste0(dir_cytoscape_files,"variable_gene_network_nodes.tsv"),
   threshold=0.3,
   nodeAttr = modules_variable_genes_df$colors
-)
+)[["edgeData"]] %>% View()
 ```
 
 ### GO enrichments
@@ -559,9 +663,10 @@ GO_summaries_variable_genes <- GO_enrich_variable_gene_modules %>%
   as.data.frame() %>% 
   group_by(Cluster) %>%
   slice_min(order_by=p.adjust, n = 5) %>%
+  filter(nchar(Description) < 50) %>%
   slice_head(n = 5) %>%
   mutate(Description = case_when(
-    p.adjust < 0.05 ~ paste0(Description," (",Count,")"),
+    p.adjust < 0.05 ~ paste0(Description," (n=",Count,")"),
     TRUE ~ " "
   )) %>%
   summarize(description = str_c(Description, collapse = "\n")) %>%
@@ -569,7 +674,9 @@ GO_summaries_variable_genes <- GO_enrich_variable_gene_modules %>%
 
 
 # draw plot with GO terms
-cowplot::ggdraw(var_genes_plot +
+(
+var_genes_plot_GO <- 
+    cowplot::ggdraw(var_genes_plot +
                   theme(plot.margin = margin(t = 0.5, r = 5, b = 0.5, l = 0.1, unit = "cm"))) +
   cowplot::draw_text(GO_summaries_variable_genes, 
                      x = 0.76,  # Adjust this value for the desired horizontal position
@@ -577,8 +684,10 @@ cowplot::ggdraw(var_genes_plot +
                      size = 6, 
                      hjust = 0,  # Align to the left
                      vjust = 0.5)
-```
+)
 
+var_genes_plot_GO
+```
 
 
 ## Create a network using genes identified as differentially expressed
@@ -699,7 +808,7 @@ DE_genes_network <- blockwiseModules(DE_genes_matrix,                # <= input 
 cor <- stats::cor
 ```
 
-```{r}
+```{r fig.height=8, fig.width=12}
 # Convert labels to colors for plotting
 mergedColors_DE = labels2colors(DE_genes_network$colors)
 # Plot the dendrogram and the module colors underneath
@@ -733,7 +842,7 @@ head(modules_DE_genes_df)
   data.frame() %>%
     mutate(
         gene_id = row.names(.)
-    ) %>%
+    ) %>% 
     pivot_longer(-gene_id) %>%
     mutate(
         module = DE_genes_network$colors[gene_id]
